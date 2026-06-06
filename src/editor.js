@@ -13,7 +13,7 @@ export function highlightCode(code, lang) {
 
   const lowerLang = lang.toLowerCase();
 
-  if (['c#', 'csharp', 'java', 'c++', 'cpp'].includes(lowerLang)) {
+  if (['c#', 'csharp', 'java', 'c++', 'cpp', 'c'].includes(lowerLang)) {
     escaped = escaped.replace(/(\/\/.*)/g, '<span class="token comment">$1</span>');
     escaped = escaped.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="token comment">$1</span>');
     escaped = escaped.replace(/(&quot;.*?&quot;)/g, '<span class="token string">$1</span>');
@@ -102,6 +102,11 @@ const AUTOCOMPLETE_DICT = {
     { label: 'new Promise((res, rej) => ...)', text: 'new Promise((resolve, reject) => {\n    \n});', desc: 'Creates a new asynchronous Promise.' },
     { label: 'setTimeout(() => ..., delay)', text: 'setTimeout(() => {\n    \n}, 1000);', desc: 'Runs function block after a delay.' }
   ],
+  'typescript': [
+    { label: 'console.log(...)', text: 'console.log();', desc: 'Outputs general logging information.' },
+    { label: 'document.getElementById("...")', text: 'document.getElementById("");', desc: 'Returns elements by element ID.' },
+    { label: 'JSON.stringify(...)', text: 'JSON.stringify();', desc: 'Serializes object to JSON string representation.' }
+  ],
   'python': [
     { label: 'print(...)', text: 'print()', desc: 'Prints text or object values to stdout.' },
     { label: 'len(...)', text: 'len()', desc: 'Returns item count in string, list, dictionary.' },
@@ -112,47 +117,39 @@ const AUTOCOMPLETE_DICT = {
   ]
 };
 
-function getCaretCoordinates(textarea, position) {
-  const properties = [
-    'direction', 'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
-    'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
-    'borderStyle', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-    'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize',
-    'fontSizeAdjust', 'lineHeight', 'fontFamily', 'textAlign',
-    'textTransform', 'textIndent', 'textDecoration', 'letterSpacing', 'wordSpacing',
-    'tabSize', 'MozTabSize'
-  ];
-
-  const div = document.createElement('div');
-  div.id = 'input-textarea-caret-position-mirror-div';
-  document.body.appendChild(div);
-
-  const style = div.style;
-  const computed = window.getComputedStyle(textarea);
-
-  style.whiteSpace = 'pre-wrap';
-  style.wordWrap = 'break-word';
-  style.position = 'absolute';
-  style.visibility = 'hidden';
-
-  properties.forEach(prop => {
-    style[prop] = computed[prop];
+// --- Autocomplete Inline Suggestion Matcher ---
+function getGhostSuggestion(text, pos, lang) {
+  const currentLang = lang.toLowerCase();
+  const suggestions = AUTOCOMPLETE_DICT[currentLang] || AUTOCOMPLETE_DICT['javascript'];
+  
+  const textBeforeCursor = text.substring(0, pos);
+  const lastLine = textBeforeCursor.split('\n').pop() || '';
+  
+  // Match word + dot triggers
+  const match = lastLine.match(/([a-zA-Z_0-9<>]+(\.[a-zA-Z_0-9<>]*)?)$/);
+  if (!match) return null;
+  
+  const query = match[0];
+  if (query.length < 2) return null; // Only autocomplete on 2+ chars
+  
+  const found = suggestions.find(item => {
+    if (item.label.toLowerCase().startsWith(query.toLowerCase())) return true;
+    if (item.text.toLowerCase().startsWith(query.toLowerCase())) return true;
+    return false;
   });
-
-  div.textContent = textarea.value.substring(0, position);
-
-  const span = document.createElement('span');
-  span.textContent = textarea.value.substring(position) || '.';
-  div.appendChild(span);
-
-  const coordinates = {
-    top: span.offsetTop + parseInt(computed.borderTopWidth),
-    left: span.offsetLeft + parseInt(computed.borderLeftWidth),
-    height: parseInt(computed.lineHeight) || parseInt(computed.fontSize)
-  };
-
-  document.body.removeChild(div);
-  return coordinates;
+  
+  if (found) {
+    const suggestionText = found.text;
+    if (suggestionText.toLowerCase().startsWith(query.toLowerCase())) {
+      const ghostSuffix = suggestionText.substring(query.length);
+      return {
+        text: ghostSuffix,
+        fullText: found.text,
+        query: query
+      };
+    }
+  }
+  return null;
 }
 
 // --- Block-Based Editor Class ---
@@ -167,9 +164,12 @@ export class Editor {
 
     this.activeBlockIndex = 0;
     this.slashMenu = null;
-    this.autocompleteMenu = null;
     this.blockContextMenu = null;
+    this.activeLanguageMenu = null;
     
+    // Autocomplete ghost tracking
+    this.activeGhost = null;
+
     // Drag and drop tracking
     this.draggedBlockIndex = null;
 
@@ -197,18 +197,16 @@ export class Editor {
       blocksWrapper.appendChild(blockEl);
     });
 
-    // Make canvas clickable below contents to focus editor
     this.container.addEventListener('click', (e) => {
       if (e.target === this.container || e.target === blocksWrapper) {
         this.focusBlock(this.blocks.length - 1);
       }
     });
 
-    // Dismiss floating menus
     const dismissAll = (e) => {
       if (this.slashMenu && !this.slashMenu.contains(e.target)) this.closeSlashMenu();
-      if (this.autocompleteMenu && !this.autocompleteMenu.contains(e.target)) this.closeAutocompleteMenu();
       if (this.blockContextMenu && !this.blockContextMenu.contains(e.target)) this.closeBlockContextMenu();
+      if (this.activeLanguageMenu && !this.activeLanguageMenu.contains(e.target)) this.closeLanguageMenu();
     };
     document.addEventListener('click', dismissAll);
   }
@@ -219,18 +217,15 @@ export class Editor {
     wrapper.setAttribute('data-block-id', block.id);
     wrapper.setAttribute('data-block-index', index);
 
-    // Apply indentation style
     if (block.indent) {
       wrapper.style.marginLeft = `${block.indent * 24}px`;
     }
 
-    // Hover handle/icon on left
     const dragHandle = document.createElement('div');
     dragHandle.className = 'loop-block-drag-handle';
     dragHandle.innerHTML = '⋮⋮';
     wrapper.appendChild(dragHandle);
 
-    // Drag events binding on hover handle
     dragHandle.addEventListener('mousedown', () => {
       wrapper.setAttribute('draggable', 'true');
     });
@@ -238,13 +233,11 @@ export class Editor {
       wrapper.removeAttribute('draggable');
     });
 
-    // Handle context clicks on ⋮⋮
     dragHandle.addEventListener('click', (e) => {
       e.stopPropagation();
       this.showBlockContextMenu(dragHandle, block, index);
     });
 
-    // HTML5 Drag and Drop events on block wrapper
     wrapper.addEventListener('dragstart', (e) => {
       this.draggedBlockIndex = index;
       wrapper.classList.add('dragging');
@@ -284,10 +277,8 @@ export class Editor {
         targetIndex = index + 1;
       }
 
-      // Reorder blocks
       const [movedBlock] = this.blocks.splice(sourceIndex, 1);
       
-      // If index changed by removal, adjust targetIndex
       let adjustedTarget = targetIndex;
       if (sourceIndex < targetIndex) {
         adjustedTarget = targetIndex - 1;
@@ -305,7 +296,6 @@ export class Editor {
       this.draggedBlockIndex = null;
     });
 
-    // Content Container
     const contentContainer = document.createElement('div');
     contentContainer.className = 'loop-block-content-container';
     wrapper.appendChild(contentContainer);
@@ -404,11 +394,26 @@ export class Editor {
       if (parent) parent.classList.add('active');
     });
 
-    editable.addEventListener('input', () => {
-      block.data = editable.innerHTML;
-      this.handleMarkdownTransformations(editable, block, index);
+    // Save data and clear br trails to prevent placeholder issues
+    const syncData = () => {
+      const textTypes = ['text', 'heading-1', 'heading-2', 'heading-3', 'bullet-list', 'number-list', 'checklist', 'quote', 'callout'];
+      if (!textTypes.includes(block.type)) return;
+
+      let cleanHTML = editable.innerHTML.trim();
+      if (cleanHTML === '<br>' || cleanHTML === '' || editable.textContent.trim() === '') {
+        cleanHTML = '';
+        editable.innerHTML = ''; // Clear DOM so :empty matches!
+      }
+      block.data = cleanHTML;
       this.save();
+    };
+
+    editable.addEventListener('input', () => {
+      syncData();
+      this.handleMarkdownTransformations(editable, block, index);
     });
+
+    editable.addEventListener('blur', syncData);
 
     editable.addEventListener('keydown', (e) => {
       if (this.slashMenu) {
@@ -418,7 +423,6 @@ export class Editor {
         }
       }
 
-      // Handle List indentation (Tab and Shift+Tab)
       const listTypes = ['bullet-list', 'number-list', 'checklist'];
       if (e.key === 'Tab' && listTypes.includes(block.type)) {
         e.preventDefault();
@@ -441,7 +445,6 @@ export class Editor {
           return;
         }
         
-        // Loop/Notion UX: Enter on empty list item erases lists block back to standard text
         const rawText = editable.textContent.trim();
         if (listTypes.includes(block.type) && rawText === '') {
           e.preventDefault();
@@ -552,21 +555,26 @@ export class Editor {
 
   // --- Render Custom Code Block Editor ---
   renderCodeBlock(block, index, container) {
-    const languages = ['C#', 'JavaScript', 'TypeScript', 'Python', 'HTML', 'CSS', 'SQL', 'Markdown', 'Java', 'C++', 'Go', 'Rust'];
+    if (typeof block.data === 'string') {
+      block.data = {
+        code: block.data === '```' ? '' : block.data,
+        language: 'JavaScript',
+        lineNumbers: true
+      };
+      this.save();
+    }
     const currentLang = block.data.language || 'JavaScript';
     const hasLineNumbers = block.data.lineNumbers !== false;
 
     const codeWrapper = document.createElement('div');
     codeWrapper.className = 'loop-code-block-wrapper';
 
-    // Toolbar Header
+    // Toolbar Header (VS Code styled toolbar)
     const toolbar = document.createElement('div');
     toolbar.className = 'code-block-toolbar';
     toolbar.innerHTML = `
       <div class="code-block-lang-selector-container">
-        <select class="code-block-lang-select">
-          ${languages.map(lang => `<option value="${lang}" ${lang.toLowerCase() === currentLang.toLowerCase() ? 'selected' : ''}>${lang}</option>`).join('')}
-        </select>
+        <button class="code-block-lang-btn" id="btn-lang-picker-${index}">${currentLang} <span style="font-size:8px; margin-left:4px; opacity:0.75;">▼</span></button>
       </div>
       <div class="code-block-actions">
         <button class="code-action-btn toggle-lines-btn" title="Toggle Line Numbers">${hasLineNumbers ? 'Hide Lines' : 'Show Lines'}</button>
@@ -575,15 +583,13 @@ export class Editor {
       </div>
     `;
 
-    // Dropdown change listener
-    const select = toolbar.querySelector('.code-block-lang-select');
-    select.addEventListener('change', (e) => {
-      block.data.language = e.target.value;
-      this.save();
-      this.render();
+    // Dropdown custom picker trigger
+    const langBtn = toolbar.querySelector(`#btn-lang-picker-${index}`);
+    langBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.showLanguagePickerPopover(langBtn, block, index);
     });
 
-    // Toggle Line Numbers
     const toggleLines = toolbar.querySelector('.toggle-lines-btn');
     toggleLines.addEventListener('click', () => {
       block.data.lineNumbers = !block.data.lineNumbers;
@@ -591,7 +597,6 @@ export class Editor {
       this.render();
     });
 
-    // Copy Code
     const copyBtn = toolbar.querySelector('.copy-code-btn');
     copyBtn.addEventListener('click', () => {
       navigator.clipboard.writeText(block.data.code || '');
@@ -599,7 +604,6 @@ export class Editor {
       setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
     });
 
-    // Delete Code Block
     const deleteBtn = toolbar.querySelector('.delete-code-btn');
     deleteBtn.addEventListener('click', () => {
       this.deleteBlock(index);
@@ -607,11 +611,9 @@ export class Editor {
 
     codeWrapper.appendChild(toolbar);
 
-    // Code area layout
     const codeArea = document.createElement('div');
     codeArea.className = 'code-block-editor-area';
 
-    // Line Numbers container
     const lineNumbersCol = document.createElement('div');
     lineNumbersCol.className = 'code-line-numbers';
     if (!hasLineNumbers) {
@@ -619,7 +621,6 @@ export class Editor {
     }
     codeArea.appendChild(lineNumbersCol);
 
-    // Container for overlayed editing
     const editorContainer = document.createElement('div');
     editorContainer.className = 'code-textarea-overlay-container';
 
@@ -641,24 +642,37 @@ export class Editor {
     codeWrapper.appendChild(codeArea);
     container.appendChild(codeWrapper);
 
+    // Sync values & highlight & inline autocompleter
     const syncAndHighlight = () => {
       const value = textarea.value;
       block.data.code = value;
 
-      // Update Highlight overlay
-      highlightCodeEl.innerHTML = highlightCode(value, currentLang) + '\n';
+      // Find autocomplete suggestion
+      const ghost = getGhostSuggestion(value, textarea.selectionStart, currentLang);
+      this.activeGhost = ghost;
 
-      // Update Line Numbers
+      if (ghost) {
+        // Overlay inline ghost prediction text inside pre code element at caret position
+        const cursor = textarea.selectionStart;
+        const part1 = value.substring(0, cursor);
+        const part2 = value.substring(cursor);
+        
+        const html1 = highlightCode(part1, currentLang);
+        const html2 = highlightCode(part2, currentLang);
+        
+        highlightCodeEl.innerHTML = html1 + `<span class="ghost-text">${ghost.text}</span>` + html2 + '\n';
+      } else {
+        highlightCodeEl.innerHTML = highlightCode(value, currentLang) + '\n';
+      }
+
+      // Sync Line Numbers
       const lineCount = value.split('\n').length || 1;
       lineNumbersCol.innerHTML = Array(lineCount).fill(0).map((_, i) => `<div>${i + 1}</div>`).join('');
 
       this.save();
     };
 
-    textarea.addEventListener('input', () => {
-      syncAndHighlight();
-      this.handleCodeAutocompleteTrigger(textarea, currentLang);
-    });
+    textarea.addEventListener('input', syncAndHighlight);
 
     textarea.addEventListener('scroll', () => {
       highlightPre.scrollTop = textarea.scrollTop;
@@ -667,13 +681,36 @@ export class Editor {
     });
 
     textarea.addEventListener('keydown', (e) => {
-      if (this.autocompleteMenu) {
-        if (this.handleAutocompleteMenuNavigation(e, textarea)) {
-          e.preventDefault();
-          return;
+      // Tab accepts ghost text autocompletion!
+      if (e.key === 'Tab' && this.activeGhost) {
+        e.preventDefault();
+        
+        const ghostText = this.activeGhost.text;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        
+        textarea.value = textarea.value.substring(0, start) + ghostText + textarea.value.substring(end);
+        
+        // Custom caret position positioning (e.g. inside brackets if found)
+        let newCursorPos = start + ghostText.length;
+        if (ghostText.includes('("")')) {
+          newCursorPos = start + ghostText.indexOf('("")') + 2;
+        } else if (ghostText.includes('()') && !ghostText.includes('("')) {
+          newCursorPos = start + ghostText.indexOf('()') + 1;
+        } else if (ghostText.includes('("");')) {
+          newCursorPos = start + ghostText.indexOf('("");') + 2;
+        } else if (ghostText.includes('();')) {
+          newCursorPos = start + ghostText.indexOf('();') + 1;
         }
+        
+        textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+        this.activeGhost = null;
+        
+        syncAndHighlight();
+        return;
       }
 
+      // Standard Tab indents
       if (e.key === 'Tab') {
         e.preventDefault();
         const start = textarea.selectionStart;
@@ -689,127 +726,66 @@ export class Editor {
     syncAndHighlight();
   }
 
-  handleCodeAutocompleteTrigger(textarea, lang) {
-    const currentLang = lang.toLowerCase();
-    const suggestions = AUTOCOMPLETE_DICT[currentLang] || AUTOCOMPLETE_DICT['javascript'];
-
-    const text = textarea.value;
-    const pos = textarea.selectionStart;
-
-    const textBeforeCursor = text.substring(0, pos);
-    const lastLine = textBeforeCursor.split('\n').pop() || '';
-
-    const match = lastLine.match(/([a-zA-Z_0-9<>]+(\.[a-zA-Z_0-9<>]*)?)$/);
-    if (!match) {
-      this.closeAutocompleteMenu();
-      return;
-    }
-
-    const query = match[0].toLowerCase();
-    
-    const filtered = suggestions.filter(item => {
-      return item.label.toLowerCase().includes(query) || item.text.toLowerCase().includes(query);
-    });
-
-    if (filtered.length === 0 || query.length < 2) {
-      this.closeAutocompleteMenu();
-      return;
-    }
-
-    this.showAutocompleteMenu(textarea, filtered, query, pos);
-  }
-
-  showAutocompleteMenu(textarea, list, query, cursorIndex) {
-    this.closeAutocompleteMenu();
+  // --- Show Custom Language Picker Popover ---
+  showLanguagePickerPopover(anchorElement, block, index) {
+    this.closeLanguageMenu();
 
     const menu = document.createElement('div');
-    menu.className = 'loop-autocomplete-menu';
+    menu.id = 'loop-language-picker-popup';
+    menu.className = 'loop-slash-menu-popup';
+    menu.style.width = '180px';
+    menu.style.zIndex = '3000';
 
-    menu.innerHTML = list.map((item, idx) => `
-      <div class="autocomplete-item ${idx === 0 ? 'active' : ''}" data-text="${item.text}">
-        <span class="autocomplete-label">${item.label}</span>
-        <span class="autocomplete-desc">${item.desc}</span>
+    const languagesList = [
+      'C#', 'JavaScript', 'TypeScript', 'Python', 'HTML', 'CSS', 'SQL', 'Markdown',
+      'Java', 'C++', 'C', 'Go', 'Rust', 'Ruby', 'PHP', 'Swift', 'Kotlin', 'Shell', 'YAML', 'JSON'
+    ];
+
+    menu.innerHTML = `
+      <div style="font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text-light); padding:6px 12px 2px 12px; user-select:none;">Select Language</div>
+      <div style="max-height: 240px; overflow-y: auto; padding: 4px;">
+        ${languagesList.map(lang => `
+          <button class="lang-picker-item" data-lang="${lang}" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding:6px 12px; font-size:13.5px; border-radius:4px; cursor:pointer; color:var(--text-main); display:flex; justify-content:space-between; align-items:center; ${block.data.language.toLowerCase() === lang.toLowerCase() ? 'background:var(--primary-light); color:var(--primary); font-weight:500;' : ''}">
+            <span>${lang}</span>
+            ${block.data.language.toLowerCase() === lang.toLowerCase() ? '<span style="font-size:10px;">✓</span>' : ''}
+          </button>
+        `).join('')}
       </div>
-    `).join('');
+    `;
 
     document.body.appendChild(menu);
-    this.autocompleteMenu = menu;
+    this.activeLanguageMenu = menu;
 
-    const textareaRect = textarea.getBoundingClientRect();
-    const caretCoords = getCaretCoordinates(textarea, cursorIndex);
+    const rect = anchorElement.getBoundingClientRect();
+    let top = rect.bottom + window.scrollY + 6;
+    let left = rect.left + window.scrollX;
 
-    let top = textareaRect.top + caretCoords.top + caretCoords.height + 4 + window.scrollY;
-    let left = textareaRect.left + caretCoords.left + window.scrollX;
-
-    if (top + 200 > window.innerHeight + window.scrollY) {
-      top = textareaRect.top + caretCoords.top - 204 + window.scrollY;
+    if (top + 260 > window.innerHeight + window.scrollY) {
+      top = rect.top - 266 + window.scrollY;
     }
-    if (left + 280 > window.innerWidth) {
-      left = window.innerWidth - 296;
+    if (left + 190 > window.innerWidth) {
+      left = window.innerWidth - 206;
     }
 
     menu.style.top = `${top}px`;
     menu.style.left = `${left}px`;
 
     menu.addEventListener('click', (e) => {
-      const item = e.target.closest('.autocomplete-item');
-      if (item) {
-        this.insertAutocompleteSelection(textarea, item.getAttribute('data-text'), query);
+      const btn = e.target.closest('.lang-picker-item');
+      if (btn) {
+        block.data.language = btn.getAttribute('data-lang');
+        this.save();
+        this.render();
+        this.closeLanguageMenu();
       }
     });
   }
 
-  closeAutocompleteMenu() {
-    if (this.autocompleteMenu) {
-      this.autocompleteMenu.remove();
-      this.autocompleteMenu = null;
+  closeLanguageMenu() {
+    if (this.activeLanguageMenu) {
+      this.activeLanguageMenu.remove();
+      this.activeLanguageMenu = null;
     }
-  }
-
-  handleAutocompleteMenuNavigation(e, textarea) {
-    if (!this.autocompleteMenu) return false;
-    const items = this.autocompleteMenu.querySelectorAll('.autocomplete-item');
-    let activeIdx = Array.from(items).findIndex(item => item.classList.contains('active'));
-
-    if (e.key === 'ArrowDown') {
-      items[activeIdx].classList.remove('active');
-      activeIdx = (activeIdx + 1) % items.length;
-      items[activeIdx].classList.add('active');
-      items[activeIdx].scrollIntoView({ block: 'nearest' });
-      return true;
-    } else if (e.key === 'ArrowUp') {
-      items[activeIdx].classList.remove('active');
-      activeIdx = (activeIdx - 1 + items.length) % items.length;
-      items[activeIdx].classList.add('active');
-      items[activeIdx].scrollIntoView({ block: 'nearest' });
-      return true;
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      const activeText = items[activeIdx].getAttribute('data-text');
-      const textBeforeCursor = textarea.value.substring(0, textarea.selectionStart);
-      const lastLine = textBeforeCursor.split('\n').pop() || '';
-      const match = lastLine.match(/([a-zA-Z_0-9<>]+(\.[a-zA-Z_0-9<>]*)?)$/);
-      const query = match ? match[0] : '';
-      
-      this.insertAutocompleteSelection(textarea, activeText, query);
-      return true;
-    } else if (e.key === 'Escape') {
-      this.closeAutocompleteMenu();
-      return true;
-    }
-    return false;
-  }
-
-  insertAutocompleteSelection(textarea, replacementText, query) {
-    const text = textarea.value;
-    const pos = textarea.selectionStart;
-    const before = text.substring(0, pos - query.length);
-    const after = text.substring(pos);
-    
-    textarea.value = before + replacementText + after;
-    textarea.selectionStart = textarea.selectionEnd = before.length + replacementText.length;
-    textarea.dispatchEvent(new Event('input'));
-    this.closeAutocompleteMenu();
-    textarea.focus();
   }
 
   // --- Render Table Editor Block ---
@@ -896,7 +872,7 @@ export class Editor {
     container.appendChild(tableWrapper);
   }
 
-  // --- Block Context Menu (options trigger on ⋮⋮ clicks) ---
+  // --- Block Context Menu ---
   showBlockContextMenu(anchorElement, block, index) {
     this.closeBlockContextMenu();
 
@@ -961,7 +937,6 @@ export class Editor {
     menu.style.top = `${top}px`;
     menu.style.left = `${left}px`;
 
-    // Menu Actions handler
     menu.addEventListener('click', (e) => {
       const btn = e.target.closest('.block-context-item');
       if (!btn) return;
@@ -986,7 +961,6 @@ export class Editor {
         this.deleteBlock(index);
         this.closeBlockContextMenu();
       } else if (type) {
-        // Convert block type
         block.type = type;
         if (type === 'code') {
           block.data = { code: '', language: 'JavaScript', lineNumbers: true };

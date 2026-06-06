@@ -71,13 +71,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // --- Primary Sidebar Setup ---
 function setupPrimarySidebarEvents() {
-  // Create Workspace Button
   const createWsBtn = document.getElementById('btn-create-workspace');
   createWsBtn.addEventListener('click', () => {
     showCreateWorkspaceModal();
   });
 
-  // Search Button
   const searchBtn = document.getElementById('btn-nav-search');
   searchBtn.addEventListener('click', () => {
     search.show((wId, cId) => {
@@ -89,20 +87,17 @@ function setupPrimarySidebarEvents() {
     });
   });
 
-  // Notifications Button
   const notifyBtn = document.getElementById('btn-nav-notifications');
   notifyBtn.addEventListener('click', () => {
     showNotificationsDrawer();
   });
   
-  // Logo area clicks go to dashboard
   const logo = document.querySelector('.loop-logo-area');
   logo.style.cursor = 'pointer';
   logo.addEventListener('click', () => {
     window.location.hash = '#dashboard';
   });
 
-  // Shortcut Ctrl+K for Search
   window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
       e.preventDefault();
@@ -110,7 +105,6 @@ function setupPrimarySidebarEvents() {
     }
   });
 
-  // Dismiss workspace context menu on click outside
   document.addEventListener('click', () => {
     const menu = document.getElementById('workspace-context-menu');
     if (menu) menu.remove();
@@ -121,7 +115,6 @@ function renderPrimarySidebarWorkspaces() {
   const container = document.getElementById('sidebar-workspaces-container');
   const workspaces = db.getWorkspaces();
   
-  // Separate Starred (Favorites) and Regular Workspaces
   const starredWorkspaces = workspaces.filter(w => w.starred);
   const regularWorkspaces = workspaces.filter(w => !w.starred);
 
@@ -141,16 +134,13 @@ function renderPrimarySidebarWorkspaces() {
     </div>
   `;
 
-  // Bind clicks & menu actions
   container.querySelectorAll('.sidebar-ws-item').forEach(item => {
-    // Navigate
     item.addEventListener('click', (e) => {
       if (e.target.closest('.ws-item-more-btn')) return;
       const id = item.getAttribute('data-id');
       window.location.hash = `#workspace/${id}`;
     });
 
-    // Options dropdown menu click
     const optBtn = item.querySelector('.ws-item-more-btn');
     optBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -159,7 +149,6 @@ function renderPrimarySidebarWorkspaces() {
       showWorkspaceContextMenu(optBtn, ws);
     });
 
-    // --- Workspace Drag & Drop Event Listeners ---
     item.addEventListener('dragstart', (e) => {
       draggedWorkspaceId = item.getAttribute('data-id');
       item.classList.add('dragging');
@@ -206,7 +195,6 @@ function renderPrimarySidebarWorkspaces() {
         finalIndex = tgtIndex - 1;
       }
       
-      // Swap order
       const [movedWs] = wsList.splice(srcIndex, 1);
       wsList.splice(finalIndex, 0, movedWs);
 
@@ -227,7 +215,12 @@ function renderWorkspaceListItemHTML(w) {
   return `
     <div class="sidebar-ws-item ${activeWorkspaceId === w.id ? 'active' : ''}" data-id="${w.id}" draggable="true">
       <div class="ws-item-left">
-        <span class="ws-item-emoji">${w.emoji || '📁'}</span>
+        <div class="ws-icon-premium">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+        </div>
         <span class="ws-item-name">${w.name}</span>
       </div>
       <div style="display:flex; align-items:center; gap: 4px;">
@@ -238,7 +231,6 @@ function renderWorkspaceListItemHTML(w) {
   `;
 }
 
-// --- Workspace options context dropdown ---
 function showWorkspaceContextMenu(anchorElement, workspace) {
   const existing = document.getElementById('workspace-context-menu');
   if (existing) existing.remove();
@@ -264,29 +256,24 @@ function showWorkspaceContextMenu(anchorElement, workspace) {
   menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
   menu.style.left = `${rect.left + window.scrollX - 140}px`;
 
-  // Prevent closing menu immediately on clicking menu item
   menu.addEventListener('click', (e) => {
     e.stopPropagation();
   });
 
-  // Star Toggle
   menu.querySelector('.toggle-star-btn').addEventListener('click', () => {
     workspace.starred = !workspace.starred;
     db.saveWorkspace(workspace);
     menu.remove();
     renderPrimarySidebarWorkspaces();
-    // Re-render dashboard workspace card stars
     if (!activeWorkspaceId) renderDashboard();
   });
 
-  // Delete workspace
   menu.querySelector('.delete-ws-btn').addEventListener('click', () => {
     menu.remove();
     confirmDeleteWorkspace(workspace);
   });
 }
 
-// --- Delete Workspace Confirmation Modal ---
 function confirmDeleteWorkspace(ws) {
   showConfirmationModal({
     title: 'Delete Workspace?',
@@ -295,8 +282,6 @@ function confirmDeleteWorkspace(ws) {
     confirmClass: 'delete',
     onConfirm: () => {
       db.deleteWorkspace(ws.id);
-      
-      // If deleted workspace is active, route to dashboard
       if (activeWorkspaceId === ws.id) {
         window.location.hash = '#dashboard';
       } else {
@@ -349,7 +334,12 @@ function renderDashboard() {
             return `
               <div class="workspace-card" data-id="${w.id}">
                 <div class="workspace-card-cover" style="background: ${w.cover || 'var(--loop-purple-gradient)'}">
-                  <div class="workspace-card-emoji-container">${w.emoji || '📁'}</div>
+                  <div class="ws-card-icon-premium">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                  </div>
                   <button class="ws-card-star-btn" data-id="${w.id}" title="${w.starred ? 'Starred' : 'Star'}" style="position:absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.85); border:none; border-radius:50%; width: 28px; height: 28px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; color: ${w.starred ? '#eab308' : 'var(--text-light)'};">
                     ${w.starred ? '★' : '☆'}
                   </button>
@@ -366,7 +356,6 @@ function renderDashboard() {
     </div>
   `;
 
-  // Bind clicks
   mainPane.querySelectorAll('.workspace-card').forEach(card => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.ws-card-star-btn')) return;
@@ -374,7 +363,6 @@ function renderDashboard() {
       window.location.hash = `#workspace/${id}`;
     });
 
-    // Star icon inside cards
     const starBtn = card.querySelector('.ws-card-star-btn');
     if (starBtn) {
       starBtn.addEventListener('click', (e) => {
@@ -414,7 +402,12 @@ function renderWorkspaceView() {
     <div class="sec-sidebar-header">
       <div class="sec-ws-title-container">
         <div class="sec-ws-details">
-          <button id="sec-ws-emoji-btn" class="sec-ws-emoji" title="Change Workspace Emoji">${workspace.emoji || '📁'}</button>
+          <div class="ws-icon-premium" style="width:28px; height:28px; border-radius:7px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+          </div>
           <span class="sec-ws-name">${workspace.name}</span>
         </div>
         <button class="sec-ws-close-btn" id="sec-ws-close-btn" title="Close Workspace">×</button>
@@ -440,17 +433,6 @@ function renderWorkspaceView() {
 
   document.getElementById('sec-ws-close-btn').addEventListener('click', () => {
     window.location.hash = '#dashboard';
-  });
-
-  const wsEmojiBtn = document.getElementById('sec-ws-emoji-btn');
-  wsEmojiBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    emoji.showPicker(wsEmojiBtn, (newEmoji) => {
-      workspace.emoji = newEmoji;
-      db.saveWorkspace(workspace);
-      wsEmojiBtn.textContent = newEmoji;
-      renderPrimarySidebarWorkspaces();
-    });
   });
 
   document.getElementById('sec-add-chapter-btn').addEventListener('click', () => {
@@ -484,7 +466,6 @@ function renderSecondarySidebarChapters(chapters) {
     </div>
   `).join('');
 
-  // Bind chapter clicks & deletions
   container.querySelectorAll('.chapter-nav-item').forEach(item => {
     item.addEventListener('click', (e) => {
       if (e.target.closest('.chapter-nav-delete-btn')) return;
@@ -500,7 +481,6 @@ function renderSecondarySidebarChapters(chapters) {
       confirmDeleteChapter(chap);
     });
 
-    // --- Chapters Drag & Drop Event Listeners ---
     item.addEventListener('dragstart', (e) => {
       draggedChapterId = item.getAttribute('data-id');
       item.classList.add('dragging');
@@ -563,7 +543,6 @@ function renderSecondarySidebarChapters(chapters) {
   });
 }
 
-// --- Delete Page Confirmation Modal ---
 function confirmDeleteChapter(chap) {
   showConfirmationModal({
     title: 'Move Page to Recycle Bin?',
@@ -640,7 +619,6 @@ function renderEditorPane() {
     </div>
   `;
 
-  // Bind Share
   document.getElementById('btn-share-page').addEventListener('click', (e) => {
     const btn = e.target;
     const shareUrl = window.location.href;
@@ -649,7 +627,6 @@ function renderEditorPane() {
     setTimeout(() => { btn.textContent = 'Share'; }, 2000);
   });
 
-  // Emoji picker head triggers
   const emojiHead = document.getElementById('page-large-emoji');
   const addEmojiMeta = document.getElementById('btn-add-emoji-meta');
 
@@ -676,7 +653,6 @@ function renderEditorPane() {
     triggerEmojiPicker(addEmojiMeta);
   });
 
-  // Cover triggers
   const coverBanner = document.getElementById('page-cover-banner');
   const addCoverMeta = document.getElementById('btn-add-cover-meta');
 
@@ -708,7 +684,6 @@ function renderEditorPane() {
     });
   });
 
-  // Title changes
   const titleInput = document.getElementById('page-editable-title');
   const crumbTitle = document.getElementById('editor-crumb-title');
 
@@ -731,7 +706,6 @@ function renderEditorPane() {
     }
   });
 
-  // Mount active Editor instance
   const editorMount = document.getElementById('editor-container');
   activeEditorInstance = new Editor(editorMount, chapter, () => {
     // Callback
@@ -799,8 +773,7 @@ function deleteChapter(id) {
 function showCreateWorkspaceModal() {
   const overlay = document.createElement('div');
   overlay.className = 'loop-search-modal-overlay';
-  
-  let selectedEmoji = '🎯';
+
   let selectedCover = COVER_PRESETS[0];
 
   overlay.innerHTML = `
@@ -810,19 +783,16 @@ function showCreateWorkspaceModal() {
         <button class="bin-close-btn" id="modal-close-ws">×</button>
       </div>
       <div style="padding: 24px; display:flex; flex-direction:column; gap:18px;">
-        <div style="display:flex; align-items:center; gap: 16px;">
-          <button id="modal-ws-emoji-btn" style="font-size: 32px; background: #f1f5f9; border: 1px solid var(--border-color); border-radius: 12px; width: 64px; height: 64px; cursor:pointer;">${selectedEmoji}</button>
-          <div style="flex-grow: 1;">
-            <label style="font-size: 13px; font-weight:500; color: var(--text-muted); display:block; margin-bottom: 6px;">Workspace Name</label>
-            <input type="text" id="modal-ws-name-input" placeholder="e.g. Project IntelliNote" style="width:100%; padding:10px 14px; border-radius: 8px; border: 1px solid var(--border-color); outline:none; font-family: var(--font-sans); font-size:15px;" required>
-          </div>
+        <div>
+          <label style="font-size: 13.5px; font-weight:500; color: var(--text-muted); display:block; margin-bottom: 6px;">Workspace Name</label>
+          <input type="text" id="modal-ws-name-input" placeholder="e.g. Project IntelliNote" style="width:100%; padding:10px 14px; border-radius: 8px; border: 1px solid var(--border-color); outline:none; font-family: var(--font-sans); font-size:15.5px;" required>
         </div>
 
         <div>
-          <label style="font-size: 13px; font-weight:500; color: var(--text-muted); display:block; margin-bottom: 8px;">Select Cover Style</label>
+          <label style="font-size: 13.5px; font-weight:500; color: var(--text-muted); display:block; margin-bottom: 8px;">Select Cover Style</label>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
             ${COVER_PRESETS.map((p, idx) => `
-              <button class="preset-color-block modal-cover-select ${idx === 0 ? 'active' : ''}" data-preset="${p}" style="height:32px; border-radius: 6px; border: 2px solid ${idx === 0 ? 'var(--primary)' : 'transparent'}; cursor:pointer; background: ${p};"></button>
+              <button class="preset-color-block modal-cover-select ${idx === 0 ? 'active' : ''}" data-preset="${p}" style="background: ${p};"></button>
             `).join('')}
           </div>
         </div>
@@ -841,20 +811,11 @@ function showCreateWorkspaceModal() {
   overlay.querySelector('#modal-close-ws').addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-  const emojiBtn = overlay.querySelector('#modal-ws-emoji-btn');
-  emojiBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    emoji.showPicker(emojiBtn, (emojiChar) => {
-      selectedEmoji = emojiChar;
-      emojiBtn.textContent = emojiChar;
-    });
-  });
-
   const coverBlocks = overlay.querySelectorAll('.modal-cover-select');
   coverBlocks.forEach(block => {
     block.addEventListener('click', () => {
-      coverBlocks.forEach(b => b.style.borderColor = 'transparent');
-      block.style.borderColor = 'var(--primary)';
+      coverBlocks.forEach(b => b.classList.remove('active'));
+      block.classList.add('active');
       selectedCover = block.getAttribute('data-preset');
     });
   });
@@ -872,7 +833,6 @@ function showCreateWorkspaceModal() {
     const newWorkspace = {
       id: wsId,
       name: wsName,
-      emoji: selectedEmoji,
       cover: selectedCover,
       starred: false,
       updatedAt: new Date().toISOString()
@@ -898,7 +858,6 @@ function showCreateWorkspaceModal() {
     renderPrimarySidebarWorkspaces();
     window.location.hash = `#workspace/${wsId}/chapter/${chapterId}`;
     
-    // Focus title immediately
     setTimeout(() => {
       const titleInputEl = document.getElementById('page-editable-title');
       if (titleInputEl) titleInputEl.focus();
@@ -923,7 +882,6 @@ function createNewChapter() {
 
   window.location.hash = `#workspace/${activeWorkspaceId}/chapter/${chapterId}`;
   
-  // Focus title immediately to let user type
   setTimeout(() => {
     const titleInput = document.getElementById('page-editable-title');
     if (titleInput) {
