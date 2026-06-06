@@ -152,6 +152,115 @@ function getGhostSuggestion(text, pos, lang) {
   return null;
 }
 
+// --- Caret positioning utilities for contenteditable ---
+function getCaretCharacterOffsetWithin(element) {
+  let caretOffset = 0;
+  const doc = element.ownerDocument || element.document;
+  const win = doc.defaultView || doc.parentWindow;
+  const sel = win.getSelection();
+  if (sel.rangeCount > 0) {
+    const range = sel.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(element);
+    preCaretRange.setEnd(range.endContainer, range.endOffset);
+    caretOffset = preCaretRange.toString().length;
+  }
+  return caretOffset;
+}
+
+function setCaretPosition(element, offset) {
+  const range = document.createRange();
+  const sel = window.getSelection();
+  
+  let currentOffset = 0;
+  let node = null;
+  
+  function findNode(root) {
+    for (let i = 0; i < root.childNodes.length; i++) {
+      const child = root.childNodes[i];
+      if (child.nodeType === Node.TEXT_NODE) {
+        if (currentOffset + child.length >= offset) {
+          node = child;
+          return true;
+        }
+        currentOffset += child.length;
+      } else {
+        if (findNode(child)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  
+  findNode(element);
+  
+  if (node) {
+    range.setStart(node, offset - currentOffset);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } else {
+    range.selectNodeContents(element);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+// --- Live Inline Markdown Formatting for Backticks and Math Equations ---
+function applyInlineFormatting(editable) {
+  let html = editable.innerHTML;
+  let changed = false;
+
+  // 1. Display Math: $$formula$$ (Display Mode)
+  const displayMathRegex = /\$\$([^\$]+)\$\$/g;
+  if (displayMathRegex.test(html)) {
+    html = html.replace(displayMathRegex, (match, formula) => {
+      const decodedFormula = formula.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+      if (window.katex) {
+        try {
+          return window.katex.renderToString(decodedFormula, { displayMode: true, throwOnError: false });
+        } catch (e) {
+          return `<span class="inline-math-error" title="${e.message}">$$${formula}$$</span>`;
+        }
+      }
+      return `<span class="inline-math">$$${formula}$$</span>`;
+    });
+    changed = true;
+  }
+
+  // 2. Inline Math: $formula$ (Inline Mode)
+  const inlineMathRegex = /(?<![\w\\])\$([^\$\s](?:[^\$]*?[^\$\s])?)\$/g;
+  if (inlineMathRegex.test(html)) {
+    html = html.replace(inlineMathRegex, (match, formula) => {
+      const decodedFormula = formula.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+      if (window.katex) {
+        try {
+          return window.katex.renderToString(decodedFormula, { displayMode: false, throwOnError: false });
+        } catch (e) {
+          return `<span class="inline-math-error" title="${e.message}">$${formula}$</span>`;
+        }
+      }
+      return `<span class="inline-math">$${formula}$</span>`;
+    });
+    changed = true;
+  }
+
+  // 3. Inline Code: `code`
+  const inlineCodeRegex = /(?<![\w\\])`([^`\s](?:[^`]*?[^`\s])?)`/g;
+  if (inlineCodeRegex.test(html)) {
+    html = html.replace(inlineCodeRegex, '<code>$1</code>');
+    changed = true;
+  }
+
+  if (changed) {
+    const offset = getCaretCharacterOffsetWithin(editable);
+    editable.innerHTML = html;
+    setCaretPosition(editable, offset);
+  }
+}
+
 // --- Block-Based Editor Class ---
 export class Editor {
   constructor(container, chapter, onSave) {
@@ -391,6 +500,9 @@ export class Editor {
       case 'table':
         this.renderTableBlock(block, index, contentContainer);
         break;
+      case 'equation':
+        this.renderEquationBlock(block, index, contentContainer);
+        break;
     }
 
     return wrapper;
@@ -426,6 +538,7 @@ export class Editor {
     };
 
     editable.addEventListener('input', () => {
+      applyInlineFormatting(editable);
       syncData();
       this.handleMarkdownTransformations(editable, block, index);
     });
@@ -559,6 +672,11 @@ export class Editor {
           code: '',
           language: 'JavaScript',
           lineNumbers: true
+        };
+      } else if (text.startsWith('$$')) {
+        block.type = 'equation';
+        block.data = {
+          latex: ''
         };
       }
 
@@ -889,6 +1007,105 @@ export class Editor {
     container.appendChild(tableWrapper);
   }
 
+  // --- Render LaTeX Math Equation Block ---
+  renderEquationBlock(block, index, container) {
+    if (!block.data || typeof block.data !== 'object') {
+      block.data = {
+        latex: ''
+      };
+    }
+
+    const eqWrapper = document.createElement('div');
+    eqWrapper.className = 'loop-equation-block-wrapper';
+
+    const editorArea = document.createElement('div');
+    editorArea.className = 'equation-editor-area';
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'equation-textarea';
+    textarea.placeholder = 'Type LaTeX formula here... (e.g. \\sum_{i=1}^n i = \\frac{n(n+1)}{2})';
+    textarea.value = block.data.latex || '';
+    editorArea.appendChild(textarea);
+
+    const previewArea = document.createElement('div');
+    previewArea.className = 'equation-preview-area';
+    previewArea.title = 'Click to edit formula';
+
+    eqWrapper.appendChild(editorArea);
+    eqWrapper.appendChild(previewArea);
+    container.appendChild(eqWrapper);
+
+    const updatePreview = () => {
+      const latex = textarea.value.trim();
+      block.data.latex = latex;
+      this.save();
+
+      if (!latex) {
+        previewArea.innerHTML = '<div style="color:var(--text-light); font-style:italic; font-size:14.5px; user-select:none; text-align:center; padding:12px 0;">Empty Equation. Click to edit...</div>';
+        return;
+      }
+
+      if (window.katex) {
+        try {
+          window.katex.render(latex, previewArea, {
+            displayMode: true,
+            throwOnError: false
+          });
+        } catch (err) {
+          previewArea.innerHTML = `<span class="inline-math-error" style="color:#ef4444; font-size:14px;">${err.message}</span>`;
+        }
+      } else {
+        previewArea.innerHTML = `<div style="font-family:var(--font-mono); font-size:15px; text-align:center; padding:10px; border:1px dashed var(--border-color); border-radius:6px; background:#f8fafc;">${latex}</div>`;
+      }
+    };
+
+    updatePreview();
+
+    const showEditor = () => {
+      editorArea.style.display = 'block';
+      previewArea.style.display = 'none';
+      textarea.focus();
+    };
+
+    const showPreview = () => {
+      if (textarea.value.trim() !== '') {
+        editorArea.style.display = 'none';
+        previewArea.style.display = 'block';
+      }
+    };
+
+    // View state toggler initial
+    if (block.data.latex.trim() !== '') {
+      editorArea.style.display = 'none';
+      previewArea.style.display = 'block';
+    } else {
+      editorArea.style.display = 'block';
+      previewArea.style.display = 'none';
+    }
+
+    textarea.addEventListener('input', updatePreview);
+    textarea.addEventListener('blur', () => {
+      updatePreview();
+      showPreview();
+    });
+
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        textarea.blur();
+      } else if (e.key === 'Escape') {
+        textarea.blur();
+      } else if (e.key === 'Backspace' && textarea.value === '') {
+        this.deleteBlock(index);
+      }
+    });
+
+    previewArea.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showEditor();
+    });
+  }
+
   // --- Block Context Menu ---
   showBlockContextMenu(anchorElement, block, index) {
     this.closeBlockContextMenu();
@@ -914,6 +1131,7 @@ export class Editor {
       { type: 'checklist', label: 'To-do List', icon: '☑️' },
       { type: 'code', label: 'Code Block', icon: '```' },
       { type: 'table', label: 'Table', icon: '📊' },
+      { type: 'equation', label: 'Math Equation', icon: '∫' },
       { type: 'quote', label: 'Quote', icon: '💬' },
       { type: 'callout', label: 'Callout Box', icon: '💡' }
     ];
@@ -963,7 +1181,7 @@ export class Editor {
       const type = btn.getAttribute('data-type');
 
       if (action === 'copy') {
-        const textVal = block.type === 'code' ? block.data.code : (block.type === 'table' ? JSON.stringify(block.data.rows) : block.data);
+        const textVal = block.type === 'code' ? block.data.code : (block.type === 'equation' ? block.data.latex : (block.type === 'table' ? JSON.stringify(block.data.rows) : block.data));
         navigator.clipboard.writeText(textVal || '');
         this.closeBlockContextMenu();
       } else if (action === 'duplicate') {
@@ -983,6 +1201,8 @@ export class Editor {
           block.data = { code: '', language: 'JavaScript', lineNumbers: true };
         } else if (type === 'table') {
           block.data = { rows: [['Header 1', 'Header 2'], ['', '']] };
+        } else if (type === 'equation') {
+          block.data = { latex: typeof block.data === 'string' ? block.data : '' };
         } else if (type === 'callout') {
           block.emoji = '💡';
           block.data = typeof block.data === 'string' ? block.data : '';
@@ -1021,6 +1241,7 @@ export class Editor {
       { type: 'checklist', label: 'To-do list', desc: 'Track task checkbox list', icon: '☑️' },
       { type: 'code', label: 'Code Block', desc: 'Write highlighted code blocks', icon: '```' },
       { type: 'table', label: 'Table', desc: 'Insert data table grids', icon: '📊' },
+      { type: 'equation', label: 'Math Equation', desc: 'Render LaTeX equations', icon: '∫' },
       { type: 'quote', label: 'Quote', desc: 'Add inline blockquotes', icon: '💬' },
       { type: 'callout', label: 'Callout', desc: 'Make text stand out box', icon: '💡' },
       { type: 'divider', label: 'Divider', desc: 'Separate sections line', icon: '―' }
@@ -1109,6 +1330,8 @@ export class Editor {
       block.data = { code: '', language: 'JavaScript', lineNumbers: true };
     } else if (newType === 'table') {
       block.data = { rows: [['Header 1', 'Header 2'], ['', '']] };
+    } else if (newType === 'equation') {
+      block.data = { latex: cleanText };
     } else if (newType === 'callout') {
       block.emoji = '💡';
       block.data = cleanText;
