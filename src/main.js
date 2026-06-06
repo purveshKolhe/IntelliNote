@@ -10,6 +10,10 @@ let activeWorkspaceId = null;
 let activeChapterId = null;
 let activeEditorInstance = null;
 
+// Drag and drop tracking
+let draggedWorkspaceId = null;
+let draggedChapterId = null;
+
 // Premium Cover Gradient Presets
 const COVER_PRESETS = [
   'linear-gradient(135deg, #a78bfa, #7c3aed)', // Violet Breeze
@@ -29,7 +33,6 @@ db.init();
 function handleRouting() {
   const hash = window.location.hash;
   
-  // Close any stray popovers on navigation
   emoji.closePicker();
   search.close();
 
@@ -43,7 +46,6 @@ function handleRouting() {
       activeWorkspaceId = wsMatch[1];
       activeChapterId = wsMatch[2] || null;
       
-      // If workspace page has no specified chapter, auto-redirect to first chapter
       if (!activeChapterId) {
         const chapters = db.getChapters(activeWorkspaceId);
         if (chapters.length > 0) {
@@ -54,12 +56,10 @@ function handleRouting() {
       
       renderWorkspaceView();
     } else {
-      // Fallback
       window.location.hash = '#dashboard';
     }
   }
   
-  // Sync primary sidebar workspaces list active states
   renderPrimarySidebarWorkspaces();
 }
 
@@ -109,40 +109,211 @@ function setupPrimarySidebarEvents() {
       searchBtn.click();
     }
   });
+
+  // Dismiss workspace context menu on click outside
+  document.addEventListener('click', () => {
+    const menu = document.getElementById('workspace-context-menu');
+    if (menu) menu.remove();
+  });
 }
 
 function renderPrimarySidebarWorkspaces() {
   const container = document.getElementById('sidebar-workspaces-container');
   const workspaces = db.getWorkspaces();
   
-  container.innerHTML = workspaces.map(w => `
-    <div class="sidebar-ws-item ${activeWorkspaceId === w.id ? 'active' : ''}" data-id="${w.id}">
+  // Separate Starred (Favorites) and Regular Workspaces
+  const starredWorkspaces = workspaces.filter(w => w.starred);
+  const regularWorkspaces = workspaces.filter(w => !w.starred);
+
+  container.innerHTML = `
+    <!-- Favorites Section -->
+    ${starredWorkspaces.length > 0 ? `
+      <div class="sidebar-section-title" style="padding-left: 14px; margin-top: 14px; margin-bottom: 6px;">Favorites</div>
+      <div class="favorites-workspaces-list" id="fav-ws-drag-container">
+        ${starredWorkspaces.map(w => renderWorkspaceListItemHTML(w)).join('')}
+      </div>
+    ` : ''}
+
+    <!-- Workspaces Section -->
+    <div class="sidebar-section-title" style="padding-left: 14px; margin-top: 14px; margin-bottom: 6px;">Workspaces</div>
+    <div class="regular-workspaces-list" id="reg-ws-drag-container">
+      ${regularWorkspaces.map(w => renderWorkspaceListItemHTML(w)).join('')}
+    </div>
+  `;
+
+  // Bind clicks & menu actions
+  container.querySelectorAll('.sidebar-ws-item').forEach(item => {
+    // Navigate
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.ws-item-more-btn')) return;
+      const id = item.getAttribute('data-id');
+      window.location.hash = `#workspace/${id}`;
+    });
+
+    // Options dropdown menu click
+    const optBtn = item.querySelector('.ws-item-more-btn');
+    optBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = item.getAttribute('data-id');
+      const ws = db.getWorkspace(id);
+      showWorkspaceContextMenu(optBtn, ws);
+    });
+
+    // --- Workspace Drag & Drop Event Listeners ---
+    item.addEventListener('dragstart', (e) => {
+      draggedWorkspaceId = item.getAttribute('data-id');
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      
+      const bounding = item.getBoundingClientRect();
+      const offset = e.clientY - bounding.top;
+      if (offset > bounding.height / 2) {
+        item.classList.remove('drag-over-top');
+        item.classList.add('drag-over-bottom');
+      } else {
+        item.classList.remove('drag-over-bottom');
+        item.classList.add('drag-over-top');
+      }
+    });
+
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      item.classList.remove('drag-over-top', 'drag-over-bottom');
+
+      const sourceId = draggedWorkspaceId;
+      const targetId = item.getAttribute('data-id');
+      if (sourceId === targetId) return;
+
+      const wsList = db.getWorkspaces();
+      const srcIndex = wsList.findIndex(w => w.id === sourceId);
+      const tgtIndex = wsList.findIndex(w => w.id === targetId);
+
+      const bounding = item.getBoundingClientRect();
+      const offset = e.clientY - bounding.top;
+      let finalIndex = tgtIndex;
+      if (offset > bounding.height / 2 && srcIndex > tgtIndex) {
+        finalIndex = tgtIndex + 1;
+      } else if (offset < bounding.height / 2 && srcIndex < tgtIndex) {
+        finalIndex = tgtIndex - 1;
+      }
+      
+      // Swap order
+      const [movedWs] = wsList.splice(srcIndex, 1);
+      wsList.splice(finalIndex, 0, movedWs);
+
+      db.saveWorkspacesOrder(wsList);
+      renderPrimarySidebarWorkspaces();
+    });
+
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      item.removeAttribute('drag-over-top');
+      item.removeAttribute('drag-over-bottom');
+      draggedWorkspaceId = null;
+    });
+  });
+}
+
+function renderWorkspaceListItemHTML(w) {
+  return `
+    <div class="sidebar-ws-item ${activeWorkspaceId === w.id ? 'active' : ''}" data-id="${w.id}" draggable="true">
       <div class="ws-item-left">
         <span class="ws-item-emoji">${w.emoji || '📁'}</span>
         <span class="ws-item-name">${w.name}</span>
       </div>
+      <div style="display:flex; align-items:center; gap: 4px;">
+        ${w.starred ? '<span class="star-icon-indicator" style="font-size:11px; color:#eab308;">⭐</span>' : ''}
+        <button class="ws-item-more-btn" title="Actions">•••</button>
+      </div>
     </div>
-  `).join('');
+  `;
+}
 
-  // Bind clicks
-  container.querySelectorAll('.sidebar-ws-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const id = item.getAttribute('data-id');
-      window.location.hash = `#workspace/${id}`;
-    });
+// --- Workspace options context dropdown ---
+function showWorkspaceContextMenu(anchorElement, workspace) {
+  const existing = document.getElementById('workspace-context-menu');
+  if (existing) existing.remove();
+
+  const menu = document.createElement('div');
+  menu.id = 'workspace-context-menu';
+  menu.className = 'loop-slash-menu-popup';
+  menu.style.width = '180px';
+  menu.innerHTML = `
+    <div style="padding: 4px;">
+      <button class="menu-action-btn toggle-star-btn" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 6px 12px; font-size:13.5px; border-radius:4px; cursor:pointer; color:var(--text-main); display:flex; gap:10px;">
+        <span>⭐</span> ${workspace.starred ? 'Remove Star' : 'Star Workspace'}
+      </button>
+      <button class="menu-action-btn delete-ws-btn" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 6px 12px; font-size:13.5px; border-radius:4px; cursor:pointer; color:#ef4444; display:flex; gap:10px;">
+        <span>🗑️</span> Delete Workspace
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(menu);
+
+  const rect = anchorElement.getBoundingClientRect();
+  menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
+  menu.style.left = `${rect.left + window.scrollX - 140}px`;
+
+  // Prevent closing menu immediately on clicking menu item
+  menu.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  // Star Toggle
+  menu.querySelector('.toggle-star-btn').addEventListener('click', () => {
+    workspace.starred = !workspace.starred;
+    db.saveWorkspace(workspace);
+    menu.remove();
+    renderPrimarySidebarWorkspaces();
+    // Re-render dashboard workspace card stars
+    if (!activeWorkspaceId) renderDashboard();
+  });
+
+  // Delete workspace
+  menu.querySelector('.delete-ws-btn').addEventListener('click', () => {
+    menu.remove();
+    confirmDeleteWorkspace(workspace);
+  });
+}
+
+// --- Delete Workspace Confirmation Modal ---
+function confirmDeleteWorkspace(ws) {
+  showConfirmationModal({
+    title: 'Delete Workspace?',
+    message: `Are you sure you want to permanently delete <strong>"${ws.name}"</strong>? This will delete all pages inside it. This action cannot be undone.`,
+    confirmText: 'Delete Workspace',
+    confirmClass: 'delete',
+    onConfirm: () => {
+      db.deleteWorkspace(ws.id);
+      
+      // If deleted workspace is active, route to dashboard
+      if (activeWorkspaceId === ws.id) {
+        window.location.hash = '#dashboard';
+      } else {
+        renderPrimarySidebarWorkspaces();
+        if (!activeWorkspaceId) renderDashboard();
+      }
+    }
   });
 }
 
 // --- Dashboard View Renderer ---
 function renderDashboard() {
-  // Hide secondary sidebar
   const secSidebar = document.getElementById('sidebar-secondary');
   secSidebar.style.display = 'none';
 
-  // Render main greeting & cards
   const mainPane = document.getElementById('main-pane');
   
-  // Greeting based on hour
   const hour = new Date().getHours();
   let greeting = 'Good Morning';
   let greetEmoji = '☀️';
@@ -159,37 +330,71 @@ function renderDashboard() {
   mainPane.innerHTML = `
     <div class="loop-dashboard-view">
       <h2 class="dashboard-greeting">${greetEmoji} ${greeting}</h2>
-      <p class="dashboard-subgreeting">Welcome back to your workspace. Everything is saved locally and securely on your computer.</p>
+      <p class="dashboard-subgreeting">Welcome to IntelliNote. Workspaces and chapters are saved locally and securely inside your browser.</p>
       
       <div class="sidebar-section-title" style="padding-left:0; margin-bottom: 20px;">Recent Workspaces</div>
       
-      <div class="dashboard-workspaces-grid">
-        ${workspaces.map(w => {
-          const date = new Date(w.updatedAt);
-          const relativeDate = formatRelativeTime(date);
-          return `
-            <div class="workspace-card" data-id="${w.id}">
-              <div class="workspace-card-cover" style="background: ${w.cover || 'var(--loop-purple-gradient)'}">
-                <div class="workspace-card-emoji-container">${w.emoji || '📁'}</div>
+      ${workspaces.length === 0 ? `
+        <div class="dashboard-empty-workspaces" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 48px; border:2px dashed var(--border-color); border-radius: var(--radius-lg); text-align:center;">
+          <div style="font-size:36px; margin-bottom: 12px;">📂</div>
+          <div style="font-size: 16px; font-weight:600; margin-bottom: 4px;">No Workspaces Yet</div>
+          <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Create your first workspace to start writing documents.</div>
+          <button id="btn-dashboard-create-ws" class="create-new-btn" style="margin-bottom:0;">+ Create Workspace</button>
+        </div>
+      ` : `
+        <div class="dashboard-workspaces-grid">
+          ${workspaces.map(w => {
+            const date = new Date(w.updatedAt);
+            const relativeDate = formatRelativeTime(date);
+            return `
+              <div class="workspace-card" data-id="${w.id}">
+                <div class="workspace-card-cover" style="background: ${w.cover || 'var(--loop-purple-gradient)'}">
+                  <div class="workspace-card-emoji-container">${w.emoji || '📁'}</div>
+                  <button class="ws-card-star-btn" data-id="${w.id}" title="${w.starred ? 'Starred' : 'Star'}" style="position:absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.85); border:none; border-radius:50%; width: 28px; height: 28px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; color: ${w.starred ? '#eab308' : 'var(--text-light)'};">
+                    ${w.starred ? '★' : '☆'}
+                  </button>
+                </div>
+                <div class="workspace-card-content">
+                  <div class="workspace-card-name">${w.name}</div>
+                  <div class="workspace-card-date">Updated ${relativeDate}</div>
+                </div>
               </div>
-              <div class="workspace-card-content">
-                <div class="workspace-card-name">${w.name}</div>
-                <div class="workspace-card-date">Updated ${relativeDate}</div>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
+            `;
+          }).join('')}
+        </div>
+      `}
     </div>
   `;
 
-  // Bind card clicks
+  // Bind clicks
   mainPane.querySelectorAll('.workspace-card').forEach(card => {
-    card.addEventListener('click', () => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.ws-card-star-btn')) return;
       const id = card.getAttribute('data-id');
       window.location.hash = `#workspace/${id}`;
     });
+
+    // Star icon inside cards
+    const starBtn = card.querySelector('.ws-card-star-btn');
+    if (starBtn) {
+      starBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = starBtn.getAttribute('data-id');
+        const ws = db.getWorkspace(id);
+        ws.starred = !ws.starred;
+        db.saveWorkspace(ws);
+        renderDashboard();
+        renderPrimarySidebarWorkspaces();
+      });
+    }
   });
+
+  const emptyCreateBtn = document.getElementById('btn-dashboard-create-ws');
+  if (emptyCreateBtn) {
+    emptyCreateBtn.addEventListener('click', () => {
+      showCreateWorkspaceModal();
+    });
+  }
 }
 
 // --- Workspace Secondary Sidebar & Chapter Renderer ---
@@ -200,7 +405,6 @@ function renderWorkspaceView() {
     return;
   }
 
-  // Render & Show Secondary Sidebar
   const secSidebar = document.getElementById('sidebar-secondary');
   secSidebar.style.display = 'flex';
 
@@ -234,7 +438,6 @@ function renderWorkspaceView() {
     </div>
   `;
 
-  // Bind secondary sidebar controls
   document.getElementById('sec-ws-close-btn').addEventListener('click', () => {
     window.location.hash = '#dashboard';
   });
@@ -258,10 +461,7 @@ function renderWorkspaceView() {
     showRecycleBinModal();
   });
 
-  // Render chapters list inside sidebar
   renderSecondarySidebarChapters(chapters);
-
-  // Render Editor Main pane
   renderEditorPane();
 }
 
@@ -269,8 +469,13 @@ function renderSecondarySidebarChapters(chapters) {
   const container = document.getElementById('chapters-nav-container');
   if (!container) return;
 
+  if (chapters.length === 0) {
+    container.innerHTML = `<div style="font-size:12px; color:var(--text-light); text-align:center; padding: 20px 0;">No pages. Click + to add.</div>`;
+    return;
+  }
+
   container.innerHTML = chapters.map(c => `
-    <div class="chapter-nav-item ${activeChapterId === c.id ? 'active' : ''}" data-id="${c.id}">
+    <div class="chapter-nav-item ${activeChapterId === c.id ? 'active' : ''}" data-id="${c.id}" draggable="true">
       <div class="chapter-nav-left">
         <span class="chapter-nav-emoji">${c.emoji || '📄'}</span>
         <span class="chapter-nav-title">${c.title || 'Untitled Page'}</span>
@@ -279,23 +484,95 @@ function renderSecondarySidebarChapters(chapters) {
     </div>
   `).join('');
 
-  // Bind chapter item clicks
+  // Bind chapter clicks & deletions
   container.querySelectorAll('.chapter-nav-item').forEach(item => {
     item.addEventListener('click', (e) => {
-      // If delete cross is clicked, handle it separately
       if (e.target.closest('.chapter-nav-delete-btn')) return;
       const cid = item.getAttribute('data-id');
       window.location.hash = `#workspace/${activeWorkspaceId}/chapter/${cid}`;
     });
-  });
 
-  // Bind deletion
-  container.querySelectorAll('.chapter-nav-delete-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    const delBtn = item.querySelector('.chapter-nav-delete-btn');
+    delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const id = btn.getAttribute('data-id');
-      deleteChapter(id);
+      const id = delBtn.getAttribute('data-id');
+      const chap = db.getChapter(id);
+      confirmDeleteChapter(chap);
     });
+
+    // --- Chapters Drag & Drop Event Listeners ---
+    item.addEventListener('dragstart', (e) => {
+      draggedChapterId = item.getAttribute('data-id');
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      
+      const bounding = item.getBoundingClientRect();
+      const offset = e.clientY - bounding.top;
+      if (offset > bounding.height / 2) {
+        item.classList.remove('drag-over-top');
+        item.classList.add('drag-over-bottom');
+      } else {
+        item.classList.remove('drag-over-bottom');
+        item.classList.add('drag-over-top');
+      }
+    });
+
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      item.classList.remove('drag-over-top', 'drag-over-bottom');
+
+      const sourceId = draggedChapterId;
+      const targetId = item.getAttribute('data-id');
+      if (sourceId === targetId) return;
+
+      const chapList = db.getChapters(activeWorkspaceId);
+      const srcIndex = chapList.findIndex(c => c.id === sourceId);
+      const tgtIndex = chapList.findIndex(c => c.id === targetId);
+
+      const bounding = item.getBoundingClientRect();
+      const offset = e.clientY - bounding.top;
+      let finalIndex = tgtIndex;
+      if (offset > bounding.height / 2 && srcIndex > tgtIndex) {
+        finalIndex = tgtIndex + 1;
+      } else if (offset < bounding.height / 2 && srcIndex < tgtIndex) {
+        finalIndex = tgtIndex - 1;
+      }
+
+      const [movedChap] = chapList.splice(srcIndex, 1);
+      chapList.splice(finalIndex, 0, movedChap);
+
+      db.saveChaptersOrder(chapList, activeWorkspaceId);
+      renderSecondarySidebarChapters(chapList);
+    });
+
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      item.removeAttribute('drag-over-top');
+      item.removeAttribute('drag-over-bottom');
+      draggedChapterId = null;
+    });
+  });
+}
+
+// --- Delete Page Confirmation Modal ---
+function confirmDeleteChapter(chap) {
+  showConfirmationModal({
+    title: 'Move Page to Recycle Bin?',
+    message: `Are you sure you want to delete the page <strong>"${chap.title || 'Untitled Page'}"</strong> and move it to the recycle bin?`,
+    confirmText: 'Move to Trash',
+    confirmClass: 'delete',
+    onConfirm: () => {
+      deleteChapter(chap.id);
+    }
   });
 }
 
@@ -334,7 +611,7 @@ function renderEditorPane() {
       <div class="editor-document-paper">
         <div class="editor-page-metadata">
           
-          <!-- Banner Cover (Dynamic CSS Gradient backgrounds) -->
+          <!-- Banner Cover -->
           <div class="editor-cover-banner" id="page-cover-banner" style="${chapter.cover ? `background: ${chapter.cover};` : 'display: none;'}">
             <div class="cover-actions-overlay">
               <button class="cover-btn change" id="btn-change-cover">Change cover</button>
@@ -354,7 +631,7 @@ function renderEditorPane() {
           </div>
 
           <!-- Title Input editable in-place -->
-          <h2 class="page-editable-title" id="page-editable-title" contenteditable="true">${chapter.title || ''}</h2>
+          <h2 class="page-editable-title" id="page-editable-title" contenteditable="true" placeholder="Untitled Page">${chapter.title || ''}</h2>
         </div>
 
         <!-- Block Editor Mount -->
@@ -363,7 +640,7 @@ function renderEditorPane() {
     </div>
   `;
 
-  // Bind Share button (copies component link to clipboard)
+  // Bind Share
   document.getElementById('btn-share-page').addEventListener('click', (e) => {
     const btn = e.target;
     const shareUrl = window.location.href;
@@ -372,7 +649,7 @@ function renderEditorPane() {
     setTimeout(() => { btn.textContent = 'Share'; }, 2000);
   });
 
-  // Page Emoji Actions
+  // Emoji picker head triggers
   const emojiHead = document.getElementById('page-large-emoji');
   const addEmojiMeta = document.getElementById('btn-add-emoji-meta');
 
@@ -381,12 +658,10 @@ function renderEditorPane() {
       chapter.emoji = selectedEmoji;
       db.saveChapter(chapter);
       
-      // Update UI
       emojiHead.textContent = selectedEmoji;
       emojiHead.style.display = '';
       document.getElementById('page-decorations-row').style.display = (chapter.emoji || chapter.cover) ? 'none' : '';
       
-      // Sync active sidebar
       const activeSidebarItem = document.querySelector(`.chapter-nav-item[data-id="${chapter.id}"] .chapter-nav-emoji`);
       if (activeSidebarItem) activeSidebarItem.textContent = selectedEmoji;
     });
@@ -401,12 +676,11 @@ function renderEditorPane() {
     triggerEmojiPicker(addEmojiMeta);
   });
 
-  // Cover image actions
+  // Cover triggers
   const coverBanner = document.getElementById('page-cover-banner');
   const addCoverMeta = document.getElementById('btn-add-cover-meta');
 
   const addCover = () => {
-    // Select a default preset
     const preset = COVER_PRESETS[Math.floor(Math.random() * COVER_PRESETS.length)];
     chapter.cover = preset;
     db.saveChapter(chapter);
@@ -418,7 +692,6 @@ function renderEditorPane() {
 
   addCoverMeta.addEventListener('click', addCover);
   
-  // Change / Remove cover buttons
   document.getElementById('btn-remove-cover').addEventListener('click', () => {
     chapter.cover = null;
     db.saveChapter(chapter);
@@ -435,7 +708,7 @@ function renderEditorPane() {
     });
   });
 
-  // Title Editable binding
+  // Title changes
   const titleInput = document.getElementById('page-editable-title');
   const crumbTitle = document.getElementById('editor-crumb-title');
 
@@ -444,13 +717,11 @@ function renderEditorPane() {
     chapter.title = titleVal;
     db.saveChapter(chapter);
 
-    // Sync titles in real-time
     crumbTitle.textContent = titleVal || 'Untitled Page';
     const activeSidebarTitle = document.querySelector(`.chapter-nav-item[data-id="${chapter.id}"] .chapter-nav-title`);
     if (activeSidebarTitle) activeSidebarTitle.textContent = titleVal || 'Untitled Page';
   });
 
-  // Title keys (Enter goes to first editor block)
   titleInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -460,26 +731,25 @@ function renderEditorPane() {
     }
   });
 
-  // Mount editor block canvas
+  // Mount active Editor instance
   const editorMount = document.getElementById('editor-container');
   activeEditorInstance = new Editor(editorMount, chapter, () => {
-    // Callback on saving editor changes - optionally sync metadata
+    // Callback
   });
 }
 
-// --- Cover Gradient Preset Dropdown Menu ---
 function showCoverPresetDropdown(anchorElement, onSelect) {
   const existing = document.getElementById('cover-preset-dropdown-menu');
   if (existing) existing.remove();
 
   const dropdown = document.createElement('div');
   dropdown.id = 'cover-preset-dropdown-menu';
-  dropdown.className = 'loop-slash-menu-popup'; // Use menu styles
+  dropdown.className = 'loop-slash-menu-popup';
   dropdown.style.width = '240px';
   dropdown.innerHTML = `
     <div style="font-size: 11px; font-weight:600; text-transform: uppercase; color: var(--text-light); padding: 8px 12px;">Gradient Covers</div>
     <div class="presets-container-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 6px 12px 12px 12px;">
-      ${COVER_PRESETS.map((preset, index) => `
+      ${COVER_PRESETS.map(preset => `
         <button class="preset-color-block" data-preset="${preset}" style="height: 38px; border-radius: 6px; border: 1px solid var(--border-color); cursor:pointer; background: ${preset};"></button>
       `).join('')}
     </div>
@@ -489,18 +759,16 @@ function showCoverPresetDropdown(anchorElement, onSelect) {
 
   const rect = anchorElement.getBoundingClientRect();
   dropdown.style.top = `${rect.bottom + window.scrollY + 6}px`;
-  dropdown.style.left = `${rect.left + window.scrollX - 120}px`; // Centered slightly
+  dropdown.style.left = `${rect.left + window.scrollX - 120}px`;
 
   dropdown.addEventListener('click', (e) => {
     const block = e.target.closest('.preset-color-block');
     if (block) {
-      const preset = block.getAttribute('data-preset');
-      onSelect(preset);
+      onSelect(block.getAttribute('data-preset'));
       dropdown.remove();
     }
   });
 
-  // Dismiss on document click
   const dismiss = (e) => {
     if (!dropdown.contains(e.target) && e.target !== anchorElement) {
       dropdown.remove();
@@ -514,7 +782,6 @@ function showCoverPresetDropdown(anchorElement, onSelect) {
 function deleteChapter(id) {
   db.deleteChapter(id);
   
-  // If we deleted the active chapter, re-route to workspace or dashboard
   if (activeChapterId === id) {
     const chapters = db.getChapters(activeWorkspaceId);
     if (chapters.length > 0) {
@@ -523,7 +790,6 @@ function deleteChapter(id) {
       window.location.hash = `#workspace/${activeWorkspaceId}`;
     }
   } else {
-    // Simply redraw sidebar
     const chapters = db.getChapters(activeWorkspaceId);
     renderSecondarySidebarChapters(chapters);
   }
@@ -532,7 +798,7 @@ function deleteChapter(id) {
 // --- Create Workspace Modal ---
 function showCreateWorkspaceModal() {
   const overlay = document.createElement('div');
-  overlay.className = 'loop-search-modal-overlay'; // Matches blur styling
+  overlay.className = 'loop-search-modal-overlay';
   
   let selectedEmoji = '🎯';
   let selectedCover = COVER_PRESETS[0];
@@ -568,16 +834,13 @@ function showCreateWorkspaceModal() {
 
   document.body.appendChild(overlay);
 
-  // Focus input
   const nameInput = overlay.querySelector('#modal-ws-name-input');
   nameInput.focus();
 
-  // Close modal bindings
   const closeModal = () => overlay.remove();
   overlay.querySelector('#modal-close-ws').addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-  // Emoji selection binding
   const emojiBtn = overlay.querySelector('#modal-ws-emoji-btn');
   emojiBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -587,7 +850,6 @@ function showCreateWorkspaceModal() {
     });
   });
 
-  // Cover selection binding
   const coverBlocks = overlay.querySelectorAll('.modal-cover-select');
   coverBlocks.forEach(block => {
     block.addEventListener('click', () => {
@@ -597,7 +859,6 @@ function showCreateWorkspaceModal() {
     });
   });
 
-  // Create workspace logic
   const createBtn = overlay.querySelector('#modal-ws-create-btn');
   createBtn.addEventListener('click', () => {
     const wsName = nameInput.value.trim();
@@ -608,26 +869,25 @@ function showCreateWorkspaceModal() {
 
     const wsId = 'w-' + Math.random().toString(36).substr(2, 9);
     
-    // Create new workspace record
     const newWorkspace = {
       id: wsId,
       name: wsName,
       emoji: selectedEmoji,
       cover: selectedCover,
+      starred: false,
       updatedAt: new Date().toISOString()
     };
     db.saveWorkspace(newWorkspace);
 
-    // Create a default first page in the workspace
+    // Initial page set
     const chapterId = 'c-' + Math.random().toString(36).substr(2, 9);
     const firstChapter = {
       id: chapterId,
       workspaceId: wsId,
-      title: 'Welcome to ' + wsName,
+      title: '', // Start empty to let user type title
       emoji: '📄',
       blocks: [
-        { id: 'b1', type: 'heading-1', data: 'Getting Started' },
-        { id: 'b2', type: 'text', data: 'This is your first page inside the ' + wsName + ' workspace! Try typing <code>/</code> to insert elements or style formatting.' }
+        { id: 'b1', type: 'text', data: '', indent: 0 }
       ],
       updatedAt: new Date().toISOString()
     };
@@ -635,9 +895,14 @@ function showCreateWorkspaceModal() {
 
     closeModal();
     
-    // Render sidebars and route
     renderPrimarySidebarWorkspaces();
     window.location.hash = `#workspace/${wsId}/chapter/${chapterId}`;
+    
+    // Focus title immediately
+    setTimeout(() => {
+      const titleInputEl = document.getElementById('page-editable-title');
+      if (titleInputEl) titleInputEl.focus();
+    }, 150);
   });
 }
 
@@ -647,25 +912,52 @@ function createNewChapter() {
   const newChapter = {
     id: chapterId,
     workspaceId: activeWorkspaceId,
-    title: '',
+    title: '', // Start empty to let user write title
     emoji: '📄',
     blocks: [
-      { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '' }
+      { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }
     ],
     updatedAt: new Date().toISOString()
   };
   db.saveChapter(newChapter);
 
-  // Navigate to new chapter
   window.location.hash = `#workspace/${activeWorkspaceId}/chapter/${chapterId}`;
   
-  // Focus the title immediately
+  // Focus title immediately to let user type
   setTimeout(() => {
     const titleInput = document.getElementById('page-editable-title');
     if (titleInput) {
       titleInput.focus();
     }
-  }, 100);
+  }, 150);
+}
+
+// --- Custom Confirmation Dialog Modal ---
+function showConfirmationModal({ title, message, confirmText, confirmClass, onConfirm }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'loop-search-modal-overlay';
+  overlay.style.zIndex = '6000';
+  
+  overlay.innerHTML = `
+    <div class="loop-search-dialog" style="width: 400px; padding: 20px;">
+      <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 12px; color: var(--text-main);">${title}</h3>
+      <p style="font-size: 14px; line-height: 1.5; color: var(--text-muted); margin-bottom: 24px;">${message}</p>
+      <div style="display:flex; justify-content:flex-end; gap:12px;">
+        <button class="confirm-modal-cancel-btn" style="background:transparent; border:1px solid var(--border-color); font-family:inherit; font-size:13.5px; padding:8px 16px; border-radius:20px; cursor:pointer; color:var(--text-muted); font-weight:500;">Cancel</button>
+        <button class="confirm-modal-ok-btn ${confirmClass || ''}" style="border:none; font-family:inherit; font-size:13.5px; padding:8px 16px; border-radius:20px; cursor:pointer; font-weight:500; background:${confirmClass === 'delete' ? '#ef4444' : 'var(--primary)'}; color:#fff;">${confirmText}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const closeModal = () => overlay.remove();
+  overlay.querySelector('.confirm-modal-cancel-btn').addEventListener('click', closeModal);
+  overlay.querySelector('.confirm-modal-ok-btn').addEventListener('click', () => {
+    onConfirm();
+    closeModal();
+  });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 }
 
 // --- Recycle Bin Modal Dialog ---
@@ -697,14 +989,12 @@ function showRecycleBinModal() {
       </div>
     `;
 
-    // Bind action events
     dialogBody.querySelectorAll('.bin-action-btn.restore').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
         db.restoreChapter(id);
         drawBinContent(dialogBody);
         
-        // Redraw active workspace chapters list if we restored into it
         if (activeWorkspaceId) {
           const chapters = db.getChapters(activeWorkspaceId);
           renderSecondarySidebarChapters(chapters);
@@ -715,8 +1005,16 @@ function showRecycleBinModal() {
     dialogBody.querySelectorAll('.bin-action-btn.delete').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
-        db.permanentlyDeleteChapter(id);
-        drawBinContent(dialogBody);
+        showConfirmationModal({
+          title: 'Delete Page Forever?',
+          message: 'Are you sure you want to permanently delete this page? This action cannot be undone and it will be lost forever.',
+          confirmText: 'Delete Forever',
+          confirmClass: 'delete',
+          onConfirm: () => {
+            db.permanentlyDeleteChapter(id);
+            drawBinContent(dialogBody);
+          }
+        });
       });
     });
   };
@@ -736,7 +1034,6 @@ function showRecycleBinModal() {
   const dialogBody = overlay.querySelector('#bin-dialog-body');
   drawBinContent(dialogBody);
 
-  // Close bindings
   const closeModal = () => overlay.remove();
   overlay.querySelector('#bin-close').addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
@@ -766,7 +1063,6 @@ function showNotificationsDrawer() {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 }
 
-// --- Time formatting helper ---
 function formatRelativeTime(date) {
   const now = new Date();
   const diffMs = now - date;

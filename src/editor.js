@@ -14,89 +14,63 @@ export function highlightCode(code, lang) {
   const lowerLang = lang.toLowerCase();
 
   if (['c#', 'csharp', 'java', 'c++', 'cpp'].includes(lowerLang)) {
-    // Comments
     escaped = escaped.replace(/(\/\/.*)/g, '<span class="token comment">$1</span>');
     escaped = escaped.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="token comment">$1</span>');
-    // Strings
     escaped = escaped.replace(/(&quot;.*?&quot;)/g, '<span class="token string">$1</span>');
     escaped = escaped.replace(/(&apos;.*?&apos;)/g, '<span class="token string">$1</span>');
-    // Keywords
     const keywords = /\b(using|namespace|public|private|protected|internal|class|interface|struct|enum|void|static|virtual|override|new|foreach|in|if|else|switch|case|break|return|string|int|double|float|bool|var|new|this|object|try|catch|finally|throw)\b/g;
     escaped = escaped.replace(keywords, '<span class="token keyword">$1</span>');
-    // Builtins
     escaped = escaped.replace(/\b(Console|WriteLine|ReadLine|String|Int32|Double|Boolean|List|Array|Math|Allen|PW|Coaching)\b/g, '<span class="token builtin">$1</span>');
-    // Numbers
     escaped = escaped.replace(/\b(\d+)\b/g, '<span class="token number">$1</span>');
     return escaped;
   }
 
   if (['javascript', 'js', 'typescript', 'ts'].includes(lowerLang)) {
-    // Comments
     escaped = escaped.replace(/(\/\/.*)/g, '<span class="token comment">$1</span>');
     escaped = escaped.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="token comment">$1</span>');
-    // Strings
     escaped = escaped.replace(/(&quot;.*?&quot;)/g, '<span class="token string">$1</span>');
     escaped = escaped.replace(/(&apos;.*?&apos;)/g, '<span class="token string">$1</span>');
     escaped = escaped.replace(/(`[\s\S]*?`)/g, '<span class="token string">$1</span>');
-    // Keywords
     const keywords = /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|class|export|import|default|from|new|this|typeof|instanceof|async|await|try|catch|finally|throw|yield)\b/g;
     escaped = escaped.replace(keywords, '<span class="token keyword">$1</span>');
-    // Builtins
     escaped = escaped.replace(/\b(console|log|error|warn|info|window|document|Math|JSON|Promise|Set|Map|Array|Object|String|Number)\b/g, '<span class="token builtin">$1</span>');
-    // Numbers
     escaped = escaped.replace(/\b(\d+)\b/g, '<span class="token number">$1</span>');
     return escaped;
   }
 
   if (['python', 'py'].includes(lowerLang)) {
-    // Comments
     escaped = escaped.replace(/(#.*)/g, '<span class="token comment">$1</span>');
-    // Strings
     escaped = escaped.replace(/(&quot;.*?&quot;)/g, '<span class="token string">$1</span>');
     escaped = escaped.replace(/(&apos;.*?&apos;)/g, '<span class="token string">$1</span>');
-    // Keywords
     const keywords = /\b(def|class|return|if|elif|else|for|while|break|continue|in|is|not|and|or|import|from|as|try|except|finally|raise|assert|global|nonlocal|lambda|pass|yield|with)\b/g;
     escaped = escaped.replace(keywords, '<span class="token keyword">$1</span>');
-    // Builtins
     escaped = escaped.replace(/\b(print|len|range|str|int|float|list|dict|set|tuple|enumerate|zip|sum|min|max|open|abs|type)\b/g, '<span class="token builtin">$1</span>');
-    // Numbers
     escaped = escaped.replace(/\b(\d+)\b/g, '<span class="token number">$1</span>');
     return escaped;
   }
 
   if (['html', 'xml'].includes(lowerLang)) {
-    // Comments
     escaped = escaped.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="token comment">$1</span>');
-    // Tags
     escaped = escaped.replace(/(&lt;\/?[a-zA-Z0-9:-]+)/g, '<span class="token keyword">$1</span>');
     escaped = escaped.replace(/(\/?&gt;)/g, '<span class="token keyword">$1</span>');
-    // Attributes
     escaped = escaped.replace(/\s([a-zA-Z0-9:-]+)=/g, ' <span class="token builtin">$1</span>=');
-    // Strings
     escaped = escaped.replace(/(&quot;.*?&quot;)/g, '<span class="token string">$1</span>');
     escaped = escaped.replace(/(&apos;.*?&apos;)/g, '<span class="token string">$1</span>');
     return escaped;
   }
 
   if (lowerLang === 'css') {
-    // Comments
     escaped = escaped.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="token comment">$1</span>');
-    // Selectors
     escaped = escaped.replace(/([a-zA-Z0-9:-]+)\s*\{/g, '<span class="token keyword">$1</span> {');
-    // Properties
     escaped = escaped.replace(/([a-zA-Z0-9:-]+)\s*:/g, '<span class="token builtin">$1</span>:');
-    // Strings
     escaped = escaped.replace(/(&quot;.*?&quot;)/g, '<span class="token string">$1</span>');
     return escaped;
   }
 
   if (lowerLang === 'sql') {
-    // Comments
     escaped = escaped.replace(/(--.*)/g, '<span class="token comment">$1</span>');
-    // Keywords
     const keywords = /\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|GROUP|BY|ORDER|HAVING|LIMIT|CREATE|TABLE|ALTER|DROP|INDEX|PRIMARY|KEY|FOREIGN|REFERENCES|AND|OR|NOT|IN|LIKE|IS|NULL)\b/gi;
     escaped = escaped.replace(keywords, '<span class="token keyword">$1</span>');
-    // Strings
     escaped = escaped.replace(/(&apos;.*?&apos;)/g, '<span class="token string">$1</span>');
     return escaped;
   }
@@ -104,7 +78,7 @@ export function highlightCode(code, lang) {
   return escaped;
 }
 
-// --- Intellisense Dictionary ---
+// --- Autocomplete Dictionary ---
 const AUTOCOMPLETE_DICT = {
   'c#': [
     { label: 'Console.WriteLine("...")', text: 'Console.WriteLine("");', desc: 'Writes string line output to console.' },
@@ -138,8 +112,6 @@ const AUTOCOMPLETE_DICT = {
   ]
 };
 
-// --- Caret Position Helper for Textarea Autocomplete ---
-// Returns pixel coordinates relative to the top-left of the textarea
 function getCaretCoordinates(textarea, position) {
   const properties = [
     'direction', 'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
@@ -196,11 +168,14 @@ export class Editor {
     this.activeBlockIndex = 0;
     this.slashMenu = null;
     this.autocompleteMenu = null;
+    this.blockContextMenu = null;
+    
+    // Drag and drop tracking
+    this.draggedBlockIndex = null;
 
     this.render();
   }
 
-  // Save changes back to DB
   save() {
     this.chapter.blocks = this.blocks;
     db.saveChapter(this.chapter);
@@ -222,15 +197,20 @@ export class Editor {
       blocksWrapper.appendChild(blockEl);
     });
 
-    // Handle global click to dismiss floating menus
-    document.addEventListener('click', (e) => {
-      if (this.slashMenu && !this.slashMenu.contains(e.target)) {
-        this.closeSlashMenu();
-      }
-      if (this.autocompleteMenu && !this.autocompleteMenu.contains(e.target)) {
-        this.closeAutocompleteMenu();
+    // Make canvas clickable below contents to focus editor
+    this.container.addEventListener('click', (e) => {
+      if (e.target === this.container || e.target === blocksWrapper) {
+        this.focusBlock(this.blocks.length - 1);
       }
     });
+
+    // Dismiss floating menus
+    const dismissAll = (e) => {
+      if (this.slashMenu && !this.slashMenu.contains(e.target)) this.closeSlashMenu();
+      if (this.autocompleteMenu && !this.autocompleteMenu.contains(e.target)) this.closeAutocompleteMenu();
+      if (this.blockContextMenu && !this.blockContextMenu.contains(e.target)) this.closeBlockContextMenu();
+    };
+    document.addEventListener('click', dismissAll);
   }
 
   renderBlock(block, index) {
@@ -239,18 +219,97 @@ export class Editor {
     wrapper.setAttribute('data-block-id', block.id);
     wrapper.setAttribute('data-block-index', index);
 
+    // Apply indentation style
+    if (block.indent) {
+      wrapper.style.marginLeft = `${block.indent * 24}px`;
+    }
+
     // Hover handle/icon on left
     const dragHandle = document.createElement('div');
     dragHandle.className = 'loop-block-drag-handle';
     dragHandle.innerHTML = '⋮⋮';
     wrapper.appendChild(dragHandle);
 
-    // Context / Content Container
+    // Drag events binding on hover handle
+    dragHandle.addEventListener('mousedown', () => {
+      wrapper.setAttribute('draggable', 'true');
+    });
+    dragHandle.addEventListener('mouseup', () => {
+      wrapper.removeAttribute('draggable');
+    });
+
+    // Handle context clicks on ⋮⋮
+    dragHandle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.showBlockContextMenu(dragHandle, block, index);
+    });
+
+    // HTML5 Drag and Drop events on block wrapper
+    wrapper.addEventListener('dragstart', (e) => {
+      this.draggedBlockIndex = index;
+      wrapper.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', index);
+    });
+
+    wrapper.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const bounding = wrapper.getBoundingClientRect();
+      const offset = e.clientY - bounding.top;
+      if (offset > bounding.height / 2) {
+        wrapper.classList.remove('drag-over-top');
+        wrapper.classList.add('drag-over-bottom');
+      } else {
+        wrapper.classList.remove('drag-over-bottom');
+        wrapper.classList.add('drag-over-top');
+      }
+    });
+
+    wrapper.addEventListener('dragleave', () => {
+      wrapper.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+
+    wrapper.addEventListener('drop', (e) => {
+      e.preventDefault();
+      wrapper.classList.remove('drag-over-top', 'drag-over-bottom');
+      
+      const sourceIndex = this.draggedBlockIndex;
+      if (sourceIndex === null || sourceIndex === index) return;
+
+      const bounding = wrapper.getBoundingClientRect();
+      const offset = e.clientY - bounding.top;
+      let targetIndex = index;
+      if (offset > bounding.height / 2) {
+        targetIndex = index + 1;
+      }
+
+      // Reorder blocks
+      const [movedBlock] = this.blocks.splice(sourceIndex, 1);
+      
+      // If index changed by removal, adjust targetIndex
+      let adjustedTarget = targetIndex;
+      if (sourceIndex < targetIndex) {
+        adjustedTarget = targetIndex - 1;
+      }
+      
+      this.blocks.splice(adjustedTarget, 0, movedBlock);
+      this.save();
+      this.render();
+      this.focusBlock(adjustedTarget);
+    });
+
+    wrapper.addEventListener('dragend', () => {
+      wrapper.classList.remove('dragging');
+      wrapper.removeAttribute('draggable');
+      this.draggedBlockIndex = null;
+    });
+
+    // Content Container
     const contentContainer = document.createElement('div');
     contentContainer.className = 'loop-block-content-container';
     wrapper.appendChild(contentContainer);
 
-    // Render type-specific layout
     switch (block.type) {
       case 'text':
       case 'heading-1':
@@ -264,7 +323,6 @@ export class Editor {
         this.renderStandardEditable(block, index, contentContainer);
         break;
       case 'number-list':
-        // Calculate dynamic numbers based on sequential listing
         let seq = 1;
         for (let i = index - 1; i >= 0; i--) {
           if (this.blocks[i].type === 'number-list') seq++;
@@ -289,7 +347,6 @@ export class Editor {
           this.save();
         });
         contentContainer.appendChild(chk);
-        
         this.renderStandardEditable(block, index, contentContainer, block.checked ? 'checked' : '');
         break;
       case 'callout':
@@ -320,15 +377,6 @@ export class Editor {
         const hr = document.createElement('hr');
         hr.className = 'editor-divider-line';
         contentContainer.appendChild(hr);
-        
-        // Remove button for dividers
-        const rmBtn = document.createElement('button');
-        rmBtn.className = 'divider-remove-btn';
-        rmBtn.textContent = '×';
-        rmBtn.addEventListener('click', () => {
-          this.deleteBlock(index);
-        });
-        contentContainer.appendChild(rmBtn);
         break;
       case 'code':
         this.renderCodeBlock(block, index, contentContainer);
@@ -341,7 +389,6 @@ export class Editor {
     return wrapper;
   }
 
-  // --- Render Standard ContentEditable Paragraph/Headings ---
   renderStandardEditable(block, index, container, extraClass = '') {
     const editable = document.createElement('div');
     editable.className = `block-editable ${extraClass}`;
@@ -349,22 +396,20 @@ export class Editor {
     editable.innerHTML = block.data || '';
     editable.setAttribute('placeholder', this.getPlaceholderForType(block.type));
 
-    // Handle Focus
     editable.addEventListener('focus', () => {
       this.activeBlockIndex = index;
       const allWrappers = this.container.querySelectorAll('.loop-editor-block-wrapper');
       allWrappers.forEach(w => w.classList.remove('active'));
-      editable.closest('.loop-editor-block-wrapper').classList.add('active');
+      const parent = editable.closest('.loop-editor-block-wrapper');
+      if (parent) parent.classList.add('active');
     });
 
-    // Realtime Input handler
-    editable.addEventListener('input', (e) => {
+    editable.addEventListener('input', () => {
       block.data = editable.innerHTML;
       this.handleMarkdownTransformations(editable, block, index);
       this.save();
     });
 
-    // Keydown shortcuts
     editable.addEventListener('keydown', (e) => {
       if (this.slashMenu) {
         if (this.handleSlashMenuNavigation(e)) {
@@ -373,21 +418,50 @@ export class Editor {
         }
       }
 
+      // Handle List indentation (Tab and Shift+Tab)
+      const listTypes = ['bullet-list', 'number-list', 'checklist'];
+      if (e.key === 'Tab' && listTypes.includes(block.type)) {
+        e.preventDefault();
+        const currentIndent = block.indent || 0;
+        if (e.shiftKey) {
+          block.indent = Math.max(0, currentIndent - 1);
+        } else {
+          block.indent = Math.min(4, currentIndent + 1);
+        }
+        this.save();
+        this.render();
+        this.focusBlock(index);
+        return;
+      }
+
       if (e.key === 'Enter') {
         if (this.slashMenu) {
           this.selectActiveSlashMenuItem();
           e.preventDefault();
           return;
         }
+        
+        // Loop/Notion UX: Enter on empty list item erases lists block back to standard text
+        const rawText = editable.textContent.trim();
+        if (listTypes.includes(block.type) && rawText === '') {
+          e.preventDefault();
+          block.type = 'text';
+          block.indent = 0;
+          this.save();
+          this.render();
+          this.focusBlock(index);
+          return;
+        }
+
         e.preventDefault();
-        this.insertBlockAfter(index, block.type);
+        this.insertBlockAfter(index, block.type, block.indent);
       } else if (e.key === 'Backspace') {
         const text = editable.textContent;
-        // If block is empty, revert type or delete
         if (!text || text === '') {
           e.preventDefault();
           if (block.type !== 'text') {
             block.type = 'text';
+            block.indent = 0;
             this.save();
             this.render();
             this.focusBlock(index);
@@ -406,7 +480,6 @@ export class Editor {
           this.focusBlock(index + 1);
         }
       } else if (e.key === '/') {
-        // Debounce slash menu open slightly
         setTimeout(() => {
           const selection = window.getSelection();
           if (selection.rangeCount > 0) {
@@ -434,7 +507,6 @@ export class Editor {
     }
   }
 
-  // --- Auto-transforms like "# " -> H1, "- " -> list ---
   handleMarkdownTransformations(editable, block, index) {
     const text = editable.textContent;
 
@@ -569,7 +641,6 @@ export class Editor {
     codeWrapper.appendChild(codeArea);
     container.appendChild(codeWrapper);
 
-    // Sync values & highlight
     const syncAndHighlight = () => {
       const value = textarea.value;
       block.data.code = value;
@@ -584,7 +655,6 @@ export class Editor {
       this.save();
     };
 
-    // Textarea sync events
     textarea.addEventListener('input', () => {
       syncAndHighlight();
       this.handleCodeAutocompleteTrigger(textarea, currentLang);
@@ -604,7 +674,6 @@ export class Editor {
         }
       }
 
-      // Tab handling inside textarea
       if (e.key === 'Tab') {
         e.preventDefault();
         const start = textarea.selectionStart;
@@ -613,28 +682,23 @@ export class Editor {
         textarea.selectionStart = textarea.selectionEnd = start + 4;
         syncAndHighlight();
       } else if (e.key === 'Backspace' && textarea.value === '') {
-        // Delete block on backspace inside empty textarea
         this.deleteBlock(index);
       }
     });
 
-    // Initial load sync
     syncAndHighlight();
   }
 
-  // --- Autocomplete (Intellisense) engine for Code Blocks ---
   handleCodeAutocompleteTrigger(textarea, lang) {
     const currentLang = lang.toLowerCase();
-    const suggestions = AUTOCOMPLETE_DICT[currentLang] || AUTOCOMPLETE_DICT['javascript']; // Fallback JavaScript dict
+    const suggestions = AUTOCOMPLETE_DICT[currentLang] || AUTOCOMPLETE_DICT['javascript'];
 
     const text = textarea.value;
     const pos = textarea.selectionStart;
 
-    // Find the current line typing token
     const textBeforeCursor = text.substring(0, pos);
     const lastLine = textBeforeCursor.split('\n').pop() || '';
 
-    // Match keywords or dot triggers (e.g. "Con", "Console.", "print")
     const match = lastLine.match(/([a-zA-Z_0-9<>]+(\.[a-zA-Z_0-9<>]*)?)$/);
     if (!match) {
       this.closeAutocompleteMenu();
@@ -643,7 +707,6 @@ export class Editor {
 
     const query = match[0].toLowerCase();
     
-    // Filter suggestions based on query
     const filtered = suggestions.filter(item => {
       return item.label.toLowerCase().includes(query) || item.text.toLowerCase().includes(query);
     });
@@ -653,7 +716,6 @@ export class Editor {
       return;
     }
 
-    // Show suggestions popup
     this.showAutocompleteMenu(textarea, filtered, query, pos);
   }
 
@@ -673,14 +735,12 @@ export class Editor {
     document.body.appendChild(menu);
     this.autocompleteMenu = menu;
 
-    // Position Autocomplete menu below typing caret
     const textareaRect = textarea.getBoundingClientRect();
     const caretCoords = getCaretCoordinates(textarea, cursorIndex);
 
     let top = textareaRect.top + caretCoords.top + caretCoords.height + 4 + window.scrollY;
     let left = textareaRect.left + caretCoords.left + window.scrollX;
 
-    // Keep picker inside screen boundaries
     if (top + 200 > window.innerHeight + window.scrollY) {
       top = textareaRect.top + caretCoords.top - 204 + window.scrollY;
     }
@@ -691,7 +751,6 @@ export class Editor {
     menu.style.top = `${top}px`;
     menu.style.left = `${left}px`;
 
-    // Item click listener
     menu.addEventListener('click', (e) => {
       const item = e.target.closest('.autocomplete-item');
       if (item) {
@@ -743,15 +802,11 @@ export class Editor {
   insertAutocompleteSelection(textarea, replacementText, query) {
     const text = textarea.value;
     const pos = textarea.selectionStart;
-    
-    // Replace the typed query letters with the auto-completed text
     const before = text.substring(0, pos - query.length);
     const after = text.substring(pos);
     
     textarea.value = before + replacementText + after;
     textarea.selectionStart = textarea.selectionEnd = before.length + replacementText.length;
-    
-    // Trigger input event to re-highlight and save
     textarea.dispatchEvent(new Event('input'));
     this.closeAutocompleteMenu();
     textarea.focus();
@@ -763,8 +818,8 @@ export class Editor {
       block.data = {
         rows: [
           ['Header 1', 'Header 2', 'Header 3'],
-          ['Cell 1', 'Cell 2', 'Cell 3'],
-          ['Cell 4', 'Cell 5', 'Cell 6']
+          ['', '', ''],
+          ['', '', '']
         ]
       };
     }
@@ -772,7 +827,6 @@ export class Editor {
     const tableWrapper = document.createElement('div');
     tableWrapper.className = 'loop-table-wrapper';
 
-    // Toolbar Options
     const toolbar = document.createElement('div');
     toolbar.className = 'table-block-toolbar';
     toolbar.innerHTML = `
@@ -783,7 +837,6 @@ export class Editor {
       <button class="table-opt-btn delete-table-btn" title="Delete Table">Delete</button>
     `;
 
-    // Add Row
     toolbar.querySelector('.add-row-btn').addEventListener('click', () => {
       const colCount = block.data.rows[0].length;
       block.data.rows.push(Array(colCount).fill(''));
@@ -791,14 +844,12 @@ export class Editor {
       this.render();
     });
 
-    // Add Column
     toolbar.querySelector('.add-col-btn').addEventListener('click', () => {
       block.data.rows.forEach(row => row.push(''));
       this.save();
       this.render();
     });
 
-    // Delete Row
     toolbar.querySelector('.del-row-btn').addEventListener('click', () => {
       if (block.data.rows.length > 1) {
         block.data.rows.pop();
@@ -807,7 +858,6 @@ export class Editor {
       }
     });
 
-    // Delete Column
     toolbar.querySelector('.del-col-btn').addEventListener('click', () => {
       if (block.data.rows[0].length > 1) {
         block.data.rows.forEach(row => row.pop());
@@ -816,14 +866,12 @@ export class Editor {
       }
     });
 
-    // Delete Table
     toolbar.querySelector('.delete-table-btn').addEventListener('click', () => {
       this.deleteBlock(index);
     });
 
     tableWrapper.appendChild(toolbar);
 
-    // Table Content
     const table = document.createElement('table');
     table.className = 'loop-editor-table';
 
@@ -846,6 +894,123 @@ export class Editor {
 
     tableWrapper.appendChild(table);
     container.appendChild(tableWrapper);
+  }
+
+  // --- Block Context Menu (options trigger on ⋮⋮ clicks) ---
+  showBlockContextMenu(anchorElement, block, index) {
+    this.closeBlockContextMenu();
+
+    const menu = document.createElement('div');
+    menu.id = 'editor-block-context-menu';
+    menu.className = 'loop-slash-menu-popup';
+    menu.style.width = '200px';
+
+    const menuItems = [
+      { action: 'copy', label: 'Copy Content', icon: '📋' },
+      { action: 'duplicate', label: 'Duplicate Block', icon: '👯' },
+      { action: 'delete', label: 'Delete Block', icon: '🗑️' }
+    ];
+
+    const convertTypes = [
+      { type: 'text', label: 'Text', icon: '📝' },
+      { type: 'heading-1', label: 'Heading 1', icon: 'H1' },
+      { type: 'heading-2', label: 'Heading 2', icon: 'H2' },
+      { type: 'heading-3', label: 'Heading 3', icon: 'H3' },
+      { type: 'bullet-list', label: 'Bulleted List', icon: '•' },
+      { type: 'number-list', label: 'Numbered List', icon: '1.' },
+      { type: 'checklist', label: 'To-do List', icon: '☑️' },
+      { type: 'code', label: 'Code Block', icon: '```' },
+      { type: 'table', label: 'Table', icon: '📊' },
+      { type: 'quote', label: 'Quote', icon: '💬' },
+      { type: 'callout', label: 'Callout Box', icon: '💡' }
+    ];
+
+    menu.innerHTML = `
+      <div style="padding: 4px;">
+        ${menuItems.map(item => `
+          <button class="block-context-item action-btn" data-action="${item.action}" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 6px 12px; font-size: 13.5px; border-radius:4px; cursor:pointer; color:var(--text-main); display:flex; gap:10px;">
+            <span>${item.icon}</span> ${item.label}
+          </button>
+        `).join('')}
+      </div>
+      <hr style="border:none; border-top:1px solid var(--border-color); margin: 4px 0;">
+      <div style="font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text-light); padding: 4px 12px 2px 12px;">Turn into</div>
+      <div style="max-height:160px; overflow-y:auto; padding: 4px;">
+        ${convertTypes.map(c => `
+          <button class="block-context-item convert-btn" data-type="${c.type}" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 5px 12px; font-size: 13px; border-radius:4px; cursor:pointer; color:var(--text-main); display:flex; gap:10px; ${block.type === c.type ? 'background:var(--primary-light); color:var(--primary); font-weight:500;' : ''}">
+            <span>${c.icon}</span> ${c.label}
+          </button>
+        `).join('')}
+      </div>
+    `;
+
+    document.body.appendChild(menu);
+    this.blockContextMenu = menu;
+
+    const rect = anchorElement.getBoundingClientRect();
+    let top = rect.bottom + window.scrollY + 6;
+    let left = rect.left + window.scrollX;
+
+    if (top + 340 > window.innerHeight + window.scrollY) {
+      top = rect.top - 346 + window.scrollY;
+    }
+    if (left + 210 > window.innerWidth) {
+      left = window.innerWidth - 226;
+    }
+
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+
+    // Menu Actions handler
+    menu.addEventListener('click', (e) => {
+      const btn = e.target.closest('.block-context-item');
+      if (!btn) return;
+      e.stopPropagation();
+
+      const action = btn.getAttribute('data-action');
+      const type = btn.getAttribute('data-type');
+
+      if (action === 'copy') {
+        const textVal = block.type === 'code' ? block.data.code : (block.type === 'table' ? JSON.stringify(block.data.rows) : block.data);
+        navigator.clipboard.writeText(textVal || '');
+        this.closeBlockContextMenu();
+      } else if (action === 'duplicate') {
+        const duplicatedBlock = JSON.parse(JSON.stringify(block));
+        duplicatedBlock.id = 'b-' + Math.random().toString(36).substr(2, 9);
+        this.blocks.splice(index + 1, 0, duplicatedBlock);
+        this.save();
+        this.render();
+        this.closeBlockContextMenu();
+        this.focusBlock(index + 1);
+      } else if (action === 'delete') {
+        this.deleteBlock(index);
+        this.closeBlockContextMenu();
+      } else if (type) {
+        // Convert block type
+        block.type = type;
+        if (type === 'code') {
+          block.data = { code: '', language: 'JavaScript', lineNumbers: true };
+        } else if (type === 'table') {
+          block.data = { rows: [['Header 1', 'Header 2'], ['', '']] };
+        } else if (type === 'callout') {
+          block.emoji = '💡';
+          block.data = typeof block.data === 'string' ? block.data : '';
+        } else {
+          block.data = typeof block.data === 'string' ? block.data : '';
+        }
+        this.save();
+        this.render();
+        this.closeBlockContextMenu();
+        this.focusBlock(index);
+      }
+    });
+  }
+
+  closeBlockContextMenu() {
+    if (this.blockContextMenu) {
+      this.blockContextMenu.remove();
+      this.blockContextMenu = null;
+    }
   }
 
   // --- Slash Commands Popover `/` ---
@@ -883,7 +1048,6 @@ export class Editor {
     document.body.appendChild(menu);
     this.slashMenu = menu;
 
-    // Position popover
     const rect = editable.getBoundingClientRect();
     let top = rect.bottom + window.scrollY + 6;
     let left = rect.left + window.scrollX;
@@ -895,7 +1059,6 @@ export class Editor {
     menu.style.top = `${top}px`;
     menu.style.left = `${left}px`;
 
-    // Item Selection Click
     menu.addEventListener('click', (e) => {
       const item = e.target.closest('.slash-menu-item');
       if (item) {
@@ -940,7 +1103,6 @@ export class Editor {
     if (!this.slashMenu) return;
     const activeItem = this.slashMenu.querySelector('.slash-menu-item.active');
     if (activeItem) {
-      const index = parseInt(activeItem.closest('div').parentElement.querySelector('.slash-menu-item').parentElement.style.top ? this.activeBlockIndex : this.activeBlockIndex);
       const block = this.blocks[this.activeBlockIndex];
       const wrappers = this.container.querySelectorAll('.block-editable');
       const editable = wrappers[this.activeBlockIndex];
@@ -949,23 +1111,13 @@ export class Editor {
   }
 
   transformBlock(editable, block, index, newType) {
-    // Strip the slash symbol from data
     let cleanText = editable.textContent.replace(/\/$/, '');
     
     block.type = newType;
     if (newType === 'code') {
-      block.data = {
-        code: '',
-        language: 'JavaScript',
-        lineNumbers: true
-      };
+      block.data = { code: '', language: 'JavaScript', lineNumbers: true };
     } else if (newType === 'table') {
-      block.data = {
-        rows: [
-          ['Header 1', 'Header 2'],
-          ['', '']
-        ]
-      };
+      block.data = { rows: [['Header 1', 'Header 2'], ['', '']] };
     } else if (newType === 'callout') {
       block.emoji = '💡';
       block.data = cleanText;
@@ -979,17 +1131,15 @@ export class Editor {
     this.focusBlock(index);
   }
 
-  // --- Insertion / Deletion Block Mechanics ---
-  insertBlockAfter(index, currentType) {
+  insertBlockAfter(index, currentType, currentIndent = 0) {
     const newId = 'b-' + Math.random().toString(36).substr(2, 9);
-    
-    // Inherit list type when hitting Enter in lists
     const nextType = ['bullet-list', 'number-list', 'checklist'].includes(currentType) ? currentType : 'text';
     
     const newBlock = {
       id: newId,
       type: nextType,
-      data: ''
+      data: '',
+      indent: currentIndent
     };
 
     if (nextType === 'checklist') {
@@ -1003,21 +1153,18 @@ export class Editor {
   }
 
   deleteBlock(index) {
-    // Do not delete the only block
     if (this.blocks.length === 1) {
-      this.blocks[0] = { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '' };
+      this.blocks[0] = { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 };
       this.save();
       this.render();
       this.focusBlock(0);
       return;
     }
 
-    const blockToDelete = this.blocks[index];
     this.blocks.splice(index, 1);
     this.save();
     this.render();
 
-    // Focus previous block or next block
     const focusIndex = index > 0 ? index - 1 : 0;
     this.focusBlock(focusIndex);
   }
@@ -1029,8 +1176,6 @@ export class Editor {
         const editable = wrappers[index].querySelector('.block-editable');
         if (editable) {
           editable.focus();
-          
-          // Place caret at end
           const range = document.createRange();
           const sel = window.getSelection();
           range.selectNodeContents(editable);
@@ -1038,7 +1183,6 @@ export class Editor {
           sel.removeAllRanges();
           sel.addRange(range);
         } else {
-          // If code or table, focus the textarea/first cell
           const text = wrappers[index].querySelector('textarea');
           if (text) {
             text.focus();
