@@ -815,21 +815,62 @@ body {
   transition: border-color 0.15s ease;
 }
 
+/* Left side controls layout (Drag handle and Add button stacked) */
+.loop-block-left-controls {
+  position: absolute;
+  left: -28px;
+  top: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+  user-select: none;
+}
+
+.loop-editor-block-wrapper:hover .loop-block-left-controls {
+  opacity: 1;
+}
+
 .loop-block-drag-handle {
-  width: 20px;
+  width: 22px;
+  height: 18px;
   color: var(--text-light);
   font-size: 14px;
   cursor: grab;
   user-select: none;
-  opacity: 0;
-  position: absolute;
-  left: -26px;
-  top: 6px;
-  transition: opacity 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
 }
 
-.loop-editor-block-wrapper:hover .loop-block-drag-handle {
-  opacity: 1;
+.loop-block-drag-handle:hover {
+  color: var(--text-main);
+}
+
+.loop-block-add-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: var(--text-light);
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  line-height: 1;
+  padding: 0;
+}
+
+.loop-block-add-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--primary);
 }
 
 .loop-editor-block-wrapper.dragging {

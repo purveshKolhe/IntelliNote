@@ -220,11 +220,23 @@ export class Editor {
     if (block.indent) {
       wrapper.style.marginLeft = `${block.indent * 24}px`;
     }
+    // Left side controls (Drag Handle and Add Block Plus button)
+    const controlsContainer = document.createElement('div');
+    controlsContainer.className = 'loop-block-left-controls';
 
     const dragHandle = document.createElement('div');
     dragHandle.className = 'loop-block-drag-handle';
     dragHandle.innerHTML = '⋮⋮';
-    wrapper.appendChild(dragHandle);
+    dragHandle.title = 'Drag to reorder / Click for options';
+    controlsContainer.appendChild(dragHandle);
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'loop-block-add-btn';
+    addBtn.innerHTML = '+';
+    addBtn.title = 'Insert block below';
+    controlsContainer.appendChild(addBtn);
+
+    wrapper.appendChild(controlsContainer);
 
     dragHandle.addEventListener('mousedown', () => {
       wrapper.setAttribute('draggable', 'true');
@@ -236,6 +248,11 @@ export class Editor {
     dragHandle.addEventListener('click', (e) => {
       e.stopPropagation();
       this.showBlockContextMenu(dragHandle, block, index);
+    });
+
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.insertBlockAfter(index, block.type, block.indent);
     });
 
     wrapper.addEventListener('dragstart', (e) => {
