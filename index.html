@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IntelliNote - Local-First Microsoft Loop Clone</title>
+    <meta name="description" content="IntelliNote is a premium local-first documentation tool matching Microsoft Loop. Build workspaces, organize chapters, write with Markdown commands, and highlight code offline." />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Primary Sidebar (Left-most panel) -->
+      <aside id="sidebar-primary" class="loop-primary-sidebar">
+        <div class="loop-logo-area">
+          <div class="loop-logo-icon">L</div>
+          <h1 class="loop-logo-text">Loop</h1>
+        </div>
+        <button id="btn-create-workspace" class="create-new-btn">
+          <span>＋</span> Create new
+        </button>
+        <nav class="primary-nav-list" aria-label="Main Navigation">
+          <button id="btn-nav-search" class="nav-item">
+            <span class="nav-item-icon">🔍</span> Search
+          </button>
+          <button id="btn-nav-notifications" class="nav-item">
+            <span class="nav-item-icon">🔔</span> Notifications
+          </button>
+        </nav>
+        <div class="sidebar-section-title">Workspaces</div>
+        <div id="sidebar-workspaces-container" class="sidebar-workspaces-list">
+          <!-- Dynamic workspaces loaded from localStorage -->
+        </div>
+      </aside>
+
+      <!-- Secondary Sidebar (Active Workspace Chapter hierarchy) -->
+      <aside id="sidebar-secondary" class="loop-secondary-sidebar" style="display: none;">
+        <!-- Dynamic active workspace context controls and chapter titles list -->
+      </aside>
+
+      <!-- Main Panel (Dashboard workspace grid OR document paper) -->
+      <main id="main-pane" class="loop-main-pane">
+        <!-- Dynamic contents loaded by main.js routing -->
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
