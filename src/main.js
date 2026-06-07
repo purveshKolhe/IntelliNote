@@ -91,6 +91,13 @@ function setupPrimarySidebarEvents() {
   notifyBtn.addEventListener('click', () => {
     showNotificationsDrawer();
   });
+
+  const pluginsBtn = document.getElementById('btn-nav-plugins');
+  if (pluginsBtn) {
+    pluginsBtn.addEventListener('click', () => {
+      showPluginsModal();
+    });
+  }
   
   const logo = document.querySelector('.loop-logo-area');
   logo.style.cursor = 'pointer';
@@ -1019,6 +1026,235 @@ function showNotificationsDrawer() {
   const closeModal = () => overlay.remove();
   overlay.querySelector('#notify-close').addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+}
+
+// --- Plugins Manager Modal ---
+function showPluginsModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'loop-search-modal-overlay';
+  overlay.style.zIndex = '6000';
+
+  overlay.innerHTML = `
+    <div class="loop-search-dialog" style="width: 760px; height: 500px; display: flex; flex-direction: column;">
+      <div class="bin-header">
+        <h3 class="bin-title">🔌 Plugins Store & Manager</h3>
+        <button class="bin-close-btn" id="plugins-modal-close">×</button>
+      </div>
+      <div style="display: flex; flex-grow: 1; overflow: hidden;">
+        <!-- Left panel: list of plugins -->
+        <div style="width: 280px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; background: #fafafa;">
+          <div style="padding: 10px; display: flex; gap: 8px; border-bottom: 1px solid var(--border-color);">
+            <button id="btn-plugins-list-tab" style="flex-grow: 1; padding: 6px; font-family: inherit; font-size: 13px; font-weight: 600; border: none; background: var(--primary-light-active); color: var(--primary); border-radius: 6px; cursor: pointer;">Installed</button>
+            <button id="btn-plugins-create-tab" style="flex-grow: 1; padding: 6px; font-family: inherit; font-size: 13px; font-weight: 500; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; cursor: pointer;">＋ Custom</button>
+          </div>
+          <div id="plugins-list-container" style="flex-grow: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+            <!-- Render list of plugins here -->
+          </div>
+        </div>
+
+        <!-- Right panel: plugin detail or create form -->
+        <div id="plugins-detail-pane" style="flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column;">
+          <!-- Detail views loaded here -->
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const closeModal = () => overlay.remove();
+  overlay.querySelector('#plugins-modal-close').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+  const listTab = overlay.querySelector('#btn-plugins-list-tab');
+  const createTab = overlay.querySelector('#btn-plugins-create-tab');
+  const listContainer = overlay.querySelector('#plugins-list-container');
+  const detailPane = overlay.querySelector('#plugins-detail-pane');
+
+  let selectedPluginId = null;
+
+  const renderPluginsList = () => {
+    const plugins = db.getPlugins();
+    listContainer.innerHTML = plugins.map(p => `
+      <div class="plugin-list-item ${p.id === selectedPluginId ? 'active' : ''}" data-id="${p.id}" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: all 0.15s ease; ${p.id === selectedPluginId ? 'background: var(--primary-light-active); font-weight: 500;' : ''}">
+        <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+          <span style="font-size: 18px;">${p.icon || '🔌'}</span>
+          <div style="overflow: hidden;">
+            <div style="font-size: 13.5px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</div>
+            <div style="font-size: 10.5px; color: ${p.enabled ? '#059669' : 'var(--text-light)'};">${p.enabled ? 'Enabled' : 'Disabled'}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    listContainer.querySelectorAll('.plugin-list-item').forEach(item => {
+      item.addEventListener('click', () => {
+        selectedPluginId = item.getAttribute('data-id');
+        renderPluginsList();
+        renderPluginDetails(selectedPluginId);
+      });
+    });
+
+    if (plugins.length > 0 && !selectedPluginId) {
+      selectedPluginId = plugins[0].id;
+      renderPluginsList();
+      renderPluginDetails(selectedPluginId);
+    }
+  };
+
+  const renderPluginDetails = (id) => {
+    const plugin = db.getPlugins().find(p => p.id === id);
+    if (!plugin) {
+      detailPane.innerHTML = '';
+      return;
+    }
+
+    detailPane.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 32px;">${plugin.icon || '🔌'}</span>
+          <div>
+            <h3 style="font-size: 18px; font-weight: 600; color: var(--text-main); margin: 0;">${plugin.name}</h3>
+            <span style="font-size: 11px; color: var(--text-muted); background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">ID: ${plugin.id}</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          ${!plugin.isBuiltIn ? `<button id="btn-plugin-delete" style="border: 1px solid rgba(239, 68, 68, 0.2); background: transparent; color: #ef4444; font-family: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 500;">Delete</button>` : ''}
+          <button id="btn-plugin-toggle" style="border: none; background: ${plugin.enabled ? '#ef4444' : 'var(--primary)'}; color: #fff; font-family: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 500;">
+            ${plugin.enabled ? 'Disable' : 'Enable'}
+          </button>
+        </div>
+      </div>
+      <p style="font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">${plugin.description}</p>
+      
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-light); text-transform: uppercase;">Renderer Code</div>
+        <textarea id="plugin-code-textarea" readonly style="flex-grow: 1; width: 100%; font-family: var(--font-mono); font-size: 12.5px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: #f8fafc; color: var(--text-muted); resize: none; outline: none; white-space: pre; overflow: auto;">${plugin.renderCode}</textarea>
+        ${!plugin.isBuiltIn ? `<div style="text-align: right;"><button id="btn-plugin-edit" style="border: 1px solid var(--primary); background: transparent; color: var(--primary); font-family: inherit; font-size: 12px; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 4px;">Edit Code</button></div>` : ''}
+      </div>
+    `;
+
+    detailPane.querySelector('#btn-plugin-toggle').addEventListener('click', () => {
+      db.togglePlugin(id);
+      renderPluginsList();
+      renderPluginDetails(id);
+      if (activeEditorInstance) activeEditorInstance.render();
+    });
+
+    if (!plugin.isBuiltIn) {
+      detailPane.querySelector('#btn-plugin-delete').addEventListener('click', () => {
+        showConfirmationModal({
+          title: 'Delete Plugin?',
+          message: `Are you sure you want to permanently delete custom plugin "${plugin.name}"? This will disable all blocks associated with it.`,
+          confirmText: 'Delete',
+          confirmClass: 'delete',
+          onConfirm: () => {
+            db.deletePlugin(id);
+            selectedPluginId = null;
+            renderPluginsList();
+            if (activeEditorInstance) activeEditorInstance.render();
+          }
+        });
+      });
+
+      detailPane.querySelector('#btn-plugin-edit').addEventListener('click', () => {
+        showCustomPluginForm(plugin);
+      });
+    }
+  };
+
+  const showCustomPluginForm = (existingPlugin = null) => {
+    listTab.style.fontWeight = '500';
+    listTab.style.background = 'transparent';
+    listTab.style.color = 'var(--text-muted)';
+    createTab.style.fontWeight = '600';
+    createTab.style.background = 'var(--primary-light-active)';
+    createTab.style.color = 'var(--primary)';
+
+    const defaultCode = `// Write your custom block renderer code here!\\n// Available variables:\\n// - block: the block data object (store block.data here)\\n// - index: the index of this block in the list\\n// - container: the DOM element container to render your HTML inside\\n// - editor: the Editor instance\\n// - save(): callback function to persist changes\\n// - db: the LocalStorage database manager\\n\\ncontainer.innerHTML = '';\\nconst card = document.createElement('div');\\ncard.style.padding = '16px';\\ncard.style.background = '#ffffff';\\ncard.style.border = '1px solid var(--border-color)';\\ncard.style.borderRadius = '10px';\\ncard.style.boxShadow = 'var(--shadow-sm)';\\n\\nconst title = document.createElement('h4');\\ntitle.style.margin = '0 0 8px 0';\\ntitle.style.fontSize = '15px';\\ntitle.textContent = 'Custom Widget: Click to count!';\\ncard.appendChild(title);\\n\\nconst countBtn = document.createElement('button');\\nif (!block.data || typeof block.data !== 'object') {\\n  block.data = { count: 0 };\\n}\\ncountBtn.textContent = 'Clicks: ' + block.data.count;\\ncountBtn.style.padding = '6px 14px';\\ncountBtn.style.borderRadius = '20px';\\ncountBtn.style.border = '1px solid var(--primary)';\\ncountBtn.style.background = 'transparent';\\ncountBtn.style.color = 'var(--primary)';\\ncountBtn.style.cursor = 'pointer';\\ncountBtn.style.fontWeight = '500';\\n\\ncountBtn.addEventListener('click', () => {\\n  block.data.count++;\\n  countBtn.textContent = 'Clicks: ' + block.data.count;\\n  save();\\n});\\n\\ncard.appendChild(countBtn);\\ncontainer.appendChild(card);`;
+
+    detailPane.innerHTML = `
+      <h3 style="font-size: 17px; font-weight: 600; color: var(--text-main); margin-bottom: 16px;">
+        \${existingPlugin ? '📝 Edit Custom Plugin' : '🔌 Create Custom Plugin'}
+      </h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div>
+          <label style="font-size: 12px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4px;">Plugin Name</label>
+          <input type="text" id="plugin-form-name" placeholder="e.g. Counter Block" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border-color); font-size:14px; outline:none;" value="\${existingPlugin ? existingPlugin.name : ''}">
+        </div>
+        <div>
+          <label style="font-size: 12px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4px;">Unique ID (lowercase, no spaces)</label>
+          <input type="text" id="plugin-form-id" placeholder="e.g. click-counter" \${existingPlugin ? 'readonly' : ''} style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border-color); font-size:14px; outline:none; background: \${existingPlugin ? '#f1f5f9; color:var(--text-light);' : '#fff'};" value="\${existingPlugin ? existingPlugin.id : ''}">
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 80px 1fr; gap: 12px; margin-bottom: 12px;">
+        <div>
+          <label style="font-size: 12px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4px;">Icon Emoji</label>
+          <input type="text" id="plugin-form-icon" placeholder="🔌" maxlength="4" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border-color); font-size:14px; text-align:center; outline:none;" value="\${existingPlugin ? existingPlugin.icon : '🔌'}">
+        </div>
+        <div>
+          <label style="font-size: 12px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4px;">Short Description</label>
+          <input type="text" id="plugin-form-desc" placeholder="e.g. Click count tracker box." style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border-color); font-size:14px; outline:none;" value="\${existingPlugin ? existingPlugin.description : ''}">
+        </div>
+      </div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; margin-bottom: 16px;">
+        <label style="font-size: 12px; font-weight: 500; color: var(--text-muted);">Custom JS Renderer Code</label>
+        <textarea id="plugin-form-code" style="flex-grow: 1; width: 100%; font-family: var(--font-mono); font-size: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; resize: none; outline: none; white-space: pre; overflow: auto;">\${existingPlugin ? existingPlugin.renderCode : defaultCode}</textarea>
+      </div>
+      <div style="text-align: right; display:flex; justify-content:flex-end; gap:8px;">
+        <button id="btn-plugin-form-cancel" style="border: 1px solid var(--border-color); background:transparent; color: var(--text-muted); font-family: inherit; font-size: 13px; padding: 6px 16px; border-radius: 20px; cursor: pointer;">Cancel</button>
+        <button id="btn-plugin-form-save" style="border: none; background: var(--primary); color: #fff; font-family: inherit; font-size: 13px; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-weight: 500;">Save Plugin</button>
+      </div>
+    `;
+
+    detailPane.querySelector('#btn-plugin-form-cancel').addEventListener('click', () => {
+      listTab.click();
+    });
+
+    detailPane.querySelector('#btn-plugin-form-save').addEventListener('click', () => {
+      const name = detailPane.querySelector('#plugin-form-name').value.trim();
+      const id = detailPane.querySelector('#plugin-form-id').value.trim().toLowerCase().replace(/\\s+/g, '-');
+      const icon = detailPane.querySelector('#plugin-form-icon').value.trim() || '🔌';
+      const desc = detailPane.querySelector('#plugin-form-desc').value.trim() || 'Custom plugin block.';
+      const code = detailPane.querySelector('#plugin-form-code').value;
+
+      if (!name || !id || !code) {
+        alert('Please fill in Name, ID, and Renderer Code!');
+        return;
+      }
+
+      const pluginData = {
+        id,
+        name,
+        icon,
+        description: desc,
+        enabled: existingPlugin ? existingPlugin.enabled : true,
+        isBuiltIn: false,
+        renderCode: code
+      };
+
+      db.savePlugin(pluginData);
+      selectedPluginId = id;
+      listTab.click();
+      if (activeEditorInstance) activeEditorInstance.render();
+    });
+  };
+
+  listTab.addEventListener('click', () => {
+    listTab.style.fontWeight = '600';
+    listTab.style.background = 'var(--primary-light-active)';
+    listTab.style.color = 'var(--primary)';
+    createTab.style.fontWeight = '500';
+    createTab.style.background = 'transparent';
+    createTab.style.color = 'var(--text-muted)';
+    renderPluginsList();
+  });
+
+  createTab.addEventListener('click', () => {
+    showCustomPluginForm();
+  });
+
+  renderPluginsList();
 }
 
 function formatRelativeTime(date) {

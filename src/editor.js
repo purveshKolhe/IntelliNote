@@ -503,6 +503,9 @@ export class Editor {
       case 'equation':
         this.renderEquationBlock(block, index, contentContainer);
         break;
+      default:
+        this.renderPluginBlock(block, index, contentContainer);
+        break;
     }
 
     return wrapper;
@@ -1106,6 +1109,24 @@ export class Editor {
     });
   }
 
+  // --- Render Custom Plugin Block ---
+  renderPluginBlock(block, index, container) {
+    const plugins = db.getPlugins();
+    const plugin = plugins.find(p => p.id === block.type && p.enabled);
+    if (!plugin) {
+      container.innerHTML = `<div style="padding:12px; color:#ef4444; border:1px solid rgba(239,68,68,0.2); border-radius:10px; background:#fef2f2; font-size:14px; font-weight:500;">Plugin "${block.type}" is disabled or missing. Enable it in Plugins menu.</div>`;
+      return;
+    }
+
+    try {
+      // Execute the custom javascript logic of the plugin dynamically
+      const renderFn = new Function('block', 'index', 'container', 'editor', 'save', 'db', plugin.renderCode);
+      renderFn(block, index, container, this, () => this.save(), db);
+    } catch (e) {
+      container.innerHTML = `<div style="padding:12px; color:#ef4444; border:1px dashed #ef4444; border-radius:10px; background:#fef2f2; font-family:var(--font-mono); font-size:13px; white-space:pre-wrap;">Plugin Render Error:\n${e.stack || e.message}</div>`;
+    }
+  }
+
   // --- Block Context Menu ---
   showBlockContextMenu(anchorElement, block, index) {
     this.closeBlockContextMenu();
@@ -1246,6 +1267,17 @@ export class Editor {
       { type: 'callout', label: 'Callout', desc: 'Make text stand out box', icon: '💡' },
       { type: 'divider', label: 'Divider', desc: 'Separate sections line', icon: '―' }
     ];
+
+    // Load active plugins dynamically
+    const enabledPlugins = db.getPlugins().filter(p => p.enabled);
+    enabledPlugins.forEach(p => {
+      menuItems.push({
+        type: p.id,
+        label: p.name,
+        desc: p.description,
+        icon: p.icon || '🔌'
+      });
+    });
 
     menu.innerHTML = menuItems.map((item, idx) => `
       <div class="slash-menu-item ${idx === 0 ? 'active' : ''}" data-type="${item.type}">

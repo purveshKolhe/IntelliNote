@@ -1775,3 +1775,14 @@ body {
   font-family: var(--font-mono);
   font-size: 13.5px;
 }
+
+/* Plugin Store list items transitions */
+.plugin-list-item:hover {
+  background: rgba(124, 58, 237, 0.05) !important;
+}
+
+.plugin-list-item.active {
+  background: var(--primary-light-active) !important;
+  color: var(--primary) !important;
+  font-weight: 500;
+}
