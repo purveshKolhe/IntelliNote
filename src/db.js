@@ -140,7 +140,7 @@ container.appendChild(wrapper);`
     renderCode: `if (!block.data || typeof block.data !== 'object' || !block.data.tasks) {
   block.data = {
     tasks: [
-      { id: 't-1', name: 'Task 1', completed: false, secondsLeft: 1500, totalSeconds: 1500, isRunning: false }
+      { id: 't-1', name: 'Task 1', completed: false, secondsLeft: 1500, totalSeconds: 1500, isRunning: false, history: [], currentSession: null }
     ]
   };
 }
@@ -177,6 +177,9 @@ window.loopTimersManager = window.loopTimersManager || {
     if (this.pipBlockId === blockId && typeof window.loopUpdatePipUI === 'function') {
       window.loopUpdatePipUI();
     }
+    if (document.getElementById('loop-timer-analytics-panel') && typeof window.loopShowAnalyticsDashboard === 'function') {
+      window.loopShowAnalyticsDashboard();
+    }
   },
   
   startTimer(chapterId, blockId, taskId, db) {
@@ -184,57 +187,85 @@ window.loopTimersManager = window.loopTimersManager || {
     if (this.intervals[key]) return;
     
     const dbInstance = this.db || db;
-    this.updateTaskState(chapterId, blockId, taskId, { isRunning: true }, dbInstance);
+    
+    // Manage active context and session history start
+    const activeCtx = this.activeContexts && this.activeContexts[blockId];
+    const isContextValid = activeCtx && activeCtx.editor && document.body.contains(activeCtx.editor.container);
+    let task = null;
+    let chapter = null;
+    
+    if (isContextValid && activeCtx.block && activeCtx.block.data && activeCtx.block.data.tasks) {
+      task = activeCtx.block.data.tasks.find(t => t.id === taskId);
+    } else {
+      chapter = dbInstance.getChapter(chapterId);
+      if (chapter) {
+        const dbBlock = chapter.blocks.find(b => b.id === blockId);
+        if (dbBlock && dbBlock.data && dbBlock.data.tasks) {
+          task = dbBlock.data.tasks.find(t => t.id === taskId);
+        }
+      }
+    }
+    
+    if (task) {
+      task.isRunning = true;
+      task.history = task.history || [];
+      if (!task.currentSession) {
+        task.currentSession = {
+          sessionStart: Date.now(),
+          pauses: []
+        };
+      } else {
+        task.currentSession.pauses = task.currentSession.pauses || [];
+        const lastPause = task.currentSession.pauses[task.currentSession.pauses.length - 1];
+        if (lastPause && !lastPause.resumedAt) {
+          lastPause.resumedAt = Date.now();
+        }
+      }
+      
+      if (isContextValid) {
+        activeCtx.save();
+      } else if (chapter) {
+        dbInstance.saveChapter(chapter);
+      }
+    }
     
     this.intervals[key] = setInterval(() => {
-      const activeCtx = this.activeContexts && this.activeContexts[blockId];
-      const isContextValid = activeCtx && activeCtx.editor && document.body.contains(activeCtx.editor.container);
-      let task = null;
+      const currentCtx = this.activeContexts && this.activeContexts[blockId];
+      const validCtx = currentCtx && currentCtx.editor && document.body.contains(currentCtx.editor.container);
+      let tTask = null;
       
-      if (isContextValid && activeCtx.block && activeCtx.block.data && activeCtx.block.data.tasks) {
-        task = activeCtx.block.data.tasks.find(t => t.id === taskId);
-        if (task) {
-          if (task.secondsLeft > 0) {
-            task.secondsLeft--;
-            activeCtx.save();
-            this.notifyListeners(blockId);
-          } else {
-            this.stopTimer(chapterId, blockId, taskId, dbInstance);
-            try {
-              const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-200.wav');
-              audio.volume = 0.5;
-              audio.play();
-            } catch(err) {}
-            alert('Time is up for task: ' + task.name);
+      if (validCtx && currentCtx.block && currentCtx.block.data && currentCtx.block.data.tasks) {
+        tTask = currentCtx.block.data.tasks.find(t => t.id === taskId);
+        if (tTask) {
+          const reachedZero = tTask.secondsLeft === 0;
+          tTask.secondsLeft--;
+          currentCtx.save();
+          this.notifyListeners(blockId);
+          if (reachedZero) {
+            this.triggerCompletionAlert(tTask.name);
           }
         } else {
           this.stopTimer(chapterId, blockId, taskId, dbInstance);
         }
       } else {
-        const chapter = dbInstance.getChapter(chapterId);
-        if (!chapter) {
+        const dbChapter = dbInstance.getChapter(chapterId);
+        if (!dbChapter) {
           this.stopTimer(chapterId, blockId, taskId, dbInstance);
           return;
         }
-        const dbBlock = chapter.blocks.find(b => b.id === blockId);
+        const dbBlock = dbChapter.blocks.find(b => b.id === blockId);
         if (!dbBlock || !dbBlock.data || !dbBlock.data.tasks) {
           this.stopTimer(chapterId, blockId, taskId, dbInstance);
           return;
         }
-        task = dbBlock.data.tasks.find(t => t.id === taskId);
-        if (task) {
-          if (task.secondsLeft > 0) {
-            task.secondsLeft--;
-            dbInstance.saveChapter(chapter);
-            this.notifyListeners(blockId);
-          } else {
-            this.stopTimer(chapterId, blockId, taskId, dbInstance);
-            try {
-              const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-200.wav');
-              audio.volume = 0.5;
-              audio.play();
-            } catch(err) {}
-            alert('Time is up for task: ' + task.name);
+        tTask = dbBlock.data.tasks.find(t => t.id === taskId);
+        if (tTask) {
+          const reachedZero = tTask.secondsLeft === 0;
+          tTask.secondsLeft--;
+          dbInstance.saveChapter(dbChapter);
+          this.notifyListeners(blockId);
+          if (reachedZero) {
+            this.triggerCompletionAlert(tTask.name);
           }
         } else {
           this.stopTimer(chapterId, blockId, taskId, dbInstance);
@@ -245,14 +276,66 @@ window.loopTimersManager = window.loopTimersManager || {
     this.notifyListeners(blockId);
   },
   
+  triggerCompletionAlert(taskName) {
+    try {
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-200.wav');
+      audio.volume = 0.5;
+      audio.play();
+    } catch(err) {}
+    
+    if (typeof Notification !== 'undefined') {
+      if (Notification.permission === 'granted') {
+        new Notification('Time Up!', { body: 'Session completed for: ' + taskName });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(p => {
+          if (p === 'granted') new Notification('Time Up!', { body: 'Session completed for: ' + taskName });
+        });
+      }
+    }
+  },
+  
   stopTimer(chapterId, blockId, taskId, db) {
     const key = blockId + '_' + taskId;
     if (this.intervals[key]) {
       clearInterval(this.intervals[key]);
       delete this.intervals[key];
     }
+    
     const dbInstance = this.db || db;
-    this.updateTaskState(chapterId, blockId, taskId, { isRunning: false }, dbInstance);
+    const activeCtx = this.activeContexts && this.activeContexts[blockId];
+    const isContextValid = activeCtx && activeCtx.editor && document.body.contains(activeCtx.editor.container);
+    let task = null;
+    let chapter = null;
+    
+    if (isContextValid && activeCtx.block && activeCtx.block.data && activeCtx.block.data.tasks) {
+      task = activeCtx.block.data.tasks.find(t => t.id === taskId);
+    } else {
+      chapter = dbInstance.getChapter(chapterId);
+      if (chapter) {
+        const dbBlock = chapter.blocks.find(b => b.id === blockId);
+        if (dbBlock && dbBlock.data && dbBlock.data.tasks) {
+          task = dbBlock.data.tasks.find(t => t.id === taskId);
+        }
+      }
+    }
+    
+    if (task) {
+      task.isRunning = false;
+      if (task.currentSession) {
+        task.currentSession.pauses = task.currentSession.pauses || [];
+        task.currentSession.pauses.push({
+          pausedAt: Date.now(),
+          resumedAt: null
+        });
+      }
+      
+      if (isContextValid) {
+        activeCtx.save();
+      } else if (chapter) {
+        dbInstance.saveChapter(chapter);
+      }
+    }
+    
     this.notifyListeners(blockId);
   },
   
@@ -294,12 +377,98 @@ const playIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentC
 const pauseIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:block;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
 const resetIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>';
 const trashIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+const gearIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
 const pipIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: -2px; display:inline-block;"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><rect x="13" y="13" width="7" height="7" fill="currentColor"></rect></svg>';
 const plusIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px; display:inline-block;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
 const minIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:block;"><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
 const closeIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:block;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 const timerIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px; display:inline-block;"><circle cx="12" cy="13" r="8"></circle><polyline points="12 9 12 13 14 15"></polyline><line x1="12" y1="5" x2="12" y2="2"></line></svg>';
 const timerIconLarge = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 4px; display:block;"><circle cx="12" cy="13" r="8"></circle><polyline points="12 9 12 13 14 15"></polyline><line x1="12" y1="5" x2="12" y2="2"></line></svg>';
+
+const formatTimeStr = (ts) => {
+  if (!ts) return '';
+  const date = new Date(ts);
+  let hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return hours + ':' + minutes + ' ' + ampm;
+};
+
+const formatDuration = (secs) => {
+  const isOvertime = secs < 0;
+  const absSecs = Math.abs(secs);
+  const m = Math.floor(absSecs / 60).toString().padStart(2, '0');
+  const s = (absSecs % 60).toString().padStart(2, '0');
+  return (isOvertime ? '+' : '') + m + ':' + s;
+};
+
+const renderHistoryUI = (task, panel) => {
+  panel.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'loop-timer-history-title';
+  title.innerHTML = '<span>Analytics Logs</span><span style="font-weight:normal; opacity:0.7;">Time in AM/PM</span>';
+  panel.appendChild(title);
+  
+  const logs = [];
+  
+  if (task.history && task.history.length > 0) {
+    task.history.forEach((session, sIdx) => {
+      let durationMins = Math.round((session.sessionEnd - session.sessionStart) / 1000 / 60);
+      if (durationMins < 1) durationMins = '< 1 min';
+      else durationMins = durationMins + ' mins';
+      
+      const text = 'Session #' + (sIdx + 1) + ': ' + formatTimeStr(session.sessionStart) + ' - ' + formatTimeStr(session.sessionEnd) + ' (' + durationMins + ')';
+      let pausesText = '';
+      if (session.pauses && session.pauses.length > 0) {
+        const pTimes = session.pauses.map(p => {
+          return formatTimeStr(p.pausedAt) + (p.resumedAt ? ' - ' + formatTimeStr(p.resumedAt) : ' (Paused)');
+        }).join(', ');
+        pausesText = 'Pauses: ' + pTimes;
+      }
+      logs.push({ text, subtext: pausesText });
+    });
+  }
+  
+  if (task.currentSession) {
+    const text = 'Current Session (Running): Started at ' + formatTimeStr(task.currentSession.sessionStart);
+    let pausesText = '';
+    if (task.currentSession.pauses && task.currentSession.pauses.length > 0) {
+      const pTimes = task.currentSession.pauses.map(p => {
+        return formatTimeStr(p.pausedAt) + (p.resumedAt ? ' - ' + formatTimeStr(p.resumedAt) : ' (Paused)');
+      }).join(', ');
+      pausesText = 'Pauses: ' + pTimes;
+    }
+    logs.push({ text, subtext: pausesText });
+  }
+  
+  if (logs.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.opacity = '0.6';
+    empty.textContent = 'No previous logs for this task.';
+    panel.appendChild(empty);
+  } else {
+    logs.reverse().forEach(log => {
+      const item = document.createElement('div');
+      item.className = 'loop-timer-history-item';
+      
+      const main = document.createElement('div');
+      main.style.fontWeight = '500';
+      main.textContent = log.text;
+      item.appendChild(main);
+      
+      if (log.subtext) {
+        const sub = document.createElement('div');
+        sub.style.fontSize = '10px';
+        sub.style.opacity = '0.7';
+        sub.textContent = log.subtext;
+        item.appendChild(sub);
+      }
+      panel.appendChild(item);
+    });
+  }
+};
 
 // Setup Styles once
 if (!document.getElementById('loop-timer-pip-styles')) {
@@ -382,13 +551,19 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     
     .loop-pip-task {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      flex-direction: column;
+      gap: 6px;
       padding: 8px;
       border-radius: 8px;
       background: rgba(248, 250, 252, 0.6);
       border: 1px solid rgba(226, 232, 240, 0.5);
+    }
+    
+    .loop-pip-task-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
     
     .loop-pip-task-left {
@@ -425,6 +600,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       color: var(--primary);
       min-width: 42px;
       text-align: right;
+      padding: 2px 4px;
     }
     
     .loop-pip-bubble-mode {
@@ -520,6 +696,218 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     .loop-timer-btn svg {
       display: block;
     }
+    
+    .loop-timer-history-panel {
+      padding: 10px 12px;
+      margin-top: 6px;
+      background: rgba(241, 245, 249, 0.6);
+      border-radius: 8px;
+      border: 1px dashed rgba(226, 232, 240, 0.9);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      line-height: 1.4;
+      text-align: left;
+    }
+    .loop-timer-history-panel.active {
+      display: flex;
+    }
+    .loop-timer-history-title {
+      font-weight: 600;
+      color: var(--text-main);
+      border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+      padding-bottom: 4px;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .loop-timer-history-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: relative;
+      padding-left: 10px;
+      border-left: 1.5px solid rgba(124, 58, 237, 0.35);
+    }
+    
+    /* Analytics Panel Styles */
+    .loop-analytics-panel {
+      position: fixed;
+      top: 50px;
+      left: 50px;
+      width: 480px;
+      height: 540px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px -6px rgba(0, 0, 0, 0.1), 0 8px 20px -4px rgba(0, 0, 0, 0.05);
+      z-index: 100000;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: var(--font-sans);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    
+    .loop-pip-panel.dragging, .loop-analytics-panel.dragging {
+      transition: none !important;
+    }
+    
+    .loop-analytics-header {
+      padding: 14px 18px;
+      background: rgba(124, 58, 237, 0.06);
+      border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: move;
+      user-select: none;
+    }
+    
+    .loop-analytics-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .loop-analytics-body {
+      padding: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+    
+    .loop-analytics-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    
+    .loop-analytics-stat-card {
+      background: #f8fafc;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    
+    .loop-analytics-stat-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    
+    .loop-analytics-stat-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .loop-analytics-filters {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    
+    .loop-analytics-select {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      background: #ffffff;
+      outline: none;
+      color: var(--text-main);
+    }
+    
+    .loop-analytics-tabs {
+      display: flex;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+      padding-bottom: 2px;
+      gap: 12px;
+    }
+    
+    .loop-analytics-tab {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 2px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .loop-analytics-tab.active {
+      color: var(--primary);
+      border-color: var(--primary);
+      font-weight: 600;
+    }
+    
+    .loop-analytics-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    
+    .loop-analytics-log-card {
+      background: #ffffff;
+      border: 1px solid rgba(226, 232, 240, 0.7);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .loop-analytics-log-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    
+    .loop-analytics-log-task {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    
+    .loop-analytics-log-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .loop-analytics-log-meta span {
+      background: rgba(124, 58, 237, 0.05);
+      color: var(--primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+    
+    .loop-analytics-log-pauses {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      border-top: 1px dashed rgba(226, 232, 240, 0.8);
+      padding-top: 4px;
+      margin-top: 2px;
+    }
   \`;
   document.head.appendChild(styleEl);
 }
@@ -527,16 +915,24 @@ if (!document.getElementById('loop-timer-pip-styles')) {
 // Dragging Logic
 const makeDraggable = (elm, handle) => {
   let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+  let isDragging = false;
   handle.onmousedown = dragMouseDown;
 
   function dragMouseDown(e) {
     e = e || window.event;
-    if (e.target.closest('.loop-pip-btn') || e.target.closest('input') || e.target.closest('button')) {
+    if (!elm.classList.contains('loop-pip-bubble-mode')) {
+      if (!e.target.closest('.loop-pip-header') && !e.target.closest('.loop-analytics-header')) return;
+    }
+    if (e.target.closest('.loop-pip-btn') || e.target.closest('input') || e.target.closest('button') || e.target.closest('svg') || e.target.closest('select') || e.target.closest('option')) {
       return;
     }
     e.preventDefault();
+    isDragging = false;
     pos3 = e.clientX;
     pos4 = e.clientY;
+    
+    elm.classList.add('dragging');
+    
     document.onmouseup = closeDragElement;
     document.onmousemove = elementDrag;
   }
@@ -544,6 +940,7 @@ const makeDraggable = (elm, handle) => {
   function elementDrag(e) {
     e = e || window.event;
     e.preventDefault();
+    isDragging = true;
     pos1 = pos3 - e.clientX;
     pos2 = pos4 - e.clientY;
     pos3 = e.clientX;
@@ -571,7 +968,318 @@ const makeDraggable = (elm, handle) => {
   function closeDragElement() {
     document.onmouseup = null;
     document.onmousemove = null;
+    elm.classList.remove('dragging');
+    if (isDragging) {
+      elm.setAttribute('data-dragged', 'true');
+      setTimeout(() => {
+        elm.removeAttribute('data-dragged');
+      }, 80);
+    }
   }
+};
+
+// Helper to calculate active session duration excluding pauses
+const getSessionActiveDuration = (session) => {
+  if (!session.sessionStart) return 0;
+  const end = session.sessionEnd || Date.now();
+  let totalPause = 0;
+  if (session.pauses) {
+    session.pauses.forEach(p => {
+      const pEnd = p.resumedAt || end;
+      if (pEnd > p.pausedAt) {
+        totalPause += (pEnd - p.pausedAt);
+      }
+    });
+  }
+  const net = (end - session.sessionStart) - totalPause;
+  return net > 0 ? net : 0;
+};
+
+// Extend loopTimersManager with global log aggregator
+window.loopTimersManager.getAllAnalyticsData = function(dbInstance) {
+  const data = [];
+  const workspaces = dbInstance.getWorkspaces() || [];
+  workspaces.forEach(ws => {
+    const chapters = dbInstance.getChapters(ws.id) || [];
+    chapters.forEach(ch => {
+      const fullCh = dbInstance.getChapter(ch.id);
+      if (fullCh && fullCh.blocks) {
+        fullCh.blocks.forEach(bl => {
+          if (bl.type === 'timer-widget' && bl.data && bl.data.tasks) {
+            bl.data.tasks.forEach(task => {
+              if (task.history && task.history.length > 0) {
+                task.history.forEach(session => {
+                  data.push({
+                    workspaceId: ws.id,
+                    workspaceName: ws.name,
+                    chapterId: ch.id,
+                    chapterName: ch.title || 'Untitled Page',
+                    blockId: bl.id,
+                    taskId: task.id,
+                    taskName: task.name || 'Unnamed Task',
+                    sessionStart: session.sessionStart,
+                    sessionEnd: session.sessionEnd,
+                    pauses: session.pauses || []
+                  });
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+  });
+  return data;
+};
+
+// Floating Global Analytics Dashboard
+window.loopShowAnalyticsDashboard = () => {
+  let panel = document.getElementById('loop-timer-analytics-panel');
+  const dbInstance = window.loopTimersManager.db || db;
+  
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'loop-timer-analytics-panel';
+    panel.className = 'loop-analytics-panel';
+    document.body.appendChild(panel);
+    makeDraggable(panel, panel);
+  }
+  
+  if (!panel.style.top) {
+    panel.style.top = '100px';
+    panel.style.left = '100px';
+  }
+  
+  if (!panel.dataset.tab) panel.dataset.tab = 'recent';
+  if (!panel.dataset.workspaceId) panel.dataset.workspaceId = 'all';
+  if (!panel.dataset.sortBy) panel.dataset.sortBy = 'newest';
+  
+  const currentTab = panel.dataset.tab;
+  const currentWorkspaceId = panel.dataset.workspaceId;
+  const currentSortBy = panel.dataset.sortBy;
+  
+  panel.innerHTML = \`
+    <div class="loop-analytics-header">
+      <div class="loop-analytics-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        Analytics Dashboard
+      </div>
+      <button class="loop-pip-btn" title="Close" onclick="document.getElementById('loop-timer-analytics-panel').remove();">\${closeIcon}</button>
+    </div>
+    <div class="loop-analytics-body"></div>
+  \`;
+  
+  const body = panel.querySelector('.loop-analytics-body');
+  const rawLogs = window.loopTimersManager.getAllAnalyticsData(dbInstance);
+  
+  let filteredLogs = rawLogs;
+  if (currentWorkspaceId !== 'all') {
+    filteredLogs = rawLogs.filter(log => log.workspaceId === currentWorkspaceId);
+  }
+  
+  let totalMs = 0;
+  const uniqueTasks = new Set();
+  filteredLogs.forEach(log => {
+    totalMs += getSessionActiveDuration(log);
+    uniqueTasks.add(log.workspaceId + '_' + log.chapterId + '_' + log.taskId);
+  });
+  
+  const formatTotalTime = (ms) => {
+    const sec = Math.floor(ms / 1000);
+    const min = Math.floor(sec / 60);
+    const hr = Math.floor(min / 60);
+    if (hr > 0) {
+      return hr + 'h ' + (min % 60) + 'm';
+    }
+    return min + 'm ' + (sec % 60) + 's';
+  };
+  
+  const statsGrid = document.createElement('div');
+  statsGrid.className = 'loop-analytics-stats-grid';
+  statsGrid.innerHTML = \`
+    <div class="loop-analytics-stat-card">
+      <div class="loop-analytics-stat-val">\${formatTotalTime(totalMs)}</div>
+      <div class="loop-analytics-stat-lbl">Time Logged</div>
+    </div>
+    <div class="loop-analytics-stat-card">
+      <div class="loop-analytics-stat-val">\${filteredLogs.length}</div>
+      <div class="loop-analytics-stat-lbl">Sessions</div>
+    </div>
+    <div class="loop-analytics-stat-card">
+      <div class="loop-analytics-stat-val">\${uniqueTasks.size}</div>
+      <div class="loop-analytics-stat-lbl">Tasks</div>
+    </div>
+  \`;
+  body.appendChild(statsGrid);
+  
+  const filtersSection = document.createElement('div');
+  filtersSection.className = 'loop-analytics-filters';
+  
+  const wsSelect = document.createElement('select');
+  wsSelect.className = 'loop-analytics-select';
+  wsSelect.innerHTML = \`<option value="all">All Workspaces</option>\`;
+  dbInstance.getWorkspaces().forEach(ws => {
+    wsSelect.innerHTML += \`<option value="\${ws.id}" \${currentWorkspaceId === ws.id ? 'selected' : ''}>\${ws.name}</option>\`;
+  });
+  wsSelect.onchange = () => {
+    panel.dataset.workspaceId = wsSelect.value;
+    window.loopShowAnalyticsDashboard();
+  };
+  
+  const sortSelect = document.createElement('select');
+  sortSelect.className = 'loop-analytics-select';
+  sortSelect.innerHTML = \`
+    <option value="newest" \${currentSortBy === 'newest' ? 'selected' : ''}>Newest First</option>
+    <option value="oldest" \${currentSortBy === 'oldest' ? 'selected' : ''}>Oldest First</option>
+    <option value="longest" \${currentSortBy === 'longest' ? 'selected' : ''}>Longest Session</option>
+  \`;
+  sortSelect.onchange = () => {
+    panel.dataset.sortBy = sortSelect.value;
+    window.loopShowAnalyticsDashboard();
+  };
+  
+  filtersSection.appendChild(wsSelect);
+  filtersSection.appendChild(sortSelect);
+  body.appendChild(filtersSection);
+  
+  const tabsDiv = document.createElement('div');
+  tabsDiv.className = 'loop-analytics-tabs';
+  
+  const tabRecent = document.createElement('div');
+  tabRecent.className = 'loop-analytics-tab' + (currentTab === 'recent' ? ' active' : '');
+  tabRecent.textContent = 'Recent Logs';
+  tabRecent.onclick = () => {
+    panel.dataset.tab = 'recent';
+    window.loopShowAnalyticsDashboard();
+  };
+  
+  const tabByDate = document.createElement('div');
+  tabByDate.className = 'loop-analytics-tab' + (currentTab === 'by-date' ? ' active' : '');
+  tabByDate.textContent = 'By Date';
+  tabByDate.onclick = () => {
+    panel.dataset.tab = 'by-date';
+    window.loopShowAnalyticsDashboard();
+  };
+  
+  const tabByWorkspace = document.createElement('div');
+  tabByWorkspace.className = 'loop-analytics-tab' + (currentTab === 'by-workspace' ? ' active' : '');
+  tabByWorkspace.textContent = 'By Workspace';
+  tabByWorkspace.onclick = () => {
+    panel.dataset.tab = 'by-workspace';
+    window.loopShowAnalyticsDashboard();
+  };
+  
+  tabsDiv.appendChild(tabRecent);
+  tabsDiv.appendChild(tabByDate);
+  tabsDiv.appendChild(tabByWorkspace);
+  body.appendChild(tabsDiv);
+  
+  if (currentSortBy === 'newest') {
+    filteredLogs.sort((a, b) => b.sessionStart - a.sessionStart);
+  } else if (currentSortBy === 'oldest') {
+    filteredLogs.sort((a, b) => a.sessionStart - b.sessionStart);
+  } else if (currentSortBy === 'longest') {
+    filteredLogs.sort((a, b) => getSessionActiveDuration(b) - getSessionActiveDuration(a));
+  }
+  
+  const listContainer = document.createElement('div');
+  listContainer.className = 'loop-analytics-list';
+  
+  if (filteredLogs.length === 0) {
+    listContainer.innerHTML = \`<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px;">No session logs found. Start and complete tasks to record analytics.</div>\`;
+  } else {
+    if (currentTab === 'recent') {
+      filteredLogs.forEach(log => {
+        listContainer.appendChild(renderLogCard(log));
+      });
+    } else if (currentTab === 'by-date') {
+      const groups = {};
+      filteredLogs.forEach(log => {
+        const dStr = new Date(log.sessionStart).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        groups[dStr] = groups[dStr] || [];
+        groups[dStr].push(log);
+      });
+      
+      Object.keys(groups).forEach(dStr => {
+        const header = document.createElement('div');
+        header.style.fontSize = '12px';
+        header.style.fontWeight = '600';
+        header.style.color = 'var(--primary)';
+        header.style.marginTop = '10px';
+        header.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
+        header.style.paddingBottom = '4px';
+        header.textContent = dStr;
+        listContainer.appendChild(header);
+        
+        groups[dStr].forEach(log => {
+          listContainer.appendChild(renderLogCard(log));
+        });
+      });
+    } else if (currentTab === 'by-workspace') {
+      const groups = {};
+      filteredLogs.forEach(log => {
+        const wsName = log.workspaceName || 'Untitled Workspace';
+        groups[wsName] = groups[wsName] || [];
+        groups[wsName].push(log);
+      });
+      
+      Object.keys(groups).forEach(wsName => {
+        const header = document.createElement('div');
+        header.style.fontSize = '12px';
+        header.style.fontWeight = '600';
+        header.style.color = 'var(--primary)';
+        header.style.marginTop = '10px';
+        header.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
+        header.style.paddingBottom = '4px';
+        header.textContent = wsName;
+        listContainer.appendChild(header);
+        
+        groups[wsName].forEach(log => {
+          listContainer.appendChild(renderLogCard(log));
+        });
+      });
+    }
+  }
+  
+  body.appendChild(listContainer);
+};
+
+const renderLogCard = (log) => {
+  const card = document.createElement('div');
+  card.className = 'loop-analytics-log-card';
+  
+  const dStr = new Date(log.sessionStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  const timeRange = formatTimeStr(log.sessionStart) + ' - ' + formatTimeStr(log.sessionEnd);
+  const durationSecs = Math.round(getSessionActiveDuration(log) / 1000);
+  const durationStr = Math.floor(durationSecs / 60) + 'm ' + (durationSecs % 60) + 's';
+  
+  card.innerHTML = \`
+    <div class="loop-analytics-log-header">
+      <span>\${dStr} • \${timeRange}</span>
+      <span style="font-weight:700; color:var(--primary); font-family:var(--font-mono);">\${durationStr}</span>
+    </div>
+    <div class="loop-analytics-log-task">\${log.taskName}</div>
+    <div class="loop-analytics-log-meta">
+      <span>Workspace: \${log.workspaceName}</span>
+      <span>Page: \${log.chapterName}</span>
+    </div>
+  \`;
+  
+  if (log.pauses && log.pauses.length > 0) {
+    const pauseStrs = log.pauses.map(p => {
+      const pDuration = p.resumedAt ? Math.round((p.resumedAt - p.pausedAt) / 1000) : null;
+      const pDurStr = pDuration !== null ? \`\${pDuration}s\` : 'active';
+      return \`\${formatTimeStr(p.pausedAt)} (\${pDurStr})\`;
+    }).join(', ');
+    
+    card.innerHTML += \`
+      <div class="loop-analytics-log-pauses">
+        <strong>Pauses:</strong> \${pauseStrs}
+      </div>
+    \`;
+  }
+  
+  return card;
 };
 
 // Global PIP UI Update Function
@@ -613,6 +1321,7 @@ window.loopUpdatePipUI = () => {
     pip.id = 'loop-timer-pip-panel';
     pip.className = 'loop-pip-panel';
     document.body.appendChild(pip);
+    makeDraggable(pip, pip);
   }
   
   let header = pip.querySelector('.loop-pip-header');
@@ -664,9 +1373,8 @@ window.loopUpdatePipUI = () => {
     controls.appendChild(minBtn);
     controls.appendChild(closeBtn);
     
-    makeDraggable(pip, header);
-    
     pip.onclick = (e) => {
+      if (pip.getAttribute('data-dragged') === 'true') return;
       if (pip.classList.contains('loop-pip-bubble-mode')) {
         pip.classList.remove('loop-pip-bubble-mode');
         pip.style.width = '320px';
@@ -679,9 +1387,7 @@ window.loopUpdatePipUI = () => {
   
   const runningTask = currentBlock.data.tasks.find(t => t.isRunning) || currentBlock.data.tasks[0];
   if (runningTask) {
-    const min = Math.floor(runningTask.secondsLeft / 60).toString().padStart(2, '0');
-    const sec = (runningTask.secondsLeft % 60).toString().padStart(2, '0');
-    bubble.innerHTML = timerIconLarge + \`<span style="font-size:11px; font-weight:bold; display:block; line-height:1; margin-top:2px;">\${min}:\${sec}</span>\`;
+    bubble.innerHTML = timerIconLarge + \`<span style="font-size:11px; font-weight:bold; display:block; line-height:1; margin-top:2px;">\${formatDuration(runningTask.secondsLeft)}</span>\`;
     if (runningTask.isRunning) {
       pulse.className = 'loop-pip-bubble-pulse active';
     } else {
@@ -699,8 +1405,12 @@ window.loopUpdatePipUI = () => {
   const renderPipList = () => {
     body.innerHTML = '';
     currentBlock.data.tasks.forEach(task => {
+      task.history = task.history || [];
       const item = document.createElement('div');
       item.className = 'loop-pip-task';
+      
+      const row = document.createElement('div');
+      row.className = 'loop-pip-task-row';
       
       const left = document.createElement('div');
       left.className = 'loop-pip-task-left';
@@ -737,9 +1447,56 @@ window.loopUpdatePipUI = () => {
       
       const timeDisp = document.createElement('div');
       timeDisp.className = 'loop-pip-time';
-      const m = Math.floor(task.secondsLeft / 60).toString().padStart(2, '0');
-      const s = (task.secondsLeft % 60).toString().padStart(2, '0');
-      timeDisp.textContent = \`\${m}:\${s}\`;
+      timeDisp.style.cursor = task.isRunning ? 'default' : 'pointer';
+      timeDisp.textContent = formatDuration(task.secondsLeft);
+      
+      if (!task.isRunning) {
+        timeDisp.title = 'Click to edit duration (min)';
+        timeDisp.addEventListener('mouseenter', () => {
+          timeDisp.style.background = 'rgba(124, 58, 237, 0.08)';
+          timeDisp.style.borderRadius = '4px';
+        });
+        timeDisp.addEventListener('mouseleave', () => {
+          timeDisp.style.background = 'transparent';
+        });
+        timeDisp.addEventListener('click', (e) => {
+          e.stopPropagation();
+          
+          const editInput = document.createElement('input');
+          editInput.type = 'number';
+          editInput.min = '1';
+          editInput.max = '999';
+          editInput.value = Math.round(task.totalSeconds / 60);
+          editInput.style.width = '40px';
+          editInput.style.fontSize = '11px';
+          editInput.style.padding = '1px 2px';
+          editInput.style.border = '1px solid var(--primary)';
+          editInput.style.borderRadius = '4px';
+          editInput.style.textAlign = 'center';
+          editInput.style.outline = 'none';
+          
+          const saveNewDuration = () => {
+            const val = parseInt(editInput.value, 10);
+            if (!isNaN(val) && val > 0) {
+              window.loopTimersManager.updateTaskState(currentChapterId, currentBlockId, task.id, { totalSeconds: val * 60, secondsLeft: val * 60 }, dbInstance);
+              window.loopTimersManager.notifyListeners(currentBlockId);
+            } else {
+              window.loopUpdatePipUI();
+            }
+          };
+          
+          editInput.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Enter') saveNewDuration();
+            if (evt.key === 'Escape') window.loopUpdatePipUI();
+          });
+          
+          editInput.addEventListener('blur', saveNewDuration);
+          
+          right.replaceChild(editInput, timeDisp);
+          editInput.focus();
+          editInput.select();
+        });
+      }
       
       const startBtn = document.createElement('button');
       startBtn.className = task.isRunning ? 'loop-timer-btn loop-timer-btn-primary' : 'loop-timer-btn';
@@ -755,18 +1512,45 @@ window.loopUpdatePipUI = () => {
       const resetBtn = document.createElement('button');
       resetBtn.className = 'loop-timer-btn';
       resetBtn.innerHTML = resetIcon;
+      resetBtn.title = 'Reset & Log Session';
       resetBtn.onclick = () => {
         window.loopTimersManager.stopTimer(currentChapterId, currentBlockId, task.id, dbInstance);
-        window.loopTimersManager.updateTaskState(currentChapterId, currentBlockId, task.id, { secondsLeft: task.totalSeconds }, dbInstance);
+        
+        let tTask = task;
+        if (isContextValid && activeCtx.block && activeCtx.block.data && activeCtx.block.data.tasks) {
+          const found = activeCtx.block.data.tasks.find(t => t.id === task.id);
+          if (found) tTask = found;
+        }
+        
+        if (tTask.currentSession) {
+          tTask.currentSession.sessionEnd = Date.now();
+          tTask.history = tTask.history || [];
+          tTask.history.push(tTask.currentSession);
+          tTask.currentSession = null;
+        }
+        
+        window.loopTimersManager.updateTaskState(currentChapterId, currentBlockId, task.id, { secondsLeft: tTask.totalSeconds, history: tTask.history, currentSession: null }, dbInstance);
         window.loopTimersManager.notifyListeners(currentBlockId);
+      };
+      
+      const gearBtn = document.createElement('button');
+      gearBtn.className = 'loop-timer-btn';
+      gearBtn.innerHTML = gearIcon;
+      gearBtn.title = 'Session Logs';
+      
+      gearBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.loopShowAnalyticsDashboard();
       };
       
       right.appendChild(timeDisp);
       right.appendChild(startBtn);
       right.appendChild(resetBtn);
+      right.appendChild(gearBtn);
       
-      item.appendChild(left);
-      item.appendChild(right);
+      row.appendChild(left);
+      row.appendChild(right);
+      item.appendChild(row);
       body.appendChild(item);
     });
     
@@ -794,27 +1578,29 @@ window.loopUpdatePipUI = () => {
     const triggerAddTask = () => {
       const text = addInp.value.trim();
       if (text) {
-        const activeCtx = window.loopTimersManager.activeContexts && window.loopTimersManager.activeContexts[currentBlockId];
+        const activeContext = window.loopTimersManager.activeContexts && window.loopTimersManager.activeContexts[currentBlockId];
         const newTask = {
           id: 't-' + Date.now(),
           name: text,
           completed: false,
           secondsLeft: 1500,
           totalSeconds: 1500,
-          isRunning: false
+          isRunning: false,
+          history: [],
+          currentSession: null
         };
         
-        const isContextValid = activeCtx && activeCtx.editor && document.body.contains(activeCtx.editor.container);
-        if (isContextValid && activeCtx.block && activeCtx.block.data && activeCtx.block.data.tasks) {
-          activeCtx.block.data.tasks.push(newTask);
-          activeCtx.save();
+        const validContext = activeContext && activeContext.editor && document.body.contains(activeContext.editor.container);
+        if (validContext && activeContext.block && activeContext.block.data && activeContext.block.data.tasks) {
+          activeContext.block.data.tasks.push(newTask);
+          activeContext.save();
         } else {
-          const chapter = dbInstance.getChapter(currentChapterId);
-          if (chapter) {
-            const block = chapter.blocks.find(b => b.id === currentBlockId);
-            if (block && block.data && block.data.tasks) {
-              block.data.tasks.push(newTask);
-              dbInstance.saveChapter(chapter);
+          const ch = dbInstance.getChapter(currentChapterId);
+          if (ch) {
+            const bl = ch.blocks.find(b => b.id === currentBlockId);
+            if (bl && bl.data && bl.data.tasks) {
+              bl.data.tasks.push(newTask);
+              dbInstance.saveChapter(ch);
             }
           }
         }
@@ -838,9 +1624,7 @@ window.loopUpdatePipUI = () => {
     currentBlock.data.tasks.forEach((task, idx) => {
       const span = pipTimerSpans[idx];
       if (span) {
-        const m = Math.floor(task.secondsLeft / 60).toString().padStart(2, '0');
-        const s = (task.secondsLeft % 60).toString().padStart(2, '0');
-        span.textContent = \`\${m}:\${s}\`;
+        span.textContent = formatDuration(task.secondsLeft);
         
         const right = span.parentElement;
         if (right) {
@@ -848,6 +1632,15 @@ window.loopUpdatePipUI = () => {
           if (startBtn) {
             startBtn.innerHTML = task.isRunning ? pauseIcon : playIcon;
             startBtn.className = task.isRunning ? 'loop-timer-btn loop-timer-btn-primary' : 'loop-timer-btn';
+          }
+          
+          // Render active history updates inline if history panel is currently visible
+          const taskWrapper = right.parentElement.parentElement;
+          if (taskWrapper) {
+            const historyPanel = taskWrapper.querySelector('.loop-timer-history-panel');
+            if (historyPanel && historyPanel.classList.contains('active')) {
+              renderHistoryUI(task, historyPanel);
+            }
           }
         }
       }
@@ -946,14 +1739,20 @@ const renderBlockUI = () => {
   listContainer.style.gap = '10px';
   
   block.data.tasks.forEach(task => {
+    task.history = task.history || [];
+    
+    const itemContainer = document.createElement('div');
+    itemContainer.style.display = 'flex';
+    itemContainer.style.flexDirection = 'column';
+    itemContainer.style.background = '#f8fafc';
+    itemContainer.style.border = '1px solid var(--border-color)';
+    itemContainer.style.borderRadius = '8px';
+    itemContainer.style.padding = '8px 12px';
+    
     const row = document.createElement('div');
     row.style.display = 'flex';
     row.style.alignItems = 'center';
     row.style.justifyContent = 'space-between';
-    row.style.padding = '8px 12px';
-    row.style.background = '#f8fafc';
-    row.style.border = '1px solid var(--border-color)';
-    row.style.borderRadius = '8px';
     row.style.gap = '10px';
     row.style.transition = 'all 0.2s';
     
@@ -1020,9 +1819,7 @@ const renderBlockUI = () => {
     timeSpan.style.minWidth = '48px';
     timeSpan.style.textAlign = 'right';
     
-    const m = Math.floor(task.secondsLeft / 60).toString().padStart(2, '0');
-    const s = (task.secondsLeft % 60).toString().padStart(2, '0');
-    timeSpan.textContent = \`\${m}:\${s}\`;
+    timeSpan.textContent = formatDuration(task.secondsLeft);
     
     if (!task.isRunning) {
       timeSpan.title = 'Click to edit duration (min)';
@@ -1088,11 +1885,26 @@ const renderBlockUI = () => {
     const resetBtn = document.createElement('button');
     resetBtn.className = 'loop-timer-btn';
     resetBtn.innerHTML = resetIcon;
-    resetBtn.title = 'Reset';
+    resetBtn.title = 'Reset & Log Session';
     resetBtn.addEventListener('click', () => {
       window.loopTimersManager.stopTimer(chapterId, blockId, task.id, db);
-      window.loopTimersManager.updateTaskState(chapterId, blockId, task.id, { secondsLeft: task.totalSeconds }, db);
+      if (task.currentSession) {
+        task.currentSession.sessionEnd = Date.now();
+        task.history.push(task.currentSession);
+        task.currentSession = null;
+      }
+      task.secondsLeft = task.totalSeconds;
+      save();
       window.loopTimersManager.notifyListeners(blockId);
+    });
+    
+    const gearBtn = document.createElement('button');
+    gearBtn.className = 'loop-timer-btn';
+    gearBtn.innerHTML = gearIcon;
+    gearBtn.title = 'Session Logs';
+    
+    gearBtn.addEventListener('click', () => {
+      window.loopShowAnalyticsDashboard();
     });
     
     const delBtn = document.createElement('button');
@@ -1109,11 +1921,14 @@ const renderBlockUI = () => {
     right.appendChild(timeSpan);
     right.appendChild(playBtn);
     right.appendChild(resetBtn);
+    right.appendChild(gearBtn);
     right.appendChild(delBtn);
     
     row.appendChild(left);
     row.appendChild(right);
-    listContainer.appendChild(row);
+    
+    itemContainer.appendChild(row);
+    listContainer.appendChild(itemContainer);
   });
   
   wrapper.appendChild(listContainer);
@@ -1157,7 +1972,9 @@ const renderBlockUI = () => {
         completed: false,
         secondsLeft: 1500,
         totalSeconds: 1500,
-        isRunning: false
+        isRunning: false,
+        history: [],
+        currentSession: null
       });
       save();
       window.loopTimersManager.notifyListeners(blockId);
@@ -1182,9 +1999,7 @@ window.loopTimersManager.registerListener(blockId, listenerId, () => {
     block.data.tasks.forEach((task, idx) => {
       const span = timerSpans[idx];
       if (span && span.tagName === 'SPAN') {
-        const m = Math.floor(task.secondsLeft / 60).toString().padStart(2, '0');
-        const s = (task.secondsLeft % 60).toString().padStart(2, '0');
-        span.textContent = \`\${m}:\${s}\`;
+        span.textContent = formatDuration(task.secondsLeft);
       }
       const row = span ? span.parentElement : null;
       if (row) {
@@ -1193,6 +2008,15 @@ window.loopTimersManager.registerListener(blockId, listenerId, () => {
           playBtn.className = task.isRunning ? 'loop-timer-btn loop-timer-btn-primary' : 'loop-timer-btn';
           playBtn.innerHTML = task.isRunning ? pauseIcon : playIcon;
           playBtn.title = task.isRunning ? 'Pause' : 'Start';
+        }
+        
+        // Render active history updates inline if history panel is currently visible
+        const itemContainer = row.parentElement;
+        if (itemContainer) {
+          const historyPanel = itemContainer.querySelector('.loop-timer-history-panel');
+          if (historyPanel && historyPanel.classList.contains('active')) {
+            renderHistoryUI(task, historyPanel);
+          }
         }
       }
     });
