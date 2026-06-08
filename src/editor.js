@@ -519,6 +519,9 @@ export class Editor {
     editable.setAttribute('placeholder', this.getPlaceholderForType(block.type));
 
     editable.addEventListener('focus', () => {
+      if (this.autocompleteTimeout) {
+        clearTimeout(this.autocompleteTimeout);
+      }
       this.activeBlockIndex = index;
       const allWrappers = this.container.querySelectorAll('.loop-editor-block-wrapper');
       allWrappers.forEach(w => w.classList.remove('active'));
@@ -541,14 +544,59 @@ export class Editor {
     };
 
     editable.addEventListener('input', () => {
+      const sug = editable.querySelector('.loop-autocomplete-suggestion');
+      if (sug) sug.remove();
+
       applyInlineFormatting(editable);
       syncData();
       this.handleMarkdownTransformations(editable, block, index);
+
+      if (this.autocompleteTimeout) {
+        clearTimeout(this.autocompleteTimeout);
+      }
+      this.autocompleteTimeout = setTimeout(() => {
+        this.triggerAutocomplete(editable, block, index);
+      }, 2000);
     });
 
-    editable.addEventListener('blur', syncData);
+    editable.addEventListener('blur', () => {
+      if (this.autocompleteTimeout) {
+        clearTimeout(this.autocompleteTimeout);
+      }
+      const sug = editable.querySelector('.loop-autocomplete-suggestion');
+      if (sug) sug.remove();
+      syncData();
+    });
 
     editable.addEventListener('keydown', (e) => {
+      const sug = editable.querySelector('.loop-autocomplete-suggestion');
+      if (sug) {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const sugText = sug.textContent;
+          sug.remove();
+          
+          const textNode = document.createTextNode(sugText);
+          editable.appendChild(textNode);
+          
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(editable);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          
+          syncData();
+          return;
+        } else if (e.key === 'Escape' || e.key === 'Backspace') {
+          e.preventDefault();
+          sug.remove();
+          return;
+        } else if (e.key !== 'Shift' && e.key !== 'Control' && e.key !== 'Alt' && e.key !== 'Meta') {
+          sug.remove();
+        }
+      }
+
       if (this.slashMenu) {
         if (this.handleSlashMenuNavigation(e)) {
           e.preventDefault();
@@ -1439,5 +1487,135 @@ export class Editor {
         }
       }
     }, 10);
+  }
+
+  triggerAutocomplete(editable, block, index) {
+    console.log("[Autocomplete] Debounce trigger fired. Index:", index, "Block ID:", block.id);
+    
+    const plugins = db.getPlugins() || [];
+    const plugin = plugins.find(p => p.id === 'autocomplete');
+    console.log("[Autocomplete] Plugin object found:", plugin);
+    
+    if (!plugin) {
+      console.warn("[Autocomplete] Autocomplete plugin not found in plugins list!");
+      return;
+    }
+    if (!plugin.enabled) {
+      console.log("[Autocomplete] Autocomplete plugin is disabled.");
+      return;
+    }
+
+    const envKey = import.meta.env.VITE_GROQ_API_KEY;
+    const localKey = localStorage.getItem('intellinote_groq_api_key');
+    console.log("[Autocomplete] envKey:", envKey ? "Present" : "Missing", "localKey:", localKey ? "Present" : "Missing");
+    
+    const apiKey = envKey || localKey;
+    if (!apiKey) {
+      console.warn("[Autocomplete] Groq API Key is not configured.");
+      return;
+    }
+
+    const modelName = localStorage.getItem('intellinote_groq_model_name') || 'openai/gpt-oss-20b';
+    console.log("[Autocomplete] Target Model:", modelName);
+
+    const cleanText = editable.textContent.replace(/\s+/g, ' ').trim();
+    console.log("[Autocomplete] Block text length:", cleanText.length, "content:", cleanText);
+    if (cleanText.length < 5) {
+      console.log("[Autocomplete] Block text is too short (< 5 chars). Skipping.");
+      return;
+    }
+
+    const contextText = cleanText.substring(Math.max(0, cleanText.length - 200));
+    console.log("[Autocomplete] Context slice (last 200 chars):", contextText);
+
+    if (this.isFetchingAutocomplete) {
+      console.log("[Autocomplete] Fetch already in progress. Skipping.");
+      return;
+    }
+    
+    this.isFetchingAutocomplete = true;
+    console.log("[Autocomplete] Dispatched completions API request...");
+
+    fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an inline autocomplete writing assistant. Continue the user\'s text naturally. Output ONLY the next few words (1 to 6 words) that continue the text. Do NOT explain. Do NOT output <think> blocks or any reasoning. Provide the direct continuation immediately.'
+          },
+          {
+            role: 'user',
+            content: contextText
+          }
+        ],
+        max_tokens: 100,
+        temperature: 0.3
+      })
+    })
+    .then(res => {
+      console.log("[Autocomplete] API HTTP response status:", res.status);
+      if (!res.ok) throw new Error('API returned HTTP ' + res.status);
+      return res.json();
+    })
+    .then(data => {
+      this.isFetchingAutocomplete = false;
+      console.log("[Autocomplete] Received completions data:", data);
+      
+      if (data && data.choices && data.choices[0]) {
+        console.log("[Autocomplete] Full choice object:", JSON.stringify(data.choices[0]));
+        let suggestion = data.choices[0].message?.content || data.choices[0].text || "";
+        
+        // Strip out <think> blocks if the reasoning model ignores our prompt
+        suggestion = suggestion.replace(/<think>[\s\S]*?<\/think>/gi, '');
+        suggestion = suggestion.replace(/<think>[\s\S]*/gi, ''); // Handle unclosed tags
+
+        console.log("[Autocomplete] Raw suggestion content:", JSON.stringify(suggestion));
+        
+        if (suggestion) {
+          suggestion = suggestion.replace(/^[\n\r\t]+/, '');
+        }
+        
+        if (suggestion && suggestion.trim()) {
+          const isFocused = document.activeElement === editable;
+          console.log("[Autocomplete] Active element is editable:", isFocused);
+          
+          if (isFocused) {
+            const existingSug = editable.querySelector('.loop-autocomplete-suggestion');
+            if (existingSug) {
+              console.log("[Autocomplete] Removing existing stale suggestion span.");
+              existingSug.remove();
+            }
+
+            const sugSpan = document.createElement('span');
+            sugSpan.className = 'loop-autocomplete-suggestion';
+            sugSpan.setAttribute('contenteditable', 'false');
+            
+            const contextEndsInSpace = contextText.endsWith(' ');
+            const sugStartsWithSpaceOrPunct = /^[ ,.?!';:]/.test(suggestion);
+            const prefix = (!contextEndsInSpace && !sugStartsWithSpaceOrPunct) ? ' ' : '';
+            
+            sugSpan.textContent = prefix + suggestion.trim();
+            editable.appendChild(sugSpan);
+            console.log("[Autocomplete] Successfully injected suggestion:", sugSpan.textContent);
+          } else {
+            console.log("[Autocomplete] Suggestion discarded because editor block lost focus.");
+          }
+        } else {
+          console.log("[Autocomplete] Suggestion content was empty or whitespace after cleaning.");
+        }
+      } else {
+        console.warn("[Autocomplete] Invalid completions payload structure received.");
+      }
+    })
+    .catch(err => {
+      this.isFetchingAutocomplete = false;
+      console.error('[Autocomplete] API completions request failed:', err);
+    });
   }
 }

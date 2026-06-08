@@ -1127,12 +1127,39 @@ function showPluginsModal() {
       </div>
       <p style="font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">${plugin.description}</p>
       
+      ${plugin.id === 'autocomplete' ? `
+        <div style="margin-bottom: 16px; padding: 14px; background: rgba(124, 58, 237, 0.05); border: 1px dashed rgba(124, 58, 237, 0.2); border-radius: 10px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-size: 13px; font-weight: 600; color: var(--primary);">Groq AI Integration Settings</div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-size:11.5px; font-weight:500; color:var(--text-main);">Groq API Key</label>
+            <input type="password" id="groq-api-key" placeholder="gsk_..." value="${localStorage.getItem('intellinote_groq_api_key') || ''}" style="padding:6px 10px; font-size:12.5px; border:1px solid var(--border-color); border-radius:6px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-size:11.5px; font-weight:500; color:var(--text-main);">Groq Model ID</label>
+            <input type="text" id="groq-model-id" placeholder="openai/gpt-oss-20b" value="${localStorage.getItem('intellinote_groq_model_name') || 'openai/gpt-oss-20b'}" style="padding:6px 10px; font-size:12.5px; border:1px solid var(--border-color); border-radius:6px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+          </div>
+          <div style="text-align:right;">
+            <button id="btn-save-groq-config" style="padding:5px 12px; font-size:12px; font-weight:500; background:var(--primary); color:#ffffff; border:none; border-radius:6px; cursor:pointer; font-family:inherit;">Save Settings</button>
+          </div>
+        </div>
+      ` : ''}
+      
       <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
         <div style="font-size: 12px; font-weight: 600; color: var(--text-light); text-transform: uppercase;">Renderer Code</div>
         <textarea id="plugin-code-textarea" readonly style="flex-grow: 1; width: 100%; font-family: var(--font-mono); font-size: 12.5px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: #f8fafc; color: var(--text-muted); resize: none; outline: none; white-space: pre; overflow: auto;">${plugin.renderCode}</textarea>
         ${!plugin.isBuiltIn ? `<div style="text-align: right;"><button id="btn-plugin-edit" style="border: 1px solid var(--primary); background: transparent; color: var(--primary); font-family: inherit; font-size: 12px; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 4px;">Edit Code</button></div>` : ''}
       </div>
     `;
+
+    if (plugin.id === 'autocomplete') {
+      detailPane.querySelector('#btn-save-groq-config').addEventListener('click', () => {
+        const keyVal = detailPane.querySelector('#groq-api-key').value.trim();
+        const modelVal = detailPane.querySelector('#groq-model-id').value.trim() || 'openai/gpt-oss-20b';
+        localStorage.setItem('intellinote_groq_api_key', keyVal);
+        localStorage.setItem('intellinote_groq_model_name', modelVal);
+        alert('Groq API configuration saved successfully!');
+      });
+    }
 
     detailPane.querySelector('#btn-plugin-toggle').addEventListener('click', () => {
       db.togglePlugin(id);
