@@ -152,14 +152,14 @@ function renderPrimarySidebarWorkspaces() {
   container.innerHTML = `
     <!-- Favorites Section -->
     ${starredWorkspaces.length > 0 ? `
-      <div class="sidebar-section-title" style="padding-left: 14px; margin-top: 14px; margin-bottom: 6px;">Favorites</div>
+      <div class="sidebar-section-title" style="padding-left: 14.7px; margin-top: 14.7px; margin-bottom: 6.3px;">Favorites</div>
       <div class="favorites-workspaces-list" id="fav-ws-drag-container">
         ${starredWorkspaces.map(w => renderWorkspaceListItemHTML(w)).join('')}
       </div>
     ` : ''}
 
     <!-- Workspaces Section -->
-    <div class="sidebar-section-title" style="padding-left: 14px; margin-top: 14px; margin-bottom: 6px;">Workspaces</div>
+    <div class="sidebar-section-title" style="padding-left: 14.7px; margin-top: 14.7px; margin-bottom: 6.3px;">Workspaces</div>
     <div class="regular-workspaces-list" id="reg-ws-drag-container">
       ${regularWorkspaces.map(w => renderWorkspaceListItemHTML(w)).join('')}
     </div>
@@ -251,8 +251,8 @@ function renderWorkspaceListItemHTML(w) {
         </div>
         <span class="ws-item-name">${w.name}</span>
       </div>
-      <div style="display:flex; align-items:center; gap: 4px;">
-        ${w.starred ? '<span class="star-icon-indicator" style="font-size:11px; color:#eab308;">⭐</span>' : ''}
+      <div style="display:flex; align-items:center; gap: 4.2px;">
+        ${w.starred ? '<span class="star-icon-indicator" style="font-size:11.5px; color:#eab308;">⭐</span>' : ''}
         <button class="ws-item-more-btn" title="Actions">•••</button>
       </div>
     </div>
@@ -266,13 +266,13 @@ function showWorkspaceContextMenu(anchorElement, workspace) {
   const menu = document.createElement('div');
   menu.id = 'workspace-context-menu';
   menu.className = 'loop-slash-menu-popup';
-  menu.style.width = '180px';
+  menu.style.width = '189px';
   menu.innerHTML = `
-    <div style="padding: 4px;">
-      <button class="menu-action-btn toggle-star-btn" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 6px 12px; font-size:13.5px; border-radius:4px; cursor:pointer; color:var(--text-main); display:flex; gap:10px;">
+    <div style="padding: 4.2px;">
+      <button class="menu-action-btn toggle-star-btn" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 6.3px 12.6px; font-size:14.2px; border-radius:4.2px; cursor:pointer; color:var(--text-main); display:flex; gap:10.5px;">
         <span>⭐</span> ${workspace.starred ? 'Remove Star' : 'Star Workspace'}
       </button>
-      <button class="menu-action-btn delete-ws-btn" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 6px 12px; font-size:13.5px; border-radius:4px; cursor:pointer; color:#ef4444; display:flex; gap:10px;">
+      <button class="menu-action-btn delete-ws-btn" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 6.3px 12.6px; font-size:14.2px; border-radius:4.2px; cursor:pointer; color:#ef4444; display:flex; gap:10.5px;">
         <span>🗑️</span> Delete Workspace
       </button>
     </div>
@@ -345,13 +345,13 @@ function renderDashboard() {
       <h2 class="dashboard-greeting">${greetEmoji} ${greeting}</h2>
       <p class="dashboard-subgreeting">Welcome to IntelliNote. Workspaces and chapters are saved locally and securely inside your browser.</p>
       
-      <div class="sidebar-section-title" style="padding-left:0; margin-bottom: 20px;">Recent Workspaces</div>
+      <div class="sidebar-section-title" style="padding-left:0; margin-bottom: 21px;">Recent Workspaces</div>
       
       ${workspaces.length === 0 ? `
-        <div class="dashboard-empty-workspaces" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 48px; border:2px dashed var(--border-color); border-radius: var(--radius-lg); text-align:center;">
-          <div style="font-size:36px; margin-bottom: 12px;">📂</div>
-          <div style="font-size: 16px; font-weight:600; margin-bottom: 4px;">No Workspaces Yet</div>
-          <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Create your first workspace to start writing documents.</div>
+        <div class="dashboard-empty-workspaces" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 50.4px; border:2px dashed var(--border-color); border-radius: var(--radius-lg); text-align:center;">
+          <div style="font-size:37.8px; margin-bottom: 12.6px;">📂</div>
+          <div style="font-size: 16.8px; font-weight:600; margin-bottom: 4.2px;">No Workspaces Yet</div>
+          <div style="font-size: 13.7px; color: var(--text-muted); margin-bottom: 21px;">Create your first workspace to start writing documents.</div>
           <button id="btn-dashboard-create-ws" class="create-new-btn" style="margin-bottom:0;">+ Create Workspace</button>
         </div>
       ` : `
@@ -368,7 +368,7 @@ function renderDashboard() {
                       <polyline points="14 2 14 8 20 8"></polyline>
                     </svg>
                   </div>
-                  <button class="ws-card-star-btn" data-id="${w.id}" title="${w.starred ? 'Starred' : 'Star'}" style="position:absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.85); border:none; border-radius:50%; width: 28px; height: 28px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; color: ${w.starred ? '#eab308' : 'var(--text-light)'};">
+                  <button class="ws-card-star-btn" data-id="${w.id}" title="${w.starred ? 'Starred' : 'Star'}" style="position:absolute; top: 10.5px; right: 10.5px; background: rgba(255,255,255,0.85); border:none; border-radius:50%; width: 29.4px; height: 29.4px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12.6px; color: ${w.starred ? '#eab308' : 'var(--text-light)'};">
                     ${w.starred ? '★' : '☆'}
                   </button>
                 </div>
@@ -430,7 +430,7 @@ function renderWorkspaceView() {
     <div class="sec-sidebar-header">
       <div class="sec-ws-title-container">
         <div class="sec-ws-details">
-          <div class="ws-icon-premium" style="width:28px; height:28px; border-radius:7px;">
+          <div class="ws-icon-premium" style="width:29.4px; height:29.4px; border-radius:7.4px;">
             ${PAGE_SVG_HTML(14)}
           </div>
           <span class="sec-ws-name">${workspace.name}</span>
@@ -464,7 +464,7 @@ function renderSecondarySidebarChapters(chapters) {
   if (!container) return;
 
   if (chapters.length === 0) {
-    container.innerHTML = `<div style="font-size:12px; color:var(--text-light); text-align:center; padding: 20px 0;">No pages. Click + to add.</div>`;
+    container.innerHTML = `<div style="font-size:12.6px; color:var(--text-light); text-align:center; padding: 21px 0;">No pages. Click + to add.</div>`;
     return;
   }
 
@@ -746,12 +746,12 @@ function showCoverPresetDropdown(anchorElement, onSelect) {
   const dropdown = document.createElement('div');
   dropdown.id = 'cover-preset-dropdown-menu';
   dropdown.className = 'loop-slash-menu-popup';
-  dropdown.style.width = '240px';
+  dropdown.style.width = '252px';
   dropdown.innerHTML = `
-    <div style="font-size: 11px; font-weight:600; text-transform: uppercase; color: var(--text-light); padding: 8px 12px;">Gradient Covers</div>
-    <div class="presets-container-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 6px 12px 12px 12px;">
+    <div style="font-size: 11.5px; font-weight:600; text-transform: uppercase; color: var(--text-light); padding: 8.4px 12.6px;">Gradient Covers</div>
+    <div class="presets-container-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6.3px; padding: 6.3px 12.6px 12.6px 12.6px;">
       ${COVER_PRESETS.map(preset => `
-        <button class="preset-color-block" data-preset="${preset}" style="height: 38px; border-radius: 6px; border: 1px solid var(--border-color); cursor:pointer; background: ${preset};"></button>
+        <button class="preset-color-block" data-preset="${preset}" style="height: 39.9px; border-radius: 6.3px; border: 1px solid var(--border-color); cursor:pointer; background: ${preset};"></button>
       `).join('')}
     </div>
   `;
@@ -804,27 +804,27 @@ function showCreateWorkspaceModal() {
   let selectedCover = COVER_PRESETS[0];
 
   overlay.innerHTML = `
-    <div class="loop-search-dialog" style="width: 450px;">
+    <div class="loop-search-dialog" style="width: 472.5px;">
       <div class="bin-header">
         <h3 class="bin-title">Create Workspace</h3>
         <button class="bin-close-btn" id="modal-close-ws">×</button>
       </div>
-      <div style="padding: 24px; display:flex; flex-direction:column; gap:18px;">
+      <div style="padding: 25.2px; display:flex; flex-direction:column; gap:18.9px;">
         <div>
-          <label style="font-size: 13.5px; font-weight:500; color: var(--text-muted); display:block; margin-bottom: 6px;">Workspace Name</label>
-          <input type="text" id="modal-ws-name-input" placeholder="e.g. Project IntelliNote" style="width:100%; padding:10px 14px; border-radius: 8px; border: 1px solid var(--border-color); outline:none; font-family: var(--font-sans); font-size:15.5px;" required>
+          <label style="font-size: 14.2px; font-weight:500; color: var(--text-muted); display:block; margin-bottom: 6.3px;">Workspace Name</label>
+          <input type="text" id="modal-ws-name-input" placeholder="e.g. Project IntelliNote" style="width:100%; padding:10.5px 14.7px; border-radius: 8.4px; border: 1px solid var(--border-color); outline:none; font-family: var(--font-sans); font-size:16.3px;" required>
         </div>
 
         <div>
-          <label style="font-size: 13.5px; font-weight:500; color: var(--text-muted); display:block; margin-bottom: 8px;">Select Cover Style</label>
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+          <label style="font-size: 14.2px; font-weight:500; color: var(--text-muted); display:block; margin-bottom: 8.4px;">Select Cover Style</label>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6.3px;">
             ${COVER_PRESETS.map((p, idx) => `
               <button class="preset-color-block modal-cover-select ${idx === 0 ? 'active' : ''}" data-preset="${p}" style="background: ${p};"></button>
             `).join('')}
           </div>
         </div>
 
-        <button id="modal-ws-create-btn" class="create-new-btn" style="width: 100%; margin-bottom: 0; margin-top: 10px;">Create Workspace</button>
+        <button id="modal-ws-create-btn" class="create-new-btn" style="width: 100%; margin-bottom: 0; margin-top: 10.5px;">Create Workspace</button>
       </div>
     </div>
   `;
@@ -924,12 +924,12 @@ function showConfirmationModal({ title, message, confirmText, confirmClass, onCo
   overlay.style.zIndex = '6000';
   
   overlay.innerHTML = `
-    <div class="loop-search-dialog" style="width: 400px; padding: 20px;">
-      <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 12px; color: var(--text-main);">${title}</h3>
-      <p style="font-size: 14px; line-height: 1.5; color: var(--text-muted); margin-bottom: 24px;">${message}</p>
-      <div style="display:flex; justify-content:flex-end; gap:12px;">
-        <button class="confirm-modal-cancel-btn" style="background:transparent; border:1px solid var(--border-color); font-family:inherit; font-size:13.5px; padding:8px 16px; border-radius:20px; cursor:pointer; color:var(--text-muted); font-weight:500;">Cancel</button>
-        <button class="confirm-modal-ok-btn ${confirmClass || ''}" style="border:none; font-family:inherit; font-size:13.5px; padding:8px 16px; border-radius:20px; cursor:pointer; font-weight:500; background:${confirmClass === 'delete' ? '#ef4444' : 'var(--primary)'}; color:#fff;">${confirmText}</button>
+    <div class="loop-search-dialog" style="width: 420px; padding: 21px;">
+      <h3 style="font-size: 17.8px; font-weight: 600; margin-bottom: 12.6px; color: var(--text-main);">${title}</h3>
+      <p style="font-size: 14.7px; line-height: 1.5; color: var(--text-muted); margin-bottom: 25.2px;">${message}</p>
+      <div style="display:flex; justify-content:flex-end; gap:12.6px;">
+        <button class="confirm-modal-cancel-btn" style="background:transparent; border:1px solid var(--border-color); font-family:inherit; font-size:14.2px; padding:8.4px 16.8px; border-radius:21px; cursor:pointer; color:var(--text-muted); font-weight:500;">Cancel</button>
+        <button class="confirm-modal-ok-btn ${confirmClass || ''}" style="border:none; font-family:inherit; font-size:14.2px; padding:8.4px 16.8px; border-radius:21px; cursor:pointer; font-weight:500; background:${confirmClass === 'delete' ? '#ef4444' : 'var(--primary)'}; color:#fff;">${confirmText}</button>
       </div>
     </div>
   `;
@@ -1029,13 +1029,13 @@ function showNotificationsDrawer() {
   const overlay = document.createElement('div');
   overlay.className = 'loop-search-modal-overlay';
   overlay.innerHTML = `
-    <div class="loop-search-dialog" style="width: 400px;">
+    <div class="loop-search-dialog" style="width: 420px;">
       <div class="bin-header">
         <h3 class="bin-title">Notifications</h3>
         <button class="bin-close-btn" id="notify-close">×</button>
       </div>
-      <div style="padding: 40px 24px; text-align: center; color: var(--text-muted); font-size:14px;">
-        <div style="font-size: 32px; margin-bottom: 12px;">🔔</div>
+      <div style="padding: 42px 25.2px; text-align: center; color: var(--text-muted); font-size:14.7px;">
+        <div style="font-size: 33.6px; margin-bottom: 12.6px;">🔔</div>
         <div>No notifications right now. Same chill UI. Keep styling cozy.</div>
       </div>
     </div>
@@ -1055,25 +1055,25 @@ function showPluginsModal() {
   overlay.style.zIndex = '6000';
 
   overlay.innerHTML = `
-    <div class="loop-search-dialog" style="width: 760px; height: 500px; display: flex; flex-direction: column;">
+    <div class="loop-search-dialog" style="width: 798px; height: 525px; display: flex; flex-direction: column;">
       <div class="bin-header">
         <h3 class="bin-title">🔌 Plugins Store & Manager</h3>
         <button class="bin-close-btn" id="plugins-modal-close">×</button>
       </div>
       <div style="display: flex; flex-grow: 1; overflow: hidden;">
         <!-- Left panel: list of plugins -->
-        <div style="width: 280px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; background: #fafafa;">
-          <div style="padding: 10px; display: flex; gap: 8px; border-bottom: 1px solid var(--border-color);">
-            <button id="btn-plugins-list-tab" style="flex-grow: 1; padding: 6px; font-family: inherit; font-size: 13px; font-weight: 600; border: none; background: var(--primary-light-active); color: var(--primary); border-radius: 6px; cursor: pointer;">Installed</button>
-            <button id="btn-plugins-create-tab" style="flex-grow: 1; padding: 6px; font-family: inherit; font-size: 13px; font-weight: 500; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; cursor: pointer;">＋ Custom</button>
+        <div style="width: 294px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; background: #fafafa;">
+          <div style="padding: 10.5px; display: flex; gap: 8.4px; border-bottom: 1px solid var(--border-color);">
+            <button id="btn-plugins-list-tab" style="flex-grow: 1; padding: 6.3px; font-family: inherit; font-size: 13.7px; font-weight: 600; border: none; background: var(--primary-light-active); color: var(--primary); border-radius: 6.3px; cursor: pointer;">Installed</button>
+            <button id="btn-plugins-create-tab" style="flex-grow: 1; padding: 6.3px; font-family: inherit; font-size: 13.7px; font-weight: 500; border: none; background: transparent; color: var(--text-muted); border-radius: 6.3px; cursor: pointer;">＋ Custom</button>
           </div>
-          <div id="plugins-list-container" style="flex-grow: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+          <div id="plugins-list-container" style="flex-grow: 1; overflow-y: auto; padding: 8.4px; display: flex; flex-direction: column; gap: 4.2px;">
             <!-- Render list of plugins here -->
           </div>
         </div>
 
         <!-- Right panel: plugin detail or create form -->
-        <div id="plugins-detail-pane" style="flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column;">
+        <div id="plugins-detail-pane" style="flex-grow: 1; overflow-y: auto; padding: 21px; display: flex; flex-direction: column;">
           <!-- Detail views loaded here -->
         </div>
       </div>
@@ -1096,12 +1096,12 @@ function showPluginsModal() {
   const renderPluginsList = () => {
     const plugins = db.getPlugins();
     listContainer.innerHTML = plugins.map(p => `
-      <div class="plugin-list-item ${p.id === selectedPluginId ? 'active' : ''}" data-id="${p.id}" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: all 0.15s ease; ${p.id === selectedPluginId ? 'background: var(--primary-light-active); font-weight: 500;' : ''}">
-        <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
-          <span style="font-size: 18px;">${p.icon || '🔌'}</span>
+      <div class="plugin-list-item ${p.id === selectedPluginId ? 'active' : ''}" data-id="${p.id}" style="display: flex; align-items: center; justify-content: space-between; padding: 8.4px 12.6px; border-radius: 6.3px; cursor: pointer; transition: all 0.15s ease; ${p.id === selectedPluginId ? 'background: var(--primary-light-active); font-weight: 500;' : ''}">
+        <div style="display: flex; align-items: center; gap: 10.5px; overflow: hidden;">
+          <span style="font-size: 18.9px;">${p.icon || '🔌'}</span>
           <div style="overflow: hidden;">
-            <div style="font-size: 13.5px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</div>
-            <div style="font-size: 10.5px; color: ${p.enabled ? '#059669' : 'var(--text-light)'};">${p.enabled ? 'Enabled' : 'Disabled'}</div>
+            <div style="font-size: 14.2px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</div>
+            <div style="font-size: 11.1px; color: ${p.enabled ? '#059669' : 'var(--text-light)'};">${p.enabled ? 'Enabled' : 'Disabled'}</div>
           </div>
         </div>
       </div>
@@ -1130,44 +1130,44 @@ function showPluginsModal() {
     }
 
     detailPane.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <span style="font-size: 32px;">${plugin.icon || '🔌'}</span>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16.8px;">
+        <div style="display: flex; align-items: center; gap: 12.6px;">
+          <span style="font-size: 33.6px;">${plugin.icon || '🔌'}</span>
           <div>
-            <h3 style="font-size: 18px; font-weight: 600; color: var(--text-main); margin: 0;">${plugin.name}</h3>
-            <span style="font-size: 11px; color: var(--text-muted); background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">ID: ${plugin.id}</span>
+            <h3 style="font-size: 18.9px; font-weight: 600; color: var(--text-main); margin: 0;">${plugin.name}</h3>
+            <span style="font-size: 11.5px; color: var(--text-muted); background: #f1f5f9; padding: 2px 6.3px; border-radius: 4.2px;">ID: ${plugin.id}</span>
           </div>
         </div>
-        <div style="display: flex; gap: 8px;">
-          ${!plugin.isBuiltIn ? `<button id="btn-plugin-delete" style="border: 1px solid rgba(239, 68, 68, 0.2); background: transparent; color: #ef4444; font-family: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 500;">Delete</button>` : ''}
-          <button id="btn-plugin-toggle" style="border: none; background: ${plugin.enabled ? '#ef4444' : 'var(--primary)'}; color: #fff; font-family: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 500;">
+        <div style="display: flex; gap: 8.4px;">
+          ${!plugin.isBuiltIn ? `<button id="btn-plugin-delete" style="border: 1px solid rgba(239, 68, 68, 0.2); background: transparent; color: #ef4444; font-family: inherit; font-size: 13.2px; padding: 6.3px 12.6px; border-radius: 21px; cursor: pointer; font-weight: 500;">Delete</button>` : ''}
+          <button id="btn-plugin-toggle" style="border: none; background: ${plugin.enabled ? '#ef4444' : 'var(--primary)'}; color: #fff; font-family: inherit; font-size: 13.2px; padding: 6.3px 12.6px; border-radius: 21px; cursor: pointer; font-weight: 500;">
             ${plugin.enabled ? 'Disable' : 'Enable'}
           </button>
         </div>
       </div>
-      <p style="font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">${plugin.description}</p>
+      <p style="font-size: 14.7px; color: var(--text-muted); line-height: 1.5; margin-bottom: 21px; border-bottom: 1px solid var(--border-color); padding-bottom: 12.6px;">${plugin.description}</p>
       
       ${plugin.id === 'autocomplete' ? `
-        <div style="margin-bottom: 16px; padding: 14px; background: rgba(124, 58, 237, 0.05); border: 1px dashed rgba(124, 58, 237, 0.2); border-radius: 10px; display: flex; flex-direction: column; gap: 10px;">
-          <div style="font-size: 13px; font-weight: 600; color: var(--primary);">Groq AI Integration Settings</div>
-          <div style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-size:11.5px; font-weight:500; color:var(--text-main);">Groq API Key</label>
-            <input type="password" id="groq-api-key" placeholder="gsk_..." value="${localStorage.getItem('intellinote_groq_api_key') || ''}" style="padding:6px 10px; font-size:12.5px; border:1px solid var(--border-color); border-radius:6px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+        <div style="margin-bottom: 16.8px; padding: 14.7px; background: rgba(124, 58, 237, 0.05); border: 1px dashed rgba(124, 58, 237, 0.2); border-radius: 10.5px; display: flex; flex-direction: column; gap: 10.5px;">
+          <div style="font-size: 13.7px; font-weight: 600; color: var(--primary);">Groq AI Integration Settings</div>
+          <div style="display:flex; flex-direction:column; gap:4.2px;">
+            <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq API Key</label>
+            <input type="password" id="groq-api-key" placeholder="gsk_..." value="${localStorage.getItem('intellinote_groq_api_key') || ''}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
           </div>
-          <div style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-size:11.5px; font-weight:500; color:var(--text-main);">Groq Model ID</label>
-            <input type="text" id="groq-model-id" placeholder="openai/gpt-oss-20b" value="${localStorage.getItem('intellinote_groq_model_name') || 'openai/gpt-oss-20b'}" style="padding:6px 10px; font-size:12.5px; border:1px solid var(--border-color); border-radius:6px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+          <div style="display:flex; flex-direction:column; gap:4.2px;">
+            <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq Model ID</label>
+            <input type="text" id="groq-model-id" placeholder="openai/gpt-oss-20b" value="${localStorage.getItem('intellinote_groq_model_name') || 'openai/gpt-oss-20b'}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
           </div>
           <div style="text-align:right;">
-            <button id="btn-save-groq-config" style="padding:5px 12px; font-size:12px; font-weight:500; background:var(--primary); color:#ffffff; border:none; border-radius:6px; cursor:pointer; font-family:inherit;">Save Settings</button>
+            <button id="btn-save-groq-config" style="padding:5.3px 12.6px; font-size:12.6px; font-weight:500; background:var(--primary); color:#ffffff; border:none; border-radius:6.3px; cursor:pointer; font-family:inherit;">Save Settings</button>
           </div>
         </div>
       ` : ''}
       
-      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
-        <div style="font-size: 12px; font-weight: 600; color: var(--text-light); text-transform: uppercase;">Renderer Code</div>
-        <textarea id="plugin-code-textarea" readonly style="flex-grow: 1; width: 100%; font-family: var(--font-mono); font-size: 12.5px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: #f8fafc; color: var(--text-muted); resize: none; outline: none; white-space: pre; overflow: auto;">${plugin.renderCode}</textarea>
-        ${!plugin.isBuiltIn ? `<div style="text-align: right;"><button id="btn-plugin-edit" style="border: 1px solid var(--primary); background: transparent; color: var(--primary); font-family: inherit; font-size: 12px; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 4px;">Edit Code</button></div>` : ''}
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8.4px; overflow: hidden;">
+        <div style="font-size: 12.6px; font-weight: 600; color: var(--text-light); text-transform: uppercase;">Renderer Code</div>
+        <textarea id="plugin-code-textarea" readonly style="flex-grow: 1; width: 100%; font-family: var(--font-mono); font-size: 13.2px; padding: 12.6px; border: 1px solid var(--border-color); border-radius: 8.4px; background: #f8fafc; color: var(--text-muted); resize: none; outline: none; white-space: pre; overflow: auto;">${plugin.renderCode}</textarea>
+        ${!plugin.isBuiltIn ? `<div style="text-align: right;"><button id="btn-plugin-edit" style="border: 1px solid var(--primary); background: transparent; color: var(--primary); font-family: inherit; font-size: 12.6px; padding: 5.3px 12.6px; border-radius: 6.3px; cursor: pointer; font-weight: 500; margin-top: 4.2px;">Edit Code</button></div>` : ''}
       </div>
     `;
 
@@ -1218,39 +1218,39 @@ function showPluginsModal() {
     createTab.style.background = 'var(--primary-light-active)';
     createTab.style.color = 'var(--primary)';
 
-    const defaultCode = `// Write your custom block renderer code here!\\n// Available variables:\\n// - block: the block data object (store block.data here)\\n// - index: the index of this block in the list\\n// - container: the DOM element container to render your HTML inside\\n// - editor: the Editor instance\\n// - save(): callback function to persist changes\\n// - db: the LocalStorage database manager\\n\\ncontainer.innerHTML = '';\\nconst card = document.createElement('div');\\ncard.style.padding = '16px';\\ncard.style.background = '#ffffff';\\ncard.style.border = '1px solid var(--border-color)';\\ncard.style.borderRadius = '10px';\\ncard.style.boxShadow = 'var(--shadow-sm)';\\n\\nconst title = document.createElement('h4');\\ntitle.style.margin = '0 0 8px 0';\\ntitle.style.fontSize = '15px';\\ntitle.textContent = 'Custom Widget: Click to count!';\\ncard.appendChild(title);\\n\\nconst countBtn = document.createElement('button');\\nif (!block.data || typeof block.data !== 'object') {\\n  block.data = { count: 0 };\\n}\\ncountBtn.textContent = 'Clicks: ' + block.data.count;\\ncountBtn.style.padding = '6px 14px';\\ncountBtn.style.borderRadius = '20px';\\ncountBtn.style.border = '1px solid var(--primary)';\\ncountBtn.style.background = 'transparent';\\ncountBtn.style.color = 'var(--primary)';\\ncountBtn.style.cursor = 'pointer';\\ncountBtn.style.fontWeight = '500';\\n\\ncountBtn.addEventListener('click', () => {\\n  block.data.count++;\\n  countBtn.textContent = 'Clicks: ' + block.data.count;\\n  save();\\n});\\n\\ncard.appendChild(countBtn);\\ncontainer.appendChild(card);`;
+    const defaultCode = `// Write your custom block renderer code here!\\n// Available variables:\\n// - block: the block data object (store block.data here)\\n// - index: the index of this block in the list\\n// - container: the DOM element container to render your HTML inside\\n// - editor: the Editor instance\\n// - save(): callback function to persist changes\\n// - db: the LocalStorage database manager\\n\\ncontainer.innerHTML = '';\\nconst card = document.createElement('div');\\ncard.style.padding = '16.8px';\\ncard.style.background = '#ffffff';\\ncard.style.border = '1px solid var(--border-color)';\\ncard.style.borderRadius = '10.5px';\\ncard.style.boxShadow = 'var(--shadow-sm)';\\n\\nconst title = document.createElement('h4');\\ntitle.style.margin = '0 0 8.4px 0';\\ntitle.style.fontSize = '15.7px';\\ntitle.textContent = 'Custom Widget: Click to count!';\\ncard.appendChild(title);\\n\\nconst countBtn = document.createElement('button');\\nif (!block.data || typeof block.data !== 'object') {\\n  block.data = { count: 0 };\\n}\\ncountBtn.textContent = 'Clicks: ' + block.data.count;\\ncountBtn.style.padding = '6.3px 14.7px';\\ncountBtn.style.borderRadius = '21px';\\ncountBtn.style.border = '1px solid var(--primary)';\\ncountBtn.style.background = 'transparent';\\ncountBtn.style.color = 'var(--primary)';\\ncountBtn.style.cursor = 'pointer';\\ncountBtn.style.fontWeight = '500';\\n\\ncountBtn.addEventListener('click', () => {\\n  block.data.count++;\\n  countBtn.textContent = 'Clicks: ' + block.data.count;\\n  save();\\n});\\n\\ncard.appendChild(countBtn);\\ncontainer.appendChild(card);`;
 
     detailPane.innerHTML = `
-      <h3 style="font-size: 17px; font-weight: 600; color: var(--text-main); margin-bottom: 16px;">
+      <h3 style="font-size: 17.8px; font-weight: 600; color: var(--text-main); margin-bottom: 16.8px;">
         \${existingPlugin ? '📝 Edit Custom Plugin' : '🔌 Create Custom Plugin'}
       </h3>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12.6px; margin-bottom: 12.6px;">
         <div>
-          <label style="font-size: 12px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4px;">Plugin Name</label>
-          <input type="text" id="plugin-form-name" placeholder="e.g. Counter Block" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border-color); font-size:14px; outline:none;" value="\${existingPlugin ? existingPlugin.name : ''}">
+          <label style="font-size: 12.6px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4.2px;">Plugin Name</label>
+          <input type="text" id="plugin-form-name" placeholder="e.g. Counter Block" style="width:100%; padding:8.4px 12.6px; border-radius:6.3px; border:1px solid var(--border-color); font-size:14.7px; outline:none;" value="\${existingPlugin ? existingPlugin.name : ''}">
         </div>
         <div>
-          <label style="font-size: 12px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4px;">Unique ID (lowercase, no spaces)</label>
-          <input type="text" id="plugin-form-id" placeholder="e.g. click-counter" \${existingPlugin ? 'readonly' : ''} style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border-color); font-size:14px; outline:none; background: \${existingPlugin ? '#f1f5f9; color:var(--text-light);' : '#fff'};" value="\${existingPlugin ? existingPlugin.id : ''}">
-        </div>
-      </div>
-      <div style="display: grid; grid-template-columns: 80px 1fr; gap: 12px; margin-bottom: 12px;">
-        <div>
-          <label style="font-size: 12px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4px;">Icon Emoji</label>
-          <input type="text" id="plugin-form-icon" placeholder="🔌" maxlength="4" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border-color); font-size:14px; text-align:center; outline:none;" value="\${existingPlugin ? existingPlugin.icon : '🔌'}">
-        </div>
-        <div>
-          <label style="font-size: 12px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4px;">Short Description</label>
-          <input type="text" id="plugin-form-desc" placeholder="e.g. Click count tracker box." style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border-color); font-size:14px; outline:none;" value="\${existingPlugin ? existingPlugin.description : ''}">
+          <label style="font-size: 12.6px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4.2px;">Unique ID (lowercase, no spaces)</label>
+          <input type="text" id="plugin-form-id" placeholder="e.g. click-counter" \${existingPlugin ? 'readonly' : ''} style="width:100%; padding:8.4px 12.6px; border-radius:6.3px; border:1px solid var(--border-color); font-size:14.7px; outline:none; background: \${existingPlugin ? '#f1f5f9; color:var(--text-light);' : '#fff'};" value="\${existingPlugin ? existingPlugin.id : ''}">
         </div>
       </div>
-      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; margin-bottom: 16px;">
-        <label style="font-size: 12px; font-weight: 500; color: var(--text-muted);">Custom JS Renderer Code</label>
-        <textarea id="plugin-form-code" style="flex-grow: 1; width: 100%; font-family: var(--font-mono); font-size: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; resize: none; outline: none; white-space: pre; overflow: auto;">\${existingPlugin ? existingPlugin.renderCode : defaultCode}</textarea>
+      <div style="display: grid; grid-template-columns: 84px 1fr; gap: 12.6px; margin-bottom: 12.6px;">
+        <div>
+          <label style="font-size: 12.6px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4.2px;">Icon Emoji</label>
+          <input type="text" id="plugin-form-icon" placeholder="🔌" maxlength="4" style="width:100%; padding:8.4px 12.6px; border-radius:6.3px; border:1px solid var(--border-color); font-size:14.7px; text-align:center; outline:none;" value="\${existingPlugin ? existingPlugin.icon : '🔌'}">
+        </div>
+        <div>
+          <label style="font-size: 12.6px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4.2px;">Short Description</label>
+          <input type="text" id="plugin-form-desc" placeholder="e.g. Click count tracker box." style="width:100%; padding:8.4px 12.6px; border-radius:6.3px; border:1px solid var(--border-color); font-size:14.7px; outline:none;" value="\${existingPlugin ? existingPlugin.description : ''}">
+        </div>
       </div>
-      <div style="text-align: right; display:flex; justify-content:flex-end; gap:8px;">
-        <button id="btn-plugin-form-cancel" style="border: 1px solid var(--border-color); background:transparent; color: var(--text-muted); font-family: inherit; font-size: 13px; padding: 6px 16px; border-radius: 20px; cursor: pointer;">Cancel</button>
-        <button id="btn-plugin-form-save" style="border: none; background: var(--primary); color: #fff; font-family: inherit; font-size: 13px; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-weight: 500;">Save Plugin</button>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4.2px; overflow: hidden; margin-bottom: 16.8px;">
+        <label style="font-size: 12.6px; font-weight: 500; color: var(--text-muted);">Custom JS Renderer Code</label>
+        <textarea id="plugin-form-code" style="flex-grow: 1; width: 100%; font-family: var(--font-mono); font-size: 12.6px; padding: 12.6px; border: 1px solid var(--border-color); border-radius: 8.4px; resize: none; outline: none; white-space: pre; overflow: auto;">\${existingPlugin ? existingPlugin.renderCode : defaultCode}</textarea>
+      </div>
+      <div style="text-align: right; display:flex; justify-content:flex-end; gap:8.4px;">
+        <button id="btn-plugin-form-cancel" style="border: 1px solid var(--border-color); background:transparent; color: var(--text-muted); font-family: inherit; font-size: 13.7px; padding: 6.3px 16.8px; border-radius: 21px; cursor: pointer;">Cancel</button>
+        <button id="btn-plugin-form-save" style="border: none; background: var(--primary); color: #fff; font-family: inherit; font-size: 13.7px; padding: 6.3px 16.8px; border-radius: 21px; cursor: pointer; font-weight: 500;">Save Plugin</button>
       </div>
     `;
 

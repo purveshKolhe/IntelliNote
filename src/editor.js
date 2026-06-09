@@ -760,7 +760,7 @@ export class Editor {
     toolbar.className = 'code-block-toolbar';
     toolbar.innerHTML = `
       <div class="code-block-lang-selector-container">
-        <button class="code-block-lang-btn" id="btn-lang-picker-${index}">${currentLang} <span style="font-size:8px; margin-left:4px; opacity:0.75;">▼</span></button>
+        <button class="code-block-lang-btn" id="btn-lang-picker-${index}">${currentLang} <span style="font-size:8.4px; margin-left:4.2px; opacity:0.75;">▼</span></button>
       </div>
       <div class="code-block-actions">
         <button class="code-action-btn toggle-lines-btn" title="Toggle Line Numbers">${hasLineNumbers ? 'Hide Lines' : 'Show Lines'}</button>
@@ -919,7 +919,7 @@ export class Editor {
     const menu = document.createElement('div');
     menu.id = 'loop-language-picker-popup';
     menu.className = 'loop-slash-menu-popup';
-    menu.style.width = '180px';
+    menu.style.width = '189px';
     menu.style.zIndex = '3000';
 
     const languagesList = [
@@ -928,12 +928,12 @@ export class Editor {
     ];
 
     menu.innerHTML = `
-      <div style="font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text-light); padding:6px 12px 2px 12px; user-select:none;">Select Language</div>
-      <div style="max-height: 240px; overflow-y: auto; padding: 4px;">
+      <div style="font-size:10.5px; font-weight:600; text-transform:uppercase; color:var(--text-light); padding:6.3px 12.6px 2px 12.6px; user-select:none;">Select Language</div>
+      <div style="max-height: 252px; overflow-y: auto; padding: 4.2px;">
         ${languagesList.map(lang => `
-          <button class="lang-picker-item" data-lang="${lang}" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding:6px 12px; font-size:13.5px; border-radius:4px; cursor:pointer; color:var(--text-main); display:flex; justify-content:space-between; align-items:center; ${block.data.language.toLowerCase() === lang.toLowerCase() ? 'background:var(--primary-light); color:var(--primary); font-weight:500;' : ''}">
+          <button class="lang-picker-item" data-lang="${lang}" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding:6.3px 12.6px; font-size:14.2px; border-radius:4.2px; cursor:pointer; color:var(--text-main); display:flex; justify-content:space-between; align-items:center; ${block.data.language.toLowerCase() === lang.toLowerCase() ? 'background:var(--primary-light); color:var(--primary); font-weight:500;' : ''}">
             <span>${lang}</span>
-            ${block.data.language.toLowerCase() === lang.toLowerCase() ? '<span style="font-size:10px;">✓</span>' : ''}
+            ${block.data.language.toLowerCase() === lang.toLowerCase() ? '<span style="font-size:10.5px;">✓</span>' : ''}
           </button>
         `).join('')}
       </div>
@@ -1092,7 +1092,7 @@ export class Editor {
       this.save();
 
       if (!latex) {
-        previewArea.innerHTML = '<div style="color:var(--text-light); font-style:italic; font-size:14.5px; user-select:none; text-align:center; padding:12px 0;">Empty Equation. Click to edit...</div>';
+        previewArea.innerHTML = '<div style="color:var(--text-light); font-style:italic; font-size:15.3px; user-select:none; text-align:center; padding:12.6px 0;">Empty Equation. Click to edit...</div>';
         return;
       }
 
@@ -1103,10 +1103,10 @@ export class Editor {
             throwOnError: false
           });
         } catch (err) {
-          previewArea.innerHTML = `<span class="inline-math-error" style="color:#ef4444; font-size:14px;">${err.message}</span>`;
+          previewArea.innerHTML = `<span class="inline-math-error" style="color:#ef4444; font-size:14.7px;">${err.message}</span>`;
         }
       } else {
-        previewArea.innerHTML = `<div style="font-family:var(--font-mono); font-size:15px; text-align:center; padding:10px; border:1px dashed var(--border-color); border-radius:6px; background:#f8fafc;">${latex}</div>`;
+        previewArea.innerHTML = `<div style="font-family:var(--font-mono); font-size:15.7px; text-align:center; padding:10.5px; border:1px dashed var(--border-color); border-radius:6.3px; background:#f8fafc;">${latex}</div>`;
       }
     };
 
@@ -1162,7 +1162,7 @@ export class Editor {
     const plugins = db.getPlugins();
     const plugin = plugins.find(p => p.id === block.type && p.enabled);
     if (!plugin) {
-      container.innerHTML = `<div style="padding:12px; color:#ef4444; border:1px solid rgba(239,68,68,0.2); border-radius:10px; background:#fef2f2; font-size:14px; font-weight:500;">Plugin "${block.type}" is disabled or missing. Enable it in Plugins menu.</div>`;
+      container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px solid rgba(239,68,68,0.2); border-radius:10.5px; background:#fef2f2; font-size:14.7px; font-weight:500;">Plugin "${block.type}" is disabled or missing. Enable it in Plugins menu.</div>`;
       return;
     }
 
@@ -1171,7 +1171,7 @@ export class Editor {
       const renderFn = new Function('block', 'index', 'container', 'editor', 'save', 'db', plugin.renderCode);
       renderFn(block, index, container, this, () => this.save(), db);
     } catch (e) {
-      container.innerHTML = `<div style="padding:12px; color:#ef4444; border:1px dashed #ef4444; border-radius:10px; background:#fef2f2; font-family:var(--font-mono); font-size:13px; white-space:pre-wrap;">Plugin Render Error:\n${e.stack || e.message}</div>`;
+      container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px dashed #ef4444; border-radius:10.5px; background:#fef2f2; font-family:var(--font-mono); font-size:13.7px; white-space:pre-wrap;">Plugin Render Error:\n${e.stack || e.message}</div>`;
     }
   }
 
@@ -1182,7 +1182,7 @@ export class Editor {
     const menu = document.createElement('div');
     menu.id = 'editor-block-context-menu';
     menu.className = 'loop-slash-menu-popup';
-    menu.style.width = '200px';
+    menu.style.width = '210px';
 
     const menuItems = [
       { action: 'copy', label: 'Copy Content', icon: '📋' },
@@ -1206,18 +1206,18 @@ export class Editor {
     ];
 
     menu.innerHTML = `
-      <div style="padding: 4px;">
+      <div style="padding: 4.2px;">
         ${menuItems.map(item => `
-          <button class="block-context-item action-btn" data-action="${item.action}" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 6px 12px; font-size: 13.5px; border-radius:4px; cursor:pointer; color:var(--text-main); display:flex; gap:10px;">
+          <button class="block-context-item action-btn" data-action="${item.action}" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 6.3px 12.6px; font-size: 14.2px; border-radius:4.2px; cursor:pointer; color:var(--text-main); display:flex; gap:10.5px;">
             <span>${item.icon}</span> ${item.label}
           </button>
         `).join('')}
       </div>
-      <hr style="border:none; border-top:1px solid var(--border-color); margin: 4px 0;">
-      <div style="font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text-light); padding: 4px 12px 2px 12px;">Turn into</div>
-      <div style="max-height:160px; overflow-y:auto; padding: 4px;">
+      <hr style="border:none; border-top:1px solid var(--border-color); margin: 4.2px 0;">
+      <div style="font-size:10.5px; font-weight:600; text-transform:uppercase; color:var(--text-light); padding: 4.2px 12.6px 2px 12.6px;">Turn into</div>
+      <div style="max-height:168px; overflow-y:auto; padding: 4.2px;">
         ${convertTypes.map(c => `
-          <button class="block-context-item convert-btn" data-type="${c.type}" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 5px 12px; font-size: 13px; border-radius:4px; cursor:pointer; color:var(--text-main); display:flex; gap:10px; ${block.type === c.type ? 'background:var(--primary-light); color:var(--primary); font-weight:500;' : ''}">
+          <button class="block-context-item convert-btn" data-type="${c.type}" style="width:100%; text-align:left; border:none; background:transparent; font-family:inherit; padding: 5.3px 12.6px; font-size: 13.7px; border-radius:4.2px; cursor:pointer; color:var(--text-main); display:flex; gap:10.5px; ${block.type === c.type ? 'background:var(--primary-light); color:var(--primary); font-weight:500;' : ''}">
             <span>${c.icon}</span> ${c.label}
           </button>
         `).join('')}

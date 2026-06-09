@@ -20,8 +20,8 @@ container.innerHTML = '';
 const wrapper = document.createElement('div');
 wrapper.style.position = 'relative';
 wrapper.style.width = '100%';
-wrapper.style.margin = '10px 0';
-wrapper.style.borderRadius = '10px';
+wrapper.style.margin = '10.5px 0';
+wrapper.style.borderRadius = '10.5px';
 wrapper.style.overflow = 'hidden';
 wrapper.style.transition = 'all 0.2s ease';
 
@@ -30,37 +30,37 @@ inputEl.type = 'text';
 inputEl.placeholder = 'Paste YouTube video link...';
 inputEl.value = block.data.url || '';
 inputEl.style.width = '100%';
-inputEl.style.padding = '10px 14px';
+inputEl.style.padding = '10.5px 14.7px';
 inputEl.style.border = '1px solid var(--border-color)';
-inputEl.style.borderRadius = '8px';
+inputEl.style.borderRadius = '8.4px';
 inputEl.style.outline = 'none';
-inputEl.style.fontSize = '14.5px';
+inputEl.style.fontSize = '15.3px';
 inputEl.style.boxSizing = 'border-box';
 inputEl.style.background = '#f8fafc';
 
 const iframeContainer = document.createElement('div');
 iframeContainer.style.width = '100%';
-iframeContainer.style.borderRadius = '8px';
+iframeContainer.style.borderRadius = '8.4px';
 iframeContainer.style.overflow = 'hidden';
 iframeContainer.style.display = 'none';
 
 const changeBtn = document.createElement('button');
 changeBtn.textContent = 'Change Video';
 changeBtn.style.position = 'absolute';
-changeBtn.style.top = '12px';
-changeBtn.style.right = '12px';
-changeBtn.style.padding = '6px 12px';
-changeBtn.style.borderRadius = '20px';
+changeBtn.style.top = '12.6px';
+changeBtn.style.right = '12.6px';
+changeBtn.style.padding = '6.3px 12.6px';
+changeBtn.style.borderRadius = '21px';
 changeBtn.style.background = 'rgba(15, 23, 42, 0.75)';
-changeBtn.style.backdropFilter = 'blur(4px)';
+changeBtn.style.backdropFilter = 'blur(4.2px)';
 changeBtn.style.color = '#ffffff';
 changeBtn.style.border = '1px solid rgba(255, 255, 255, 0.15)';
 changeBtn.style.cursor = 'pointer';
-changeBtn.style.fontSize = '12px';
+changeBtn.style.fontSize = '12.6px';
 changeBtn.style.fontWeight = '500';
 changeBtn.style.opacity = '0';
 changeBtn.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-changeBtn.style.transform = 'translateY(-5px)';
+changeBtn.style.transform = 'translateY(-5.3px)';
 changeBtn.style.zIndex = '10';
 changeBtn.style.fontFamily = 'var(--font-sans)';
 
@@ -72,7 +72,7 @@ wrapper.addEventListener('mouseenter', () => {
 });
 wrapper.addEventListener('mouseleave', () => {
   changeBtn.style.opacity = '0';
-  changeBtn.style.transform = 'translateY(-5px)';
+  changeBtn.style.transform = 'translateY(-5.3px)';
 });
 
 const getYoutubeId = (url) => {
@@ -84,7 +84,7 @@ const getYoutubeId = (url) => {
 const renderVideo = (url) => {
   const videoId = getYoutubeId(url);
   if (videoId) {
-    iframeContainer.innerHTML = \`<iframe width="100%" height="360" src="https://www.youtube.com/embed/\${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border: none; display: block; width: 100%; border-radius: 8px;"></iframe>\`;
+    iframeContainer.innerHTML = \`<iframe width="100%" height="360" src="https://www.youtube.com/embed/\${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border: none; display: block; width: 100%; border-radius: 8.4px;"></iframe>\`;
     iframeContainer.style.display = 'block';
     inputEl.style.display = 'none';
     wrapper.style.padding = '0';
@@ -94,7 +94,7 @@ const renderVideo = (url) => {
     iframeContainer.innerHTML = '';
     iframeContainer.style.display = 'none';
     inputEl.style.display = 'block';
-    wrapper.style.padding = '12px';
+    wrapper.style.padding = '12.6px';
     wrapper.style.border = '1px solid var(--border-color)';
     wrapper.style.background = '#f8fafc';
   }
@@ -378,12 +378,12 @@ const pauseIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="current
 const resetIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>';
 const trashIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 const gearIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
-const pipIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: -2px; display:inline-block;"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><rect x="13" y="13" width="7" height="7" fill="currentColor"></rect></svg>';
-const plusIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px; display:inline-block;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+const pipIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6.3px; vertical-align: -2px; display:inline-block;"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><rect x="13" y="13" width="7" height="7" fill="currentColor"></rect></svg>';
+const plusIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4.2px; vertical-align: -1px; display:inline-block;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
 const minIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:block;"><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
 const closeIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:block;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-const timerIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px; display:inline-block;"><circle cx="12" cy="13" r="8"></circle><polyline points="12 9 12 13 14 15"></polyline><line x1="12" y1="5" x2="12" y2="2"></line></svg>';
-const timerIconLarge = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 4px; display:block;"><circle cx="12" cy="13" r="8"></circle><polyline points="12 9 12 13 14 15"></polyline><line x1="12" y1="5" x2="12" y2="2"></line></svg>';
+const timerIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6.3px; display:inline-block;"><circle cx="12" cy="13" r="8"></circle><polyline points="12 9 12 13 14 15"></polyline><line x1="12" y1="5" x2="12" y2="2"></line></svg>';
+const timerIconLarge = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 4.2px; display:block;"><circle cx="12" cy="13" r="8"></circle><polyline points="12 9 12 13 14 15"></polyline><line x1="12" y1="5" x2="12" y2="2"></line></svg>';
 
 const formatTimeStr = (ts) => {
   if (!ts) return '';
@@ -460,7 +460,7 @@ const renderHistoryUI = (task, panel) => {
       
       if (log.subtext) {
         const sub = document.createElement('div');
-        sub.style.fontSize = '10px';
+        sub.style.fontSize = '10.5px';
         sub.style.opacity = '0.7';
         sub.textContent = log.subtext;
         item.appendChild(sub);
@@ -477,15 +477,15 @@ if (!document.getElementById('loop-timer-pip-styles')) {
   styleEl.textContent = \`
     .loop-pip-panel {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
-      width: 320px;
+      bottom: 25.2px;
+      right: 25.2px;
+      width: 336px;
       background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(21px);
+      -webkit-backdrop-filter: blur(21px);
       border: 1px solid rgba(226, 232, 240, 0.8);
-      border-radius: 16px;
-      box-shadow: 0 12px 30px -4px rgba(124, 58, 237, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+      border-radius: 16.8px;
+      box-shadow: 0 12.6px 31.5px -4.2px rgba(124, 58, 237, 0.12), 0 4.2px 12.6px -2px rgba(0, 0, 0, 0.05);
       z-index: 99999;
       display: flex;
       flex-direction: column;
@@ -495,7 +495,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     }
     
     .loop-pip-header {
-      padding: 12px 16px;
+      padding: 12.6px 16.8px;
       background: rgba(124, 58, 237, 0.05);
       border-bottom: 1px solid rgba(226, 232, 240, 0.6);
       display: flex;
@@ -506,7 +506,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     }
     
     .loop-pip-title {
-      font-size: 14px;
+      font-size: 14.7px;
       font-weight: 600;
       color: var(--text-main);
       display: flex;
@@ -516,12 +516,12 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     .loop-pip-controls {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 8.4px;
     }
     
     .loop-pip-btn {
-      width: 24px;
-      height: 24px;
+      width: 25.2px;
+      height: 25.2px;
       border-radius: 50%;
       border: none;
       background: rgba(226, 232, 240, 0.6);
@@ -530,7 +530,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 14.7px;
       transition: all 0.2s;
       padding: 0;
     }
@@ -541,20 +541,20 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     }
     
     .loop-pip-body {
-      padding: 16px;
-      max-height: 300px;
+      padding: 16.8px;
+      max-height: 315px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 12.6px;
     }
     
     .loop-pip-task {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      padding: 8px;
-      border-radius: 8px;
+      gap: 6.3px;
+      padding: 8.4px;
+      border-radius: 8.4px;
       background: rgba(248, 250, 252, 0.6);
       border: 1px solid rgba(226, 232, 240, 0.5);
     }
@@ -563,20 +563,20 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 8.4px;
     }
     
     .loop-pip-task-left {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 8.4px;
       flex: 1;
     }
     
     .loop-pip-task-input {
       border: none;
       background: transparent;
-      font-size: 13px;
+      font-size: 13.7px;
       color: var(--text-main);
       width: 100%;
       outline: none;
@@ -590,25 +590,25 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     .loop-pip-task-right {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 6.3px;
     }
     
     .loop-pip-time {
-      font-size: 13px;
+      font-size: 13.7px;
       font-family: var(--font-mono);
       font-weight: 600;
       color: var(--primary);
-      min-width: 42px;
+      min-width: 44.1px;
       text-align: right;
-      padding: 2px 4px;
+      padding: 2px 4.2px;
     }
     
     .loop-pip-bubble-mode {
-      width: 64px;
-      height: 64px;
+      width: 67.2px;
+      height: 67.2px;
       border-radius: 50%;
       background: var(--loop-purple-gradient);
-      box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.5);
+      box-shadow: 0 10.5px 26.2px -5.3px rgba(124, 58, 237, 0.5);
       border: 2px solid #ffffff;
       justify-content: center;
       align-items: center;
@@ -624,7 +624,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       display: none;
       color: #ffffff;
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 12.6px;
       font-weight: 700;
       text-align: center;
     }
@@ -662,8 +662,8 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     
     /* Premium Block/PIP Control Buttons styling (No Emoji) */
     .loop-timer-btn {
-      width: 28px;
-      height: 28px;
+      width: 29.4px;
+      height: 29.4px;
       border-radius: 50%;
       border: 1px solid rgba(226, 232, 240, 0.8);
       background: #ffffff;
@@ -698,16 +698,16 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     }
     
     .loop-timer-history-panel {
-      padding: 10px 12px;
-      margin-top: 6px;
+      padding: 10.5px 12.6px;
+      margin-top: 6.3px;
       background: rgba(241, 245, 249, 0.6);
-      border-radius: 8px;
+      border-radius: 8.4px;
       border: 1px dashed rgba(226, 232, 240, 0.9);
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--text-muted);
       display: none;
       flex-direction: column;
-      gap: 6px;
+      gap: 6.3px;
       line-height: 1.4;
       text-align: left;
     }
@@ -718,8 +718,8 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       font-weight: 600;
       color: var(--text-main);
       border-bottom: 1px solid rgba(226, 232, 240, 0.6);
-      padding-bottom: 4px;
-      margin-bottom: 4px;
+      padding-bottom: 4.2px;
+      margin-bottom: 4.2px;
       display: flex;
       justify-content: space-between;
     }
@@ -728,23 +728,23 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       flex-direction: column;
       gap: 2px;
       position: relative;
-      padding-left: 10px;
+      padding-left: 10.5px;
       border-left: 1.5px solid rgba(124, 58, 237, 0.35);
     }
     
     /* Analytics Panel Styles */
     .loop-analytics-panel {
       position: fixed;
-      top: 50px;
-      left: 50px;
-      width: 480px;
-      height: 540px;
+      top: 52.5px;
+      left: 52.5px;
+      width: 504px;
+      height: 567px;
       background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(25px);
-      -webkit-backdrop-filter: blur(25px);
+      backdrop-filter: blur(26.2px);
+      -webkit-backdrop-filter: blur(26.2px);
       border: 1px solid rgba(226, 232, 240, 0.9);
-      border-radius: 16px;
-      box-shadow: 0 20px 40px -6px rgba(0, 0, 0, 0.1), 0 8px 20px -4px rgba(0, 0, 0, 0.05);
+      border-radius: 16.8px;
+      box-shadow: 0 21px 42px -6.3px rgba(0, 0, 0, 0.1), 0 8.4px 21px -4.2px rgba(0, 0, 0, 0.05);
       z-index: 100000;
       display: flex;
       flex-direction: column;
@@ -758,7 +758,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     }
     
     .loop-analytics-header {
-      padding: 14px 18px;
+      padding: 14.7px 18.9px;
       background: rgba(124, 58, 237, 0.06);
       border-bottom: 1px solid rgba(226, 232, 240, 0.8);
       display: flex;
@@ -769,45 +769,45 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     }
     
     .loop-analytics-title {
-      font-size: 15px;
+      font-size: 15.7px;
       font-weight: 600;
       color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 8.4px;
     }
     
     .loop-analytics-body {
-      padding: 16px;
+      padding: 16.8px;
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 14.7px;
       overflow-y: auto;
     }
     
     .loop-analytics-stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      gap: 10.5px;
     }
     
     .loop-analytics-stat-card {
       background: #f8fafc;
       border: 1px solid rgba(226, 232, 240, 0.8);
-      padding: 10px;
-      border-radius: 10px;
+      padding: 10.5px;
+      border-radius: 10.5px;
       text-align: center;
     }
     
     .loop-analytics-stat-val {
-      font-size: 18px;
+      font-size: 18.9px;
       font-weight: 700;
       color: var(--primary);
     }
     
     .loop-analytics-stat-lbl {
-      font-size: 10px;
+      font-size: 10.5px;
       color: var(--text-muted);
       margin-top: 2px;
       text-transform: uppercase;
@@ -816,15 +816,15 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     
     .loop-analytics-filters {
       display: flex;
-      gap: 8px;
+      gap: 8.4px;
       align-items: center;
     }
     
     .loop-analytics-select {
       flex: 1;
-      padding: 6px 8px;
-      font-size: 12px;
-      border-radius: 6px;
+      padding: 6.3px 8.4px;
+      font-size: 12.6px;
+      border-radius: 6.3px;
       border: 1px solid rgba(226, 232, 240, 0.8);
       background: #ffffff;
       outline: none;
@@ -835,15 +835,15 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       display: flex;
       border-bottom: 1px solid rgba(226, 232, 240, 0.6);
       padding-bottom: 2px;
-      gap: 12px;
+      gap: 12.6px;
     }
     
     .loop-analytics-tab {
-      font-size: 12px;
+      font-size: 12.6px;
       font-weight: 500;
       color: var(--text-muted);
       cursor: pointer;
-      padding: 4px 2px;
+      padding: 4.2px 2px;
       border-bottom: 2px solid transparent;
       transition: all 0.2s;
     }
@@ -857,55 +857,55 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     .loop-analytics-list {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 8.4px;
       flex: 1;
     }
     
     .loop-analytics-log-card {
       background: #ffffff;
       border: 1px solid rgba(226, 232, 240, 0.7);
-      border-radius: 10px;
-      padding: 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      border-radius: 10.5px;
+      padding: 12.6px;
+      box-shadow: 0 2px 4.2px rgba(0,0,0,0.02);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 6.3px;
     }
     
     .loop-analytics-log-header {
       display: flex;
       justify-content: space-between;
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--text-muted);
     }
     
     .loop-analytics-log-task {
-      font-size: 13.5px;
+      font-size: 14.2px;
       font-weight: 600;
       color: var(--text-main);
     }
     
     .loop-analytics-log-meta {
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--text-muted);
       display: flex;
-      gap: 10px;
+      gap: 10.5px;
       flex-wrap: wrap;
     }
     
     .loop-analytics-log-meta span {
       background: rgba(124, 58, 237, 0.05);
       color: var(--primary);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
+      padding: 2px 6.3px;
+      border-radius: 4.2px;
+      font-size: 10.5px;
     }
     
     .loop-analytics-log-pauses {
-      font-size: 10.5px;
+      font-size: 11.1px;
       color: var(--text-muted);
       border-top: 1px dashed rgba(226, 232, 240, 0.8);
-      padding-top: 4px;
+      padding-top: 4.2px;
       margin-top: 2px;
     }
   \`;
@@ -1046,8 +1046,8 @@ window.loopShowAnalyticsDashboard = () => {
   }
   
   if (!panel.style.top) {
-    panel.style.top = '100px';
-    panel.style.left = '100px';
+    panel.style.top = '105px';
+    panel.style.left = '105px';
   }
   
   if (!panel.dataset.tab) panel.dataset.tab = 'recent';
@@ -1061,7 +1061,7 @@ window.loopShowAnalyticsDashboard = () => {
   panel.innerHTML = \`
     <div class="loop-analytics-header">
       <div class="loop-analytics-title">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4.2px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
         Analytics Dashboard
       </div>
       <button class="loop-pip-btn" title="Close" onclick="document.getElementById('loop-timer-analytics-panel').remove();">\${closeIcon}</button>
@@ -1186,7 +1186,7 @@ window.loopShowAnalyticsDashboard = () => {
   listContainer.className = 'loop-analytics-list';
   
   if (filteredLogs.length === 0) {
-    listContainer.innerHTML = \`<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px;">No session logs found. Start and complete tasks to record analytics.</div>\`;
+    listContainer.innerHTML = \`<div style="text-align:center; padding:31.5px; color:var(--text-muted); font-size:13.7px;">No session logs found. Start and complete tasks to record analytics.</div>\`;
   } else {
     if (currentTab === 'recent') {
       filteredLogs.forEach(log => {
@@ -1202,12 +1202,12 @@ window.loopShowAnalyticsDashboard = () => {
       
       Object.keys(groups).forEach(dStr => {
         const header = document.createElement('div');
-        header.style.fontSize = '12px';
+        header.style.fontSize = '12.6px';
         header.style.fontWeight = '600';
         header.style.color = 'var(--primary)';
-        header.style.marginTop = '10px';
+        header.style.marginTop = '10.5px';
         header.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
-        header.style.paddingBottom = '4px';
+        header.style.paddingBottom = '4.2px';
         header.textContent = dStr;
         listContainer.appendChild(header);
         
@@ -1225,12 +1225,12 @@ window.loopShowAnalyticsDashboard = () => {
       
       Object.keys(groups).forEach(wsName => {
         const header = document.createElement('div');
-        header.style.fontSize = '12px';
+        header.style.fontSize = '12.6px';
         header.style.fontWeight = '600';
         header.style.color = 'var(--primary)';
-        header.style.marginTop = '10px';
+        header.style.marginTop = '10.5px';
         header.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
-        header.style.paddingBottom = '4px';
+        header.style.paddingBottom = '4.2px';
         header.textContent = wsName;
         listContainer.appendChild(header);
         
@@ -1353,8 +1353,8 @@ window.loopUpdatePipUI = () => {
     minBtn.onclick = (e) => {
       e.stopPropagation();
       pip.classList.add('loop-pip-bubble-mode');
-      pip.style.width = '64px';
-      pip.style.height = '64px';
+      pip.style.width = '67.2px';
+      pip.style.height = '67.2px';
       pip.style.borderRadius = '50%';
       window.loopUpdatePipUI();
     };
@@ -1377,9 +1377,9 @@ window.loopUpdatePipUI = () => {
       if (pip.getAttribute('data-dragged') === 'true') return;
       if (pip.classList.contains('loop-pip-bubble-mode')) {
         pip.classList.remove('loop-pip-bubble-mode');
-        pip.style.width = '320px';
+        pip.style.width = '336px';
         pip.style.height = 'auto';
-        pip.style.borderRadius = '16px';
+        pip.style.borderRadius = '16.8px';
         window.loopUpdatePipUI();
       }
     };
@@ -1387,7 +1387,7 @@ window.loopUpdatePipUI = () => {
   
   const runningTask = currentBlock.data.tasks.find(t => t.isRunning) || currentBlock.data.tasks[0];
   if (runningTask) {
-    bubble.innerHTML = timerIconLarge + \`<span style="font-size:11px; font-weight:bold; display:block; line-height:1; margin-top:2px;">\${formatDuration(runningTask.secondsLeft)}</span>\`;
+    bubble.innerHTML = timerIconLarge + \`<span style="font-size:11.5px; font-weight:bold; display:block; line-height:1; margin-top:2px;">\${formatDuration(runningTask.secondsLeft)}</span>\`;
     if (runningTask.isRunning) {
       pulse.className = 'loop-pip-bubble-pulse active';
     } else {
@@ -1454,7 +1454,7 @@ window.loopUpdatePipUI = () => {
         timeDisp.title = 'Click to edit duration (min)';
         timeDisp.addEventListener('mouseenter', () => {
           timeDisp.style.background = 'rgba(124, 58, 237, 0.08)';
-          timeDisp.style.borderRadius = '4px';
+          timeDisp.style.borderRadius = '4.2px';
         });
         timeDisp.addEventListener('mouseleave', () => {
           timeDisp.style.background = 'transparent';
@@ -1467,11 +1467,11 @@ window.loopUpdatePipUI = () => {
           editInput.min = '1';
           editInput.max = '999';
           editInput.value = Math.round(task.totalSeconds / 60);
-          editInput.style.width = '40px';
-          editInput.style.fontSize = '11px';
+          editInput.style.width = '42px';
+          editInput.style.fontSize = '11.5px';
           editInput.style.padding = '1px 2px';
           editInput.style.border = '1px solid var(--primary)';
-          editInput.style.borderRadius = '4px';
+          editInput.style.borderRadius = '4.2px';
           editInput.style.textAlign = 'center';
           editInput.style.outline = 'none';
           
@@ -1556,23 +1556,23 @@ window.loopUpdatePipUI = () => {
     
     const addBar = document.createElement('div');
     addBar.style.display = 'flex';
-    addBar.style.gap = '8px';
-    addBar.style.marginTop = '8px';
+    addBar.style.gap = '8.4px';
+    addBar.style.marginTop = '8.4px';
     
     const addInp = document.createElement('input');
     addInp.type = 'text';
     addInp.placeholder = 'Add task in PIP...';
     addInp.style.flex = '1';
-    addInp.style.padding = '6px 10px';
-    addInp.style.fontSize = '12px';
+    addInp.style.padding = '6.3px 10.5px';
+    addInp.style.fontSize = '12.6px';
     addInp.style.border = '1px solid rgba(226, 232, 240, 0.8)';
-    addInp.style.borderRadius = '6px';
+    addInp.style.borderRadius = '6.3px';
     addInp.style.outline = 'none';
     
     const addBtn = document.createElement('button');
     addBtn.className = 'loop-timer-btn loop-timer-btn-primary';
-    addBtn.style.width = '30px';
-    addBtn.style.height = '30px';
+    addBtn.style.width = '31.5px';
+    addBtn.style.height = '31.5px';
     addBtn.innerHTML = plusIcon;
     
     const triggerAddTask = () => {
@@ -1662,15 +1662,15 @@ const renderBlockUI = () => {
   container.innerHTML = '';
   
   const wrapper = document.createElement('div');
-  wrapper.style.padding = '16px 20px';
+  wrapper.style.padding = '16.8px 21px';
   wrapper.style.background = '#ffffff';
   wrapper.style.border = '1px solid var(--border-color)';
-  wrapper.style.borderRadius = '12px';
+  wrapper.style.borderRadius = '12.6px';
   wrapper.style.boxShadow = 'var(--shadow-sm)';
   wrapper.style.display = 'flex';
   wrapper.style.flexDirection = 'column';
-  wrapper.style.gap = '14px';
-  wrapper.style.margin = '12px 0';
+  wrapper.style.gap = '14.7px';
+  wrapper.style.margin = '12.6px 0';
   wrapper.style.width = '100%';
   
   const header = document.createElement('div');
@@ -1678,10 +1678,10 @@ const renderBlockUI = () => {
   header.style.justifyContent = 'space-between';
   header.style.alignItems = 'center';
   header.style.borderBottom = '1px solid rgba(226, 232, 240, 0.6)';
-  header.style.paddingBottom = '10px';
+  header.style.paddingBottom = '10.5px';
   
   const title = document.createElement('div');
-  title.style.fontSize = '15px';
+  title.style.fontSize = '15.7px';
   title.style.fontWeight = '600';
   title.style.color = 'var(--text-main)';
   title.style.display = 'flex';
@@ -1690,18 +1690,18 @@ const renderBlockUI = () => {
   
   const headerBtns = document.createElement('div');
   headerBtns.style.display = 'flex';
-  headerBtns.style.gap = '8px';
+  headerBtns.style.gap = '8.4px';
   
   const pipBtn = document.createElement('button');
   pipBtn.innerHTML = pipIcon + 'Float (PIP)';
-  pipBtn.style.padding = '6px 12px';
-  pipBtn.style.borderRadius = '20px';
+  pipBtn.style.padding = '6.3px 12.6px';
+  pipBtn.style.borderRadius = '21px';
   pipBtn.style.border = '1px solid var(--primary)';
   pipBtn.style.background = 'var(--primary-light)';
   pipBtn.style.color = 'var(--primary)';
   pipBtn.style.cursor = 'pointer';
   pipBtn.style.fontWeight = '500';
-  pipBtn.style.fontSize = '12.5px';
+  pipBtn.style.fontSize = '13.2px';
   pipBtn.style.transition = 'all 0.2s';
   pipBtn.style.display = 'flex';
   pipBtn.style.alignItems = 'center';
@@ -1721,9 +1721,9 @@ const renderBlockUI = () => {
     const pip = document.getElementById('loop-timer-pip-panel');
     if (pip) {
       pip.classList.remove('loop-pip-bubble-mode');
-      pip.style.width = '320px';
+      pip.style.width = '336px';
       pip.style.height = 'auto';
-      pip.style.borderRadius = '16px';
+      pip.style.borderRadius = '16.8px';
       pip.style.zIndex = '999999';
     }
   });
@@ -1736,7 +1736,7 @@ const renderBlockUI = () => {
   const listContainer = document.createElement('div');
   listContainer.style.display = 'flex';
   listContainer.style.flexDirection = 'column';
-  listContainer.style.gap = '10px';
+  listContainer.style.gap = '10.5px';
   
   block.data.tasks.forEach(task => {
     task.history = task.history || [];
@@ -1746,28 +1746,28 @@ const renderBlockUI = () => {
     itemContainer.style.flexDirection = 'column';
     itemContainer.style.background = '#f8fafc';
     itemContainer.style.border = '1px solid var(--border-color)';
-    itemContainer.style.borderRadius = '8px';
-    itemContainer.style.padding = '8px 12px';
+    itemContainer.style.borderRadius = '8.4px';
+    itemContainer.style.padding = '8.4px 12.6px';
     
     const row = document.createElement('div');
     row.style.display = 'flex';
     row.style.alignItems = 'center';
     row.style.justifyContent = 'space-between';
-    row.style.gap = '10px';
+    row.style.gap = '10.5px';
     row.style.transition = 'all 0.2s';
     
     const left = document.createElement('div');
     left.style.display = 'flex';
     left.style.alignItems = 'center';
-    left.style.gap = '10px';
+    left.style.gap = '10.5px';
     left.style.flex = '1';
     
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = task.completed;
     cb.style.cursor = 'pointer';
-    cb.style.width = '16px';
-    cb.style.height = '16px';
+    cb.style.width = '16.8px';
+    cb.style.height = '16.8px';
     cb.addEventListener('change', () => {
       task.completed = cb.checked;
       save();
@@ -1781,7 +1781,7 @@ const renderBlockUI = () => {
     nameInput.placeholder = 'Task description...';
     nameInput.style.border = 'none';
     nameInput.style.background = 'transparent';
-    nameInput.style.fontSize = '14px';
+    nameInput.style.fontSize = '14.7px';
     nameInput.style.color = 'var(--text-main)';
     nameInput.style.outline = 'none';
     nameInput.style.width = '100%';
@@ -1806,17 +1806,17 @@ const renderBlockUI = () => {
     const right = document.createElement('div');
     right.style.display = 'flex';
     right.style.alignItems = 'center';
-    right.style.gap = '8px';
+    right.style.gap = '8.4px';
     
     const timeSpan = document.createElement('span');
     timeSpan.style.fontFamily = 'var(--font-mono)';
-    timeSpan.style.fontSize = '14.5px';
+    timeSpan.style.fontSize = '15.3px';
     timeSpan.style.fontWeight = '600';
     timeSpan.style.color = 'var(--primary)';
     timeSpan.style.cursor = task.isRunning ? 'default' : 'pointer';
-    timeSpan.style.padding = '2px 6px';
-    timeSpan.style.borderRadius = '4px';
-    timeSpan.style.minWidth = '48px';
+    timeSpan.style.padding = '2px 6.3px';
+    timeSpan.style.borderRadius = '4.2px';
+    timeSpan.style.minWidth = '50.4px';
     timeSpan.style.textAlign = 'right';
     
     timeSpan.textContent = formatDuration(task.secondsLeft);
@@ -1837,11 +1837,11 @@ const renderBlockUI = () => {
         editInput.min = '1';
         editInput.max = '999';
         editInput.value = Math.round(task.totalSeconds / 60);
-        editInput.style.width = '45px';
-        editInput.style.fontSize = '13px';
-        editInput.style.padding = '2px 4px';
+        editInput.style.width = '47.2px';
+        editInput.style.fontSize = '13.7px';
+        editInput.style.padding = '2px 4.2px';
         editInput.style.border = '1px solid var(--primary)';
-        editInput.style.borderRadius = '4px';
+        editInput.style.borderRadius = '4.2px';
         editInput.style.textAlign = 'center';
         editInput.style.outline = 'none';
         
@@ -1935,33 +1935,33 @@ const renderBlockUI = () => {
   
   const addBar = document.createElement('div');
   addBar.style.display = 'flex';
-  addBar.style.gap = '10px';
-  addBar.style.marginTop = '4px';
+  addBar.style.gap = '10.5px';
+  addBar.style.marginTop = '4.2px';
   
   const addInp = document.createElement('input');
   addInp.type = 'text';
   addInp.placeholder = 'Add new task...';
   addInp.style.flex = '1';
-  addInp.style.padding = '8px 12px';
-  addInp.style.fontSize = '13.5px';
+  addInp.style.padding = '8.4px 12.6px';
+  addInp.style.fontSize = '14.2px';
   addInp.style.border = '1px solid var(--border-color)';
-  addInp.style.borderRadius = '6px';
+  addInp.style.borderRadius = '6.3px';
   addInp.style.outline = 'none';
   addInp.style.background = '#f8fafc';
   
   const addBtn = document.createElement('button');
   addBtn.innerHTML = plusIcon + ' Add Task';
-  addBtn.style.padding = '8px 14px';
+  addBtn.style.padding = '8.4px 14.7px';
   addBtn.style.background = 'var(--primary)';
   addBtn.style.color = '#ffffff';
   addBtn.style.border = 'none';
-  addBtn.style.borderRadius = '6px';
+  addBtn.style.borderRadius = '6.3px';
   addBtn.style.cursor = 'pointer';
-  addBtn.style.fontSize = '13px';
+  addBtn.style.fontSize = '13.7px';
   addBtn.style.fontWeight = '500';
   addBtn.style.display = 'flex';
   addBtn.style.alignItems = 'center';
-  addBtn.style.gap = '4px';
+  addBtn.style.gap = '4.2px';
   
   const triggerAddTask = () => {
     const text = addInp.value.trim();
@@ -2041,7 +2041,7 @@ block.data.tasks.forEach(task => {
     description: 'Sketch notes, flowcharts, diagrams, or math formulas directly inside notes.',
     enabled: true,
     isBuiltIn: true,
-    renderCode: `if (!block.data || typeof block.data !== 'object') {\n  block.data = { image: '' };\n}\ncontainer.innerHTML = '';\nconst wrapper = document.createElement('div');\nwrapper.style.padding = '12px';\nwrapper.style.background = '#f8fafc';\nwrapper.style.border = '1px solid var(--border-color)';\nwrapper.style.borderRadius = '10px';\nwrapper.style.display = 'flex';\nwrapper.style.flexDirection = 'column';\nwrapper.style.gap = '8px';\nwrapper.style.margin = '10px 0';\nwrapper.style.width = '100%';\n\nconst canvas = document.createElement('canvas');\ncanvas.width = 600;\ncanvas.height = 250;\ncanvas.style.background = '#ffffff';\ncanvas.style.border = '1px solid var(--border-color)';\ncanvas.style.borderRadius = '6px';\ncanvas.style.cursor = 'crosshair';\ncanvas.style.touchAction = 'none';\n\nconst ctx = canvas.getContext('2d');\nctx.lineWidth = 3;\nctx.lineCap = 'round';\nctx.strokeStyle = '#7c3aed';\n\nif (block.data.image) {\n  const img = new Image();\n  img.onload = () => ctx.drawImage(img, 0, 0);\n  img.src = block.data.image;\n}\n\nlet drawing = false;\nconst getPos = (e) => {\n  const rect = canvas.getBoundingClientRect();\n  return { x: e.clientX - rect.left, y: e.clientY - rect.top };\n};\n\ncanvas.addEventListener('mousedown', (e) => {\n  drawing = true;\n  const pos = getPos(e);\n  ctx.beginPath();\n  ctx.moveTo(pos.x, pos.y);\n});\n\ncanvas.addEventListener('mousemove', (e) => {\n  if (!drawing) return;\n  const pos = getPos(e);\n  ctx.lineTo(pos.x, pos.y);\n  ctx.stroke();\n});\n\nconst stopDrawing = () => {\n  if (!drawing) return;\n  drawing = false;\n  block.data.image = canvas.toDataURL();\n  save();\n};\n\ncanvas.addEventListener('mouseup', stopDrawing);\ncanvas.addEventListener('mouseleave', stopDrawing);\n\nconst toolbar = document.createElement('div');\ntoolbar.style.display = 'flex';\ntoolbar.style.gap = '8px';\n\nconst clearBtn = document.createElement('button');\nclearBtn.textContent = 'Clear Canvas';\nclearBtn.style.padding = '5px 12px';\nclearBtn.style.borderRadius = '20px';\nclearBtn.style.border = '1px solid var(--border-color)';\nclearBtn.style.background = '#ffffff';\nclearBtn.style.cursor = 'pointer';\nclearBtn.style.fontSize = '12px';\nclearBtn.style.fontWeight = '500';\nclearBtn.style.color = 'var(--text-muted)';\n\nclearBtn.addEventListener('click', () => {\n  ctx.clearRect(0, 0, canvas.width, canvas.height);\n  block.data.image = '';\n  save();\n});\n\ntoolbar.appendChild(clearBtn);\nwrapper.appendChild(canvas);\nwrapper.appendChild(toolbar);\ncontainer.appendChild(wrapper);`
+    renderCode: `if (!block.data || typeof block.data !== 'object') {\n  block.data = { image: '' };\n}\ncontainer.innerHTML = '';\nconst wrapper = document.createElement('div');\nwrapper.style.padding = '12.6px';\nwrapper.style.background = '#f8fafc';\nwrapper.style.border = '1px solid var(--border-color)';\nwrapper.style.borderRadius = '10.5px';\nwrapper.style.display = 'flex';\nwrapper.style.flexDirection = 'column';\nwrapper.style.gap = '8.4px';\nwrapper.style.margin = '10.5px 0';\nwrapper.style.width = '100%';\n\nconst canvas = document.createElement('canvas');\ncanvas.width = 600;\ncanvas.height = 250;\ncanvas.style.background = '#ffffff';\ncanvas.style.border = '1px solid var(--border-color)';\ncanvas.style.borderRadius = '6.3px';\ncanvas.style.cursor = 'crosshair';\ncanvas.style.touchAction = 'none';\n\nconst ctx = canvas.getContext('2d');\nctx.lineWidth = 3;\nctx.lineCap = 'round';\nctx.strokeStyle = '#7c3aed';\n\nif (block.data.image) {\n  const img = new Image();\n  img.onload = () => ctx.drawImage(img, 0, 0);\n  img.src = block.data.image;\n}\n\nlet drawing = false;\nconst getPos = (e) => {\n  const rect = canvas.getBoundingClientRect();\n  return { x: e.clientX - rect.left, y: e.clientY - rect.top };\n};\n\ncanvas.addEventListener('mousedown', (e) => {\n  drawing = true;\n  const pos = getPos(e);\n  ctx.beginPath();\n  ctx.moveTo(pos.x, pos.y);\n});\n\ncanvas.addEventListener('mousemove', (e) => {\n  if (!drawing) return;\n  const pos = getPos(e);\n  ctx.lineTo(pos.x, pos.y);\n  ctx.stroke();\n});\n\nconst stopDrawing = () => {\n  if (!drawing) return;\n  drawing = false;\n  block.data.image = canvas.toDataURL();\n  save();\n};\n\ncanvas.addEventListener('mouseup', stopDrawing);\ncanvas.addEventListener('mouseleave', stopDrawing);\n\nconst toolbar = document.createElement('div');\ntoolbar.style.display = 'flex';\ntoolbar.style.gap = '8.4px';\n\nconst clearBtn = document.createElement('button');\nclearBtn.textContent = 'Clear Canvas';\nclearBtn.style.padding = '5.3px 12.6px';\nclearBtn.style.borderRadius = '21px';\nclearBtn.style.border = '1px solid var(--border-color)';\nclearBtn.style.background = '#ffffff';\nclearBtn.style.cursor = 'pointer';\nclearBtn.style.fontSize = '12.6px';\nclearBtn.style.fontWeight = '500';\nclearBtn.style.color = 'var(--text-muted)';\n\nclearBtn.addEventListener('click', () => {\n  ctx.clearRect(0, 0, canvas.width, canvas.height);\n  block.data.image = '';\n  save();\n});\n\ntoolbar.appendChild(clearBtn);\nwrapper.appendChild(canvas);\nwrapper.appendChild(toolbar);\ncontainer.appendChild(wrapper);`
   },
   {
     id: 'autocomplete',
@@ -2050,7 +2050,7 @@ block.data.tasks.forEach(task => {
     description: 'Provide real-time inline AI writing assistance using Groq cloud. Triggers automatically when you stop typing for 2 seconds. Press Tab to accept.',
     enabled: true,
     isBuiltIn: true,
-    renderCode: `container.innerHTML = '<div style="padding:12.5px; font-size:13px; color:var(--text-muted); background:#fafafa; border:1px solid rgba(0,0,0,0.05); border-radius:8px;">🤖 AI Autocomplete is active globally on all text blocks. Configure your Groq Cloud API Key in the settings panel above. Stop typing for 2 seconds to get suggestions, and press Tab to autocomplete.</div>';`
+    renderCode: `container.innerHTML = '<div style="padding:13.2px; font-size:13.7px; color:var(--text-muted); background:#fafafa; border:1px solid rgba(0,0,0,0.05); border-radius:8.4px;">🤖 AI Autocomplete is active globally on all text blocks. Configure your Groq Cloud API Key in the settings panel above. Stop typing for 2 seconds to get suggestions, and press Tab to autocomplete.</div>';`
   }
 ];
 
