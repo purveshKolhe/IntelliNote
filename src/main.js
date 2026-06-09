@@ -644,7 +644,7 @@ function renderEditorPane() {
         <div id="editor-container"></div>
         
         <!-- Bottom Spacer -->
-        <div style="height: 35vh; width: 100%; flex-shrink: 0; pointer-events: none;"></div>
+        <div style="height: 5vh; width: 100%; flex-shrink: 0; pointer-events: none;"></div>
       </div>
     </div>
   `;
