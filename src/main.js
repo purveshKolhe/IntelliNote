@@ -162,6 +162,13 @@ function setupPrimarySidebarEvents() {
       showRecycleBinModal();
     });
   }
+
+  const importBtn = document.getElementById('btn-nav-import');
+  if (importBtn) {
+    importBtn.addEventListener('click', () => {
+      importWorkspaceGlobal();
+    });
+  }
   
   const logo = document.querySelector('.loop-logo-area');
   logo.style.cursor = 'pointer';
@@ -385,14 +392,20 @@ function renderDashboard() {
       <h2 class="dashboard-greeting">${greetEmoji} ${greeting}</h2>
       <p class="dashboard-subgreeting">Welcome to IntelliNote. Workspaces and chapters are saved locally and securely inside your browser.</p>
       
-      <div class="sidebar-section-title" style="padding-left:0; margin-bottom: 21px;">Recent Workspaces</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 21px;">
+        <div class="sidebar-section-title" style="padding-left:0; margin-bottom: 0;">Recent Workspaces</div>
+        ${workspaces.length > 0 ? `<button id="btn-dashboard-import-ws-grid" class="create-new-btn" style="margin-bottom:0; padding: 6px 12.6px; font-size:13.7px; border-radius:15.8px; height:auto;">📥 Import Workspace</button>` : ''}
+      </div>
       
       ${workspaces.length === 0 ? `
         <div class="dashboard-empty-workspaces" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 50.4px; border:2px dashed var(--border-color); border-radius: var(--radius-lg); text-align:center;">
           <div style="font-size:37.8px; margin-bottom: 12.6px;">📂</div>
           <div style="font-size: 16.8px; font-weight:600; margin-bottom: 4.2px;">No Workspaces Yet</div>
           <div style="font-size: 13.7px; color: var(--text-muted); margin-bottom: 21px;">Create your first workspace to start writing documents.</div>
-          <button id="btn-dashboard-create-ws" class="create-new-btn" style="margin-bottom:0;">+ Create Workspace</button>
+          <div style="display:flex; gap: 10.5px;">
+            <button id="btn-dashboard-create-ws" class="create-new-btn" style="margin-bottom:0;">+ Create Workspace</button>
+            <button id="btn-dashboard-import-ws" class="create-new-btn" style="margin-bottom:0; background: var(--primary-light); color: var(--primary); border-color: var(--primary);">📥 Import Workspace</button>
+          </div>
         </div>
       ` : `
         <div class="dashboard-workspaces-grid">
@@ -451,6 +464,20 @@ function renderDashboard() {
       showCreateWorkspaceModal();
     });
   }
+
+  const emptyImportBtn = document.getElementById('btn-dashboard-import-ws');
+  if (emptyImportBtn) {
+    emptyImportBtn.addEventListener('click', () => {
+      importWorkspaceGlobal();
+    });
+  }
+
+  const gridImportBtn = document.getElementById('btn-dashboard-import-ws-grid');
+  if (gridImportBtn) {
+    gridImportBtn.addEventListener('click', () => {
+      importWorkspaceGlobal();
+    });
+  }
 }
 
 // --- Workspace Secondary Sidebar & Chapter Renderer ---
@@ -479,7 +506,16 @@ function renderWorkspaceView() {
           </div>
           <span class="sec-ws-name">${workspace.name}</span>
         </div>
-        <button class="sec-ws-close-btn" id="sec-ws-close-btn" title="Close Workspace">×</button>
+        <div style="display:flex; align-items:center; gap:4.2px;">
+          <button class="sec-ws-more-btn" id="sec-ws-more-btn" title="Workspace Actions">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="1.5"></circle>
+              <circle cx="12" cy="5" r="1.5"></circle>
+              <circle cx="12" cy="19" r="1.5"></circle>
+            </svg>
+          </button>
+          <button class="sec-ws-close-btn" id="sec-ws-close-btn" title="Close Workspace">×</button>
+        </div>
       </div>
       <div class="sec-sidebar-controls">
         <span class="sort-select-label">Sorted by hierarchy</span>
@@ -494,6 +530,26 @@ function renderWorkspaceView() {
 
   document.getElementById('sec-ws-close-btn').addEventListener('click', () => {
     window.location.hash = '#dashboard';
+  });
+
+  document.getElementById('sec-ws-more-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    showDropdownMenu(e.currentTarget, [
+      {
+        icon: '📤',
+        label: 'Export Workspace (JSON)',
+        onClick: () => {
+          exportWorkspace(activeWorkspaceId);
+        }
+      },
+      {
+        icon: '📥',
+        label: 'Import Page (JSON)',
+        onClick: () => {
+          importPageToWorkspace(activeWorkspaceId);
+        }
+      }
+    ]);
   });
 
   document.getElementById('sec-add-chapter-btn').addEventListener('click', () => {
@@ -692,6 +748,13 @@ function renderEditorPane() {
             <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
           </svg>
         </button>
+        <button class="header-action-btn" id="btn-page-more" title="More Actions">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="1.5"></circle>
+            <circle cx="12" cy="5" r="1.5"></circle>
+            <circle cx="12" cy="19" r="1.5"></circle>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -735,6 +798,27 @@ function renderEditorPane() {
   document.getElementById('btn-theme-toggle').addEventListener('click', () => {
     const isCurrentlyDark = document.body.classList.toggle('dark-mode');
     localStorage.setItem('intellinote-dark-mode', isCurrentlyDark);
+  });
+
+  document.getElementById('btn-page-more').addEventListener('click', (e) => {
+    e.stopPropagation();
+    showDropdownMenu(e.currentTarget, [
+      {
+        icon: '📤',
+        label: 'Export Page (JSON)',
+        onClick: () => {
+          exportPage(activeChapterId);
+        }
+      },
+      {
+        icon: '🗑️',
+        label: 'Delete Page',
+        class: 'danger',
+        onClick: () => {
+          confirmDeleteChapter(chapter);
+        }
+      }
+    ]);
   });
 
   const emojiHead = document.getElementById('page-large-emoji');
@@ -1529,3 +1613,197 @@ function formatRelativeTime(date) {
   if (diffDays === 1) return 'yesterday';
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
+
+// --- JSON Export and Import Helpers ---
+
+function downloadJSON(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function triggerJSONUpload(onSuccess) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        onSuccess(data);
+      } catch (err) {
+        alert('Failed to parse JSON file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function exportPage(chapterId) {
+  const chapter = db.getChapter(chapterId);
+  if (!chapter) return;
+  const exportData = {
+    type: 'intellinote-page',
+    version: 1,
+    title: chapter.title,
+    emoji: chapter.emoji,
+    cover: chapter.cover,
+    blocks: chapter.blocks
+  };
+  downloadJSON(exportData, `${chapter.title || 'Untitled Page'}.json`);
+}
+
+function exportWorkspace(workspaceId) {
+  const workspace = db.getWorkspace(workspaceId);
+  if (!workspace) return;
+  const chapters = db.getChapters(workspaceId);
+  const exportData = {
+    type: 'intellinote-workspace',
+    version: 1,
+    name: workspace.name,
+    cover: workspace.cover,
+    starred: workspace.starred,
+    chapters: chapters.map(c => ({
+      title: c.title,
+      emoji: c.emoji,
+      cover: c.cover,
+      blocks: c.blocks
+    }))
+  };
+  downloadJSON(exportData, `${workspace.name || 'Untitled Workspace'}.json`);
+}
+
+function importPageToWorkspace(workspaceId) {
+  triggerJSONUpload((data) => {
+    if (data.type !== 'intellinote-page') {
+      alert('Invalid file format. Please select an IntelliNote Page JSON file.');
+      return;
+    }
+    const newChapter = {
+      id: 'c-' + Math.random().toString(36).substr(2, 9),
+      workspaceId: workspaceId,
+      title: data.title || 'Imported Page',
+      emoji: data.emoji || null,
+      cover: data.cover || null,
+      blocks: Array.isArray(data.blocks) ? data.blocks : [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }],
+      updatedAt: new Date().toISOString()
+    };
+    db.saveChapter(newChapter);
+    
+    // Refresh UI
+    renderWorkspaceView();
+    window.location.hash = `#workspace/${workspaceId}/chapter/${newChapter.id}`;
+  });
+}
+
+function importWorkspaceGlobal() {
+  triggerJSONUpload((data) => {
+    if (data.type !== 'intellinote-workspace') {
+      alert('Invalid file format. Please select an IntelliNote Workspace JSON file.');
+      return;
+    }
+    
+    const wsId = 'w-' + Math.random().toString(36).substr(2, 9);
+    const newWorkspace = {
+      id: wsId,
+      name: data.name || 'Imported Workspace',
+      cover: data.cover || null,
+      starred: !!data.starred,
+      updatedAt: new Date().toISOString()
+    };
+    db.saveWorkspace(newWorkspace);
+
+    // Import its chapters/pages
+    let firstChapterId = null;
+    if (Array.isArray(data.chapters) && data.chapters.length > 0) {
+      data.chapters.forEach((c, idx) => {
+        const chapterId = 'c-' + Math.random().toString(36).substr(2, 9);
+        if (idx === 0) firstChapterId = chapterId;
+        const newChapter = {
+          id: chapterId,
+          workspaceId: wsId,
+          title: c.title || 'Untitled Page',
+          emoji: c.emoji || null,
+          cover: c.cover || null,
+          blocks: Array.isArray(c.blocks) ? c.blocks : [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }],
+          updatedAt: new Date().toISOString()
+        };
+        db.saveChapter(newChapter);
+      });
+    } else {
+      // Create at least one page if the workspace is empty
+      const chapterId = 'c-' + Math.random().toString(36).substr(2, 9);
+      firstChapterId = chapterId;
+      const firstChapter = {
+        id: chapterId,
+        workspaceId: wsId,
+        title: '',
+        emoji: null,
+        blocks: [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }],
+        updatedAt: new Date().toISOString()
+      };
+      db.saveChapter(firstChapter);
+    }
+
+    // Refresh sidebar & route to workspace
+    renderPrimarySidebarWorkspaces();
+    renderDashboard();
+    window.location.hash = `#workspace/${wsId}/chapter/${firstChapterId}`;
+  });
+}
+
+// --- Dropdown Menu Controller ---
+
+function showDropdownMenu(triggerBtn, items) {
+  closeAllDropdowns();
+
+  const rect = triggerBtn.getBoundingClientRect();
+  const dropdown = document.createElement('div');
+  dropdown.className = 'loop-dropdown-menu';
+  
+  items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = `loop-dropdown-item ${item.class || ''}`;
+    btn.innerHTML = `${item.icon ? `<span>${item.icon}</span>` : ''} <span>${item.label}</span>`;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      item.onClick();
+      closeAllDropdowns();
+    });
+    dropdown.appendChild(btn);
+  });
+
+  document.body.appendChild(dropdown);
+
+  // Position
+  const scrollY = window.scrollY || window.pageYOffset;
+  const scrollX = window.scrollX || window.pageXOffset;
+  dropdown.style.top = `${rect.bottom + scrollY + 4}px`;
+  dropdown.style.left = `${rect.right + scrollX - dropdown.offsetWidth}px`;
+
+  // Auto-close on click outside
+  const onOutsideClick = (e) => {
+    if (!dropdown.contains(e.target) && e.target !== triggerBtn && !triggerBtn.contains(e.target)) {
+      closeAllDropdowns();
+      document.removeEventListener('click', onOutsideClick);
+    }
+  };
+  setTimeout(() => {
+    document.addEventListener('click', onOutsideClick);
+  }, 0);
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.loop-dropdown-menu').forEach(el => el.remove());
+}
+
