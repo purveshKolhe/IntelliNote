@@ -1,9 +1,25 @@
 // IntelliNote App Main Entry Point & Controller
 import './style.css';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { db } from './db.js';
 import { emoji } from './emoji.js';
 import { Editor } from './editor.js';
 import { search } from './search.js';
+
+// Expose KaTeX globally for editor blocks
+window.katex = katex;
+
+// Register Service Worker for offline PWA functionality
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('PWA Service Worker registered:', reg.scope);
+    }).catch(err => {
+      console.log('PWA Service Worker registration failed:', err);
+    });
+  });
+}
 
 const PAGE_SVG_HTML = (size = 14) => `
 <svg class="page-svg-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; display: inline-block; vertical-align: middle;">
