@@ -455,6 +455,10 @@ function renderWorkspaceView() {
   const secSidebar = document.getElementById('sidebar-secondary');
   secSidebar.style.display = 'flex';
 
+  // Restore saved width from localStorage if present
+  const savedWidth = localStorage.getItem('intellinote-sec-sidebar-width') || 'var(--sec-sidebar-w)';
+  secSidebar.style.width = savedWidth;
+
   const chapters = db.getChapters(activeWorkspaceId);
 
   secSidebar.innerHTML = `
@@ -462,7 +466,7 @@ function renderWorkspaceView() {
       <div class="sec-ws-title-container">
         <div class="sec-ws-details">
           <div class="ws-icon-premium" style="width:29.4px; height:29.4px; border-radius:7.4px;">
-            ${PAGE_SVG_HTML(14)}
+            ${PAGE_SVG_HTML(14.7)}
           </div>
           <span class="sec-ws-name">${workspace.name}</span>
         </div>
@@ -476,6 +480,7 @@ function renderWorkspaceView() {
     <div class="chapters-nav-list" id="chapters-nav-container">
       <!-- Dynamic list of chapters -->
     </div>
+    <div class="sidebar-resize-handle" id="sec-sidebar-resize-handle"></div>
   `;
 
   document.getElementById('sec-ws-close-btn').addEventListener('click', () => {
@@ -485,6 +490,42 @@ function renderWorkspaceView() {
   document.getElementById('sec-add-chapter-btn').addEventListener('click', () => {
     createNewChapter();
   });
+
+  // Resizing mousedown logic
+  const handle = document.getElementById('sec-sidebar-resize-handle');
+  if (handle) {
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      handle.classList.add('active');
+      
+      const onMouseMove = (moveEvent) => {
+        const primarySidebar = document.getElementById('sidebar-primary');
+        const primaryWidth = primarySidebar ? primarySidebar.getBoundingClientRect().width : 0;
+        let newWidth = moveEvent.clientX - primaryWidth;
+        
+        const minW = 210; // Min width in pixels
+        const maxW = 472.5; // Max width in pixels (1.05x scaled)
+        if (newWidth < minW) newWidth = minW;
+        if (newWidth > maxW) newWidth = maxW;
+        
+        secSidebar.style.width = `${newWidth}px`;
+        localStorage.setItem('intellinote-sec-sidebar-width', `${newWidth}px`);
+      };
+      
+      const onMouseUp = () => {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        handle.classList.remove('active');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+      
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  }
 
   renderSecondarySidebarChapters(chapters);
   renderEditorPane();

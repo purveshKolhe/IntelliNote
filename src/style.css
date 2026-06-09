@@ -327,6 +327,7 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  position: relative;
   animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -2119,4 +2120,21 @@ body.dark-mode ::-webkit-scrollbar-thumb:hover {
   gap: 0;
   justify-content: center;
   width: 100%;
+}
+
+/* Sidebar Resize Handle */
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4.2px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+  z-index: 100;
+}
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle.active {
+  background: var(--primary);
 }
