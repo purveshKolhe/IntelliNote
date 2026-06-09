@@ -5,6 +5,18 @@ import { emoji } from './emoji.js';
 import { Editor } from './editor.js';
 import { search } from './search.js';
 
+const PAGE_SVG_HTML = (size = 14) => `
+<svg class="page-svg-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; display: inline-block; vertical-align: middle;">
+  <path d="M6 6L14 6"></path>
+  <path d="M6 10H18"></path>
+  <path d="M13 14L18 14"></path>
+  <path d="M13 18L18 18"></path>
+  <path d="M2 21.4V2.6C2 2.26863 2.26863 2 2.6 2H18.2515C18.4106 2 18.5632 2.06321 18.6757 2.17574L21.8243 5.32426C21.9368 5.43679 22 5.5894 22 5.74853V21.4C22 21.7314 21.7314 22 21.4 22H2.6C2.26863 22 2 21.7314 2 21.4Z"></path>
+  <path d="M6 18V14H9V18H6Z"></path>
+  <path d="M18 2V5.4C18 5.73137 18.2686 6 18.6 6H22"></path>
+</svg>
+`;
+
 // Apply dark mode theme if saved in localStorage
 if (localStorage.getItem('intellinote-dark-mode') === 'true') {
   document.body.classList.add('dark-mode');
@@ -101,6 +113,13 @@ function setupPrimarySidebarEvents() {
   if (pluginsBtn) {
     pluginsBtn.addEventListener('click', () => {
       showPluginsModal();
+    });
+  }
+
+  const trashBtn = document.getElementById('btn-nav-trash');
+  if (trashBtn) {
+    trashBtn.addEventListener('click', () => {
+      showRecycleBinModal();
     });
   }
   
@@ -228,10 +247,7 @@ function renderWorkspaceListItemHTML(w) {
     <div class="sidebar-ws-item ${activeWorkspaceId === w.id ? 'active' : ''}" data-id="${w.id}" draggable="true">
       <div class="ws-item-left">
         <div class="ws-icon-premium">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-          </svg>
+          ${PAGE_SVG_HTML(12)}
         </div>
         <span class="ws-item-name">${w.name}</span>
       </div>
@@ -415,18 +431,11 @@ function renderWorkspaceView() {
       <div class="sec-ws-title-container">
         <div class="sec-ws-details">
           <div class="ws-icon-premium" style="width:28px; height:28px; border-radius:7px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-            </svg>
+            ${PAGE_SVG_HTML(14)}
           </div>
           <span class="sec-ws-name">${workspace.name}</span>
         </div>
         <button class="sec-ws-close-btn" id="sec-ws-close-btn" title="Close Workspace">×</button>
-      </div>
-      <div class="sec-ws-members">
-        <span>👥</span>
-        <span>1 member</span>
       </div>
       <div class="sec-sidebar-controls">
         <span class="sort-select-label">Sorted by hierarchy</span>
@@ -436,11 +445,6 @@ function renderWorkspaceView() {
     <div class="chapters-nav-list" id="chapters-nav-container">
       <!-- Dynamic list of chapters -->
     </div>
-    <div class="sec-sidebar-footer">
-      <button class="recycle-bin-btn" id="btn-recycle-bin">
-        <span>🗑️</span> Recycle bin
-      </button>
-    </div>
   `;
 
   document.getElementById('sec-ws-close-btn').addEventListener('click', () => {
@@ -449,10 +453,6 @@ function renderWorkspaceView() {
 
   document.getElementById('sec-add-chapter-btn').addEventListener('click', () => {
     createNewChapter();
-  });
-
-  document.getElementById('btn-recycle-bin').addEventListener('click', () => {
-    showRecycleBinModal();
   });
 
   renderSecondarySidebarChapters(chapters);
@@ -471,7 +471,7 @@ function renderSecondarySidebarChapters(chapters) {
   container.innerHTML = chapters.map(c => `
     <div class="chapter-nav-item ${activeChapterId === c.id ? 'active' : ''}" data-id="${c.id}" draggable="true">
       <div class="chapter-nav-left">
-        <span class="chapter-nav-emoji">${c.emoji || '📄'}</span>
+        <span class="chapter-nav-icon">${PAGE_SVG_HTML(14)}</span>
         <span class="chapter-nav-title">${c.title || 'Untitled Page'}</span>
       </div>
       <button class="chapter-nav-delete-btn" data-id="${c.id}" title="Delete Page">×</button>
@@ -962,7 +962,7 @@ function showRecycleBinModal() {
         ${trash.map(c => `
           <div class="bin-item" data-id="${c.id}">
             <div class="bin-item-left">
-              <span class="bin-item-emoji">${c.emoji || '📄'}</span>
+              <span class="bin-item-icon">${PAGE_SVG_HTML(14)}</span>
               <span class="bin-item-title">${c.title || 'Untitled Page'}</span>
             </div>
             <div class="bin-actions">
