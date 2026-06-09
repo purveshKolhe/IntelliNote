@@ -2044,3 +2044,79 @@ body.dark-mode ::-webkit-scrollbar-thumb:hover {
   display: inline-block;
   vertical-align: middle;
 }
+
+/* Collapsed sidebar layout */
+.loop-primary-sidebar {
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.loop-primary-sidebar.collapsed {
+  width: 63px !important;
+}
+
+.loop-primary-sidebar.collapsed .loop-logo-text,
+.loop-primary-sidebar.collapsed .btn-text,
+.loop-primary-sidebar.collapsed .nav-item-text,
+.loop-primary-sidebar.collapsed .ws-item-name,
+.loop-primary-sidebar.collapsed .ws-item-more-btn,
+.loop-primary-sidebar.collapsed .sidebar-section-title,
+.loop-primary-sidebar.collapsed .star-icon-indicator {
+  display: none !important;
+}
+
+.loop-primary-sidebar.collapsed .loop-logo-area {
+  justify-content: center;
+  padding: 12.6px 0;
+}
+
+.loop-primary-sidebar.collapsed .loop-logo-area div {
+  gap: 0 !important;
+}
+
+.loop-primary-sidebar.collapsed .collapse-nav-item svg {
+  transform: scaleX(-1);
+}
+
+.loop-primary-sidebar.collapsed .create-new-btn {
+  width: 37.8px;
+  height: 37.8px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+  margin: 12.6px auto;
+}
+
+.loop-primary-sidebar.collapsed .create-new-btn span:first-child {
+  margin-right: 0;
+}
+
+.loop-primary-sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 8.4px;
+  width: 37.8px;
+  height: 37.8px;
+  margin: 4.2px auto;
+  border-radius: 50%;
+}
+
+.loop-primary-sidebar.collapsed .nav-item-icon {
+  margin-right: 0;
+}
+
+.loop-primary-sidebar.collapsed .sidebar-workspaces-list {
+  padding: 12.6px 0;
+}
+
+.loop-primary-sidebar.collapsed .sidebar-ws-item {
+  justify-content: center;
+  padding: 8.4px 0;
+  margin: 2.1px auto;
+}
+
+.loop-primary-sidebar.collapsed .ws-item-left {
+  gap: 0;
+  justify-content: center;
+  width: 100%;
+}

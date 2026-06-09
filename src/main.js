@@ -106,6 +106,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // --- Primary Sidebar Setup ---
 function setupPrimarySidebarEvents() {
+  const primarySidebar = document.getElementById('sidebar-primary');
+  const collapseBtn = document.getElementById('btn-collapse-sidebar');
+  if (primarySidebar && collapseBtn) {
+    if (localStorage.getItem('intellinote-primary-collapsed') === 'true') {
+      primarySidebar.classList.add('collapsed');
+    }
+    collapseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isCollapsed = primarySidebar.classList.toggle('collapsed');
+      localStorage.setItem('intellinote-primary-collapsed', isCollapsed);
+    });
+  }
+
   const createWsBtn = document.getElementById('btn-create-workspace');
   createWsBtn.addEventListener('click', () => {
     showCreateWorkspaceModal();
