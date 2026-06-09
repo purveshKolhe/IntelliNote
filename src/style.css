@@ -41,6 +41,25 @@
   --sec-sidebar-w: 260px;
 }
 
+body.dark-mode {
+  --loop-bg-gradient: linear-gradient(180deg, #121214 0%, #0c0c0e 100%);
+  --primary: #c084fc;
+  --primary-hover: #d8b4fe;
+  --primary-light: rgba(192, 132, 252, 0.08);
+  --primary-light-active: rgba(192, 132, 252, 0.15);
+  
+  --bg-app: #0c0c0e;
+  --bg-sidebar: rgba(22, 22, 26, 0.85);
+  --bg-secondary-sidebar: #18181c;
+  --bg-card: #202024;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(192, 132, 252, 0.4);
+  
+  --text-main: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-light: #475569;
+}
+
 /* Reset & Basics */
 * {
   box-sizing: border-box;
@@ -1796,4 +1815,145 @@ body {
   user-select: none;
   font-weight: normal;
   display: inline;
+}
+
+/* Theme Toggle Button Style */
+.theme-toggle-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--primary-light-active);
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: scale(1.05);
+}
+
+.theme-toggle-btn svg {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+
+.theme-toggle-btn:hover svg {
+  transform: rotate(30deg);
+}
+
+/* Sun is visible in light mode, moon is hidden */
+.theme-toggle-btn .theme-sun-icon {
+  display: block;
+}
+.theme-toggle-btn .theme-moon-icon {
+  display: none;
+}
+
+/* Moon is visible in dark mode, sun is hidden */
+body.dark-mode .theme-toggle-btn .theme-sun-icon {
+  display: none;
+}
+body.dark-mode .theme-toggle-btn .theme-moon-icon {
+  display: block;
+}
+
+/* Dark Mode Manual Selectors Override */
+body.dark-mode .loop-logo-text {
+  color: #f1f5f9;
+}
+body.dark-mode .create-new-btn {
+  background: #202024;
+  color: var(--primary);
+  border: 1px solid rgba(192, 132, 252, 0.3);
+}
+body.dark-mode .create-new-btn:hover {
+  background: var(--primary-light-active);
+}
+body.dark-mode .sidebar-ws-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+body.dark-mode .sidebar-ws-item.active {
+  background: #202024;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+body.dark-mode .dashboard-greeting {
+  color: #f1f5f9;
+}
+body.dark-mode .sec-sidebar-footer {
+  background: var(--bg-secondary-sidebar);
+}
+body.dark-mode .editor-header-bar {
+  background: rgba(22, 22, 26, 0.8);
+}
+body.dark-mode .callout-box-layout {
+  background: rgba(255, 255, 255, 0.03);
+}
+body.dark-mode .loop-code-block-wrapper {
+  background: #18181c;
+}
+body.dark-mode .code-block-toolbar {
+  background: #202024;
+}
+body.dark-mode .code-block-lang-btn {
+  background: #18181c;
+}
+body.dark-mode .code-line-numbers {
+  background: #18181c;
+}
+body.dark-mode .user-avatar-badge {
+  background: #44337a;
+  color: #e9d5ff;
+}
+body.dark-mode .loop-table-wrapper {
+  background: #18181c;
+}
+body.dark-mode .table-block-toolbar {
+  background: #202024;
+}
+body.dark-mode .table-opt-btn {
+  background: #18181c;
+}
+body.dark-mode .loop-editor-table th {
+  background: #202024;
+}
+body.dark-mode .loop-slash-menu-popup {
+  background: #202024;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+body.dark-mode .slash-item-icon {
+  background: #18181c;
+}
+body.dark-mode .slash-menu-item:hover .slash-item-icon, 
+body.dark-mode .slash-menu-item.active .slash-item-icon {
+  background: #202024;
+}
+body.dark-mode .emoji-picker-search-input {
+  background: #18181c;
+  color: var(--text-main);
+}
+body.dark-mode .loop-search-dialog {
+  background: #202024;
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
+}
+body.dark-mode .loop-emoji-picker {
+  background: rgba(24, 24, 28, 0.95);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .block-editable:empty::before {
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+body.dark-mode .block-editable:focus:empty::before {
+  opacity: 0.85;
 }

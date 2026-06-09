@@ -5,6 +5,11 @@ import { emoji } from './emoji.js';
 import { Editor } from './editor.js';
 import { search } from './search.js';
 
+// Apply dark mode theme if saved in localStorage
+if (localStorage.getItem('intellinote-dark-mode') === 'true') {
+  document.body.classList.add('dark-mode');
+}
+
 // App Core State
 let activeWorkspaceId = null;
 let activeChapterId = null;
@@ -588,7 +593,22 @@ function renderEditorPane() {
       </div>
       <div class="editor-top-actions">
         <div class="user-avatar-badge" title="User initials: Purvesh Kolhe">PK</div>
-        <button class="share-btn" id="btn-share-page">Share</button>
+        <button class="theme-toggle-btn" id="btn-theme-toggle" title="Toggle Theme">
+          <svg class="theme-sun-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="m4.93 4.93 1.41 1.41"></path>
+            <path d="m17.66 17.66 1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="m6.34 17.66-1.41 1.41"></path>
+            <path d="m19.07 4.93-1.41 1.41"></path>
+          </svg>
+          <svg class="theme-moon-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -626,12 +646,9 @@ function renderEditorPane() {
     </div>
   `;
 
-  document.getElementById('btn-share-page').addEventListener('click', (e) => {
-    const btn = e.target;
-    const shareUrl = window.location.href;
-    navigator.clipboard.writeText(shareUrl);
-    btn.textContent = 'Link Copied!';
-    setTimeout(() => { btn.textContent = 'Share'; }, 2000);
+  document.getElementById('btn-theme-toggle').addEventListener('click', () => {
+    const isCurrentlyDark = document.body.classList.toggle('dark-mode');
+    localStorage.setItem('intellinote-dark-mode', isCurrentlyDark);
   });
 
   const emojiHead = document.getElementById('page-large-emoji');
