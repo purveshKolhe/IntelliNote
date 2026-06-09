@@ -710,10 +710,10 @@ export class Editor {
       } else if (text.startsWith('1. ')) {
         block.type = 'number-list';
         block.data = text.substring(3);
-      } else if (text.startsWith('[] ') || text.startsWith('[ ] ')) {
+      } else if (text.startsWith('[] ') || text.startsWith('[ ] ') || text.startsWith('[x] ') || text.startsWith('[X] ')) {
         block.type = 'checklist';
-        block.checked = false;
-        block.data = text.startsWith('[] ') ? text.substring(3) : text.substring(4);
+        block.checked = text.startsWith('[x] ') || text.startsWith('[X] ');
+        block.data = text.replace(/^\[[ xX]?\]\s*/, '');
       } else if (text.startsWith('> ')) {
         block.type = 'quote';
         block.data = text.substring(2);

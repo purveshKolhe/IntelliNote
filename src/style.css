@@ -984,12 +984,45 @@ body {
 }
 
 .list-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
   width: 18px;
   height: 18px;
-  margin-right: 10px;
-  margin-top: 5px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 4px;
+  outline: none;
+  background-color: var(--bg-card);
   cursor: pointer;
-  accent-color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.2s ease;
+  margin-right: 10px;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.list-checkbox:hover {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+.list-checkbox:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+.list-checkbox:checked::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  position: absolute;
+  top: 2px;
+  left: 5px;
 }
 
 .block-editable.checked {
