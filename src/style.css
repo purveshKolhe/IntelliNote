@@ -2138,3 +2138,33 @@ body.dark-mode ::-webkit-scrollbar-thumb:hover {
 .sidebar-resize-handle.active {
   background: var(--primary);
 }
+
+/* Canvas bottom resize handle style */
+.canvas-bottom-resize-handle {
+  height: 9px;
+  background: #f1f5f9;
+  border-top: 1px solid var(--border-color);
+  border-bottom-left-radius: 6.3px;
+  border-bottom-right-radius: 6.3px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+.canvas-bottom-resize-handle::after {
+  content: "";
+  width: 31.5px;
+  height: 3.1px;
+  background: var(--text-muted);
+  opacity: 0.5;
+  border-radius: 2.1px;
+}
+.canvas-bottom-resize-handle:hover {
+  background: var(--primary-light) !important;
+}
+.canvas-bottom-resize-handle:hover::after {
+  background: var(--primary);
+  opacity: 1;
+}

@@ -2041,7 +2041,437 @@ block.data.tasks.forEach(task => {
     description: 'Sketch notes, flowcharts, diagrams, or math formulas directly inside notes.',
     enabled: true,
     isBuiltIn: true,
-    renderCode: `if (!block.data || typeof block.data !== 'object') {\n  block.data = { image: '' };\n}\ncontainer.innerHTML = '';\nconst wrapper = document.createElement('div');\nwrapper.style.padding = '12.6px';\nwrapper.style.background = '#f8fafc';\nwrapper.style.border = '1px solid var(--border-color)';\nwrapper.style.borderRadius = '10.5px';\nwrapper.style.display = 'flex';\nwrapper.style.flexDirection = 'column';\nwrapper.style.gap = '8.4px';\nwrapper.style.margin = '10.5px 0';\nwrapper.style.width = '100%';\n\nconst canvas = document.createElement('canvas');\ncanvas.width = 600;\ncanvas.height = 250;\ncanvas.style.background = '#ffffff';\ncanvas.style.border = '1px solid var(--border-color)';\ncanvas.style.borderRadius = '6.3px';\ncanvas.style.cursor = 'crosshair';\ncanvas.style.touchAction = 'none';\n\nconst ctx = canvas.getContext('2d');\nctx.lineWidth = 3;\nctx.lineCap = 'round';\nctx.strokeStyle = '#7c3aed';\n\nif (block.data.image) {\n  const img = new Image();\n  img.onload = () => ctx.drawImage(img, 0, 0);\n  img.src = block.data.image;\n}\n\nlet drawing = false;\nconst getPos = (e) => {\n  const rect = canvas.getBoundingClientRect();\n  return { x: e.clientX - rect.left, y: e.clientY - rect.top };\n};\n\ncanvas.addEventListener('mousedown', (e) => {\n  drawing = true;\n  const pos = getPos(e);\n  ctx.beginPath();\n  ctx.moveTo(pos.x, pos.y);\n});\n\ncanvas.addEventListener('mousemove', (e) => {\n  if (!drawing) return;\n  const pos = getPos(e);\n  ctx.lineTo(pos.x, pos.y);\n  ctx.stroke();\n});\n\nconst stopDrawing = () => {\n  if (!drawing) return;\n  drawing = false;\n  block.data.image = canvas.toDataURL();\n  save();\n};\n\ncanvas.addEventListener('mouseup', stopDrawing);\ncanvas.addEventListener('mouseleave', stopDrawing);\n\nconst toolbar = document.createElement('div');\ntoolbar.style.display = 'flex';\ntoolbar.style.gap = '8.4px';\n\nconst clearBtn = document.createElement('button');\nclearBtn.textContent = 'Clear Canvas';\nclearBtn.style.padding = '5.3px 12.6px';\nclearBtn.style.borderRadius = '21px';\nclearBtn.style.border = '1px solid var(--border-color)';\nclearBtn.style.background = '#ffffff';\nclearBtn.style.cursor = 'pointer';\nclearBtn.style.fontSize = '12.6px';\nclearBtn.style.fontWeight = '500';\nclearBtn.style.color = 'var(--text-muted)';\n\nclearBtn.addEventListener('click', () => {\n  ctx.clearRect(0, 0, canvas.width, canvas.height);\n  block.data.image = '';\n  save();\n});\n\ntoolbar.appendChild(clearBtn);\nwrapper.appendChild(canvas);\nwrapper.appendChild(toolbar);\ncontainer.appendChild(wrapper);`
+    renderCode: `if (!block.data || typeof block.data !== 'object') {
+  block.data = { image: '', height: 250 };
+}
+if (!block.data.height) {
+  block.data.height = 250;
+}
+container.innerHTML = '';
+const wrapper = document.createElement('div');
+wrapper.style.padding = '12.6px';
+wrapper.style.background = '#f8fafc';
+wrapper.style.border = '1px solid var(--border-color)';
+wrapper.style.borderRadius = '10.5px';
+wrapper.style.display = 'flex';
+wrapper.style.flexDirection = 'column';
+wrapper.style.gap = '8.4px';
+wrapper.style.margin = '10.5px 0';
+wrapper.style.width = '100%';
+wrapper.style.position = 'relative';
+
+const toolbar = document.createElement('div');
+toolbar.style.display = 'flex';
+toolbar.style.flexWrap = 'wrap';
+toolbar.style.gap = '8.4px';
+toolbar.style.alignItems = 'center';
+toolbar.style.paddingBottom = '8.4px';
+toolbar.style.borderBottom = '1px solid var(--border-color)';
+toolbar.innerHTML = \`
+  <!-- Pen Dropdown -->
+  <div class="dropdown-container" style="position:relative;">
+    <button class="toolbar-drop-btn" id="pen-select-btn" style="display:flex; align-items:center; padding:4.2px 8.4px; font-size:12px; border-radius:4.2px; border:1px solid var(--border-color); background:#ffffff; color:var(--text-muted); cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+      <span class="btn-icon" style="margin-right:4.2px; display:flex; align-items:center; color:var(--text-muted);">
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+      </span>
+      <span class="btn-text">Pen: Brush</span>
+      <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-left:4.2px; color:var(--text-light);"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div class="dropdown-menu" id="pen-dropdown-menu" style="position:absolute; top:110%; left:0; z-index:1000; display:none; flex-direction:column; background:#ffffff; border:1px solid var(--border-color); border-radius:6.3px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); padding:4.2px; min-width:130px;">
+      <button class="dropdown-item active" data-pen="brush" style="display:flex; align-items:center; width:100%; padding:6.3px 8.4px; font-size:12px; border:none; background:var(--primary-light); color:var(--primary); border-radius:4.2px; text-align:left; cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6.3px;"><circle cx="12" cy="12" r="10"></circle></svg>
+        Brush
+      </button>
+      <button class="dropdown-item" data-pen="fountain" style="display:flex; align-items:center; width:100%; padding:6.3px 8.4px; font-size:12px; border:none; background:transparent; color:var(--text-muted); border-radius:4.2px; text-align:left; cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6.3px;"><path d="M12 2c-1.1 0-2 .9-2 2v10l-2 2v2h8v-2l-2-2V4c0-1.1-.9-2-2-2z"></path><path d="M12 14v4"></path></svg>
+        Fountain Pen
+      </button>
+      <button class="dropdown-item" data-pen="pencil" style="display:flex; align-items:center; width:100%; padding:6.3px 8.4px; font-size:12px; border:none; background:transparent; color:var(--text-muted); border-radius:4.2px; text-align:left; cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6.3px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+        Pencil
+      </button>
+    </div>
+  </div>
+
+  <!-- Shapes Dropdown -->
+  <div class="dropdown-container" style="position:relative;">
+    <button class="toolbar-drop-btn" id="shape-select-btn" style="display:flex; align-items:center; padding:4.2px 8.4px; font-size:12px; border-radius:4.2px; border:1px solid var(--border-color); background:#ffffff; color:var(--text-muted); cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+      <span class="btn-icon" style="margin-right:4.2px; display:flex; align-items:center; color:var(--text-muted);">
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><circle cx="16" cy="16" r="5"></circle><path d="M18 8L20 10L22 8"></path></svg>
+      </span>
+      <span class="btn-text">Draw: Freehand</span>
+      <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-left:4.2px; color:var(--text-light);"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div class="dropdown-menu" id="shape-dropdown-menu" style="position:absolute; top:110%; left:0; z-index:1000; display:none; flex-direction:column; background:#ffffff; border:1px solid var(--border-color); border-radius:6.3px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); padding:4.2px; min-width:130px;">
+      <button class="dropdown-item active" data-shape="none" style="display:flex; align-items:center; width:100%; padding:6.3px 8.4px; font-size:12px; border:none; background:var(--primary-light); color:var(--primary); border-radius:4.2px; text-align:left; cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6.3px;"><path d="M12 2c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path></svg>
+        Freehand
+      </button>
+      <button class="dropdown-item" data-shape="line" style="display:flex; align-items:center; width:100%; padding:6.3px 8.4px; font-size:12px; border:none; background:transparent; color:var(--text-muted); border-radius:4.2px; text-align:left; cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6.3px;"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
+        Line
+      </button>
+      <button class="dropdown-item" data-shape="rect" style="display:flex; align-items:center; width:100%; padding:6.3px 8.4px; font-size:12px; border:none; background:transparent; color:var(--text-muted); border-radius:4.2px; text-align:left; cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6.3px;"><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg>
+        Rectangle
+      </button>
+      <button class="dropdown-item" data-shape="circle" style="display:flex; align-items:center; width:100%; padding:6.3px 8.4px; font-size:12px; border:none; background:transparent; color:var(--text-muted); border-radius:4.2px; text-align:left; cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6.3px;"><circle cx="12" cy="12" r="10"></circle></svg>
+        Circle
+      </button>
+    </div>
+  </div>
+
+  <!-- Color Dropdown -->
+  <div class="dropdown-container" style="position:relative;">
+    <button class="toolbar-drop-btn" id="color-select-btn" style="display:flex; align-items:center; padding:4.2px 8.4px; font-size:12px; border-radius:4.2px; border:1px solid var(--border-color); background:#ffffff; color:var(--text-muted); cursor:pointer; font-family:var(--font-sans); font-weight:500;">
+      <span class="btn-icon" id="color-btn-circle" style="width:12px; height:12px; border-radius:50%; background:#7c3aed; margin-right:4.2px; display:inline-block; border:1px solid rgba(0,0,0,0.1);"></span>
+      <span class="btn-text">Color</span>
+      <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-left:4.2px; color:var(--text-light);"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div class="dropdown-menu" id="color-dropdown-menu" style="position:absolute; top:110%; left:0; z-index:1000; display:none; grid-template-columns:repeat(5, 1fr); gap:6.3px; background:#ffffff; border:1px solid var(--border-color); border-radius:6.3px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); padding:8.4px; min-width:145px;">
+      <button class="color-dot active" data-color="#7c3aed" style="width:20px; height:20px; border-radius:50%; border:2px solid var(--primary); background:#7c3aed; cursor:pointer; padding:0; box-sizing:border-box;"></button>
+      <button class="color-dot" data-color="#000000" style="width:20px; height:20px; border-radius:50%; border:1px solid var(--border-color); background:#000000; cursor:pointer; padding:0; box-sizing:border-box;"></button>
+      <button class="color-dot" data-color="#ef4444" style="width:20px; height:20px; border-radius:50%; border:1px solid var(--border-color); background:#ef4444; cursor:pointer; padding:0; box-sizing:border-box;"></button>
+      <button class="color-dot" data-color="#2563eb" style="width:20px; height:20px; border-radius:50%; border:1px solid var(--border-color); background:#2563eb; cursor:pointer; padding:0; box-sizing:border-box;"></button>
+      <button class="color-dot" data-color="#10b981" style="width:20px; height:20px; border-radius:50%; border:1px solid var(--border-color); background:#10b981; cursor:pointer; padding:0; box-sizing:border-box;"></button>
+    </div>
+  </div>
+
+  <div style="height:15px; width:1px; background:var(--border-color);"></div>
+
+  <!-- Size Picker -->
+  <div class="size-picker" style="display:flex; gap:6.3px; align-items:center;">
+    <button class="size-btn active" data-size="3" style="padding:2.1px 6.3px; font-size:10.5px; border-radius:4.2px; border:1px solid var(--border-color); background:var(--primary-light); color:var(--primary); cursor:pointer; font-family:var(--font-sans); font-weight:600;">S</button>
+    <button class="size-btn" data-size="6" style="padding:2.1px 6.3px; font-size:10.5px; border-radius:4.2px; border:1px solid var(--border-color); background:#ffffff; color:var(--text-muted); cursor:pointer; font-family:var(--font-sans); font-weight:600;">M</button>
+    <button class="size-btn" data-size="12" style="padding:2.1px 6.3px; font-size:10.5px; border-radius:4.2px; border:1px solid var(--border-color); background:#ffffff; color:var(--text-muted); cursor:pointer; font-family:var(--font-sans); font-weight:600;">L</button>
+  </div>
+
+  <div style="flex-grow:1;"></div>
+
+  <!-- Clear Button -->
+  <button class="clear-btn" style="display:flex; align-items:center; padding:4.2px 10.5px; font-size:12px; border-radius:15.8px; border:1px solid var(--border-color); background:#ffffff; color:var(--text-muted); cursor:pointer; font-weight:500; font-family:var(--font-sans);">
+    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4.2px; color:var(--text-muted);"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+    Clear
+  </button>
+\`;
+
+const canvas = document.createElement('canvas');
+canvas.width = 600;
+canvas.height = block.data.height || 250;
+canvas.style.background = '#ffffff';
+canvas.style.border = '1px solid var(--border-color)';
+canvas.style.borderRadius = '6.3px';
+canvas.style.cursor = 'crosshair';
+canvas.style.touchAction = 'none';
+canvas.style.width = '100%';
+canvas.style.height = 'auto';
+canvas.style.display = 'block';
+
+const ctx = canvas.getContext('2d');
+ctx.lineWidth = 3;
+ctx.lineCap = 'round';
+ctx.lineJoin = 'round';
+ctx.strokeStyle = '#7c3aed';
+
+if (block.data.image) {
+  const img = new Image();
+  img.onload = () => ctx.drawImage(img, 0, 0);
+  img.src = block.data.image;
+}
+
+let drawing = false;
+let startPos = null;
+let snapshot = null;
+
+let activePen = 'brush'; // brush, fountain, pencil
+let activeShape = 'none'; // none, line, rect, circle
+let currentColor = '#7c3aed';
+let currentSize = 3;
+
+// Fountain Pen variables
+let lastX = 0;
+let lastY = 0;
+let lastTime = 0;
+
+const getPos = (e) => {
+  return {
+    x: e.offsetX * (canvas.width / canvas.clientWidth),
+    y: e.offsetY * (canvas.height / canvas.clientHeight)
+  };
+};
+
+// Dropdowns logic
+const toggleDropdown = (btn, menu) => {
+  const isVisible = menu.style.display === 'flex' || menu.style.display === 'grid';
+  toolbar.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+  if (!isVisible) {
+    menu.style.display = menu.id === 'color-dropdown-menu' ? 'grid' : 'flex';
+  }
+};
+
+const penSelectBtn = toolbar.querySelector('#pen-select-btn');
+const penMenu = toolbar.querySelector('#pen-dropdown-menu');
+penSelectBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleDropdown(penSelectBtn, penMenu);
+});
+
+const shapeSelectBtn = toolbar.querySelector('#shape-select-btn');
+const shapeMenu = toolbar.querySelector('#shape-dropdown-menu');
+shapeSelectBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleDropdown(shapeSelectBtn, shapeMenu);
+});
+
+const colorSelectBtn = toolbar.querySelector('#color-select-btn');
+const colorMenu = toolbar.querySelector('#color-dropdown-menu');
+colorSelectBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleDropdown(colorSelectBtn, colorMenu);
+});
+
+document.addEventListener('click', () => {
+  toolbar.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+});
+
+// Dropdowns Options selections
+penMenu.querySelectorAll('.dropdown-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    e.stopPropagation();
+    penMenu.querySelectorAll('.dropdown-item').forEach(i => {
+      i.classList.remove('active');
+      i.style.background = 'transparent';
+      i.style.color = 'var(--text-muted)';
+    });
+    item.classList.add('active');
+    item.style.background = 'var(--primary-light)';
+    item.style.color = 'var(--primary)';
+    
+    activePen = item.getAttribute('data-pen');
+    
+    // Update button text
+    const label = item.textContent.trim();
+    penSelectBtn.querySelector('.btn-text').textContent = 'Pen: ' + label;
+    penMenu.style.display = 'none';
+  });
+});
+
+shapeMenu.querySelectorAll('.dropdown-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    e.stopPropagation();
+    shapeMenu.querySelectorAll('.dropdown-item').forEach(i => {
+      i.classList.remove('active');
+      i.style.background = 'transparent';
+      i.style.color = 'var(--text-muted)';
+    });
+    item.classList.add('active');
+    item.style.background = 'var(--primary-light)';
+    item.style.color = 'var(--primary)';
+    
+    activeShape = item.getAttribute('data-shape');
+    
+    // Update button text
+    const label = item.textContent.trim();
+    shapeSelectBtn.querySelector('.btn-text').textContent = activeShape === 'none' ? 'Draw: Freehand' : 'Draw: ' + label;
+    shapeMenu.style.display = 'none';
+  });
+});
+
+colorMenu.querySelectorAll('.color-dot').forEach(dot => {
+  dot.addEventListener('click', (e) => {
+    e.stopPropagation();
+    colorMenu.querySelectorAll('.color-dot').forEach(d => {
+      d.classList.remove('active');
+      d.style.border = '1px solid var(--border-color)';
+    });
+    dot.classList.add('active');
+    dot.style.border = '2.1px solid var(--primary)';
+    
+    currentColor = dot.getAttribute('data-color');
+    ctx.strokeStyle = currentColor;
+    toolbar.querySelector('#color-btn-circle').style.background = currentColor;
+    colorMenu.style.display = 'none';
+  });
+});
+
+
+
+// Size Picker
+toolbar.querySelectorAll('.size-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    toolbar.querySelectorAll('.size-btn').forEach(b => {
+      b.classList.remove('active');
+      b.style.background = '#ffffff';
+      b.style.color = 'var(--text-muted)';
+    });
+    btn.classList.add('active');
+    btn.style.background = 'var(--primary-light)';
+    btn.style.color = 'var(--primary)';
+    currentSize = parseInt(btn.getAttribute('data-size'), 10);
+    ctx.lineWidth = currentSize;
+  });
+});
+
+// Drawing Engine
+canvas.addEventListener('mousedown', (e) => {
+  drawing = true;
+  startPos = getPos(e);
+  snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  ctx.strokeStyle = currentColor;
+  ctx.globalAlpha = activePen === 'pencil' ? 0.55 : 1.0;
+  ctx.lineWidth = activePen === 'pencil' ? Math.max(1.5, currentSize / 2) : currentSize;
+  
+  if (activePen === 'fountain') {
+    lastX = startPos.x;
+    lastY = startPos.y;
+    lastTime = Date.now();
+  } else if (activeShape === 'none') {
+    ctx.beginPath();
+    ctx.moveTo(startPos.x, startPos.y);
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!drawing) return;
+  const pos = getPos(e);
+  
+  if (activeShape === 'none') {
+    if (activePen === 'fountain') {
+      const now = Date.now();
+      const dt = now - lastTime || 1;
+      const dist = Math.sqrt(Math.pow(pos.x - lastX, 2) + Math.pow(pos.y - lastY, 2));
+      const speed = dist / dt;
+      const targetWidth = Math.max(1.2, currentSize * (1 - Math.min(speed * 0.18, 0.75)));
+      ctx.lineWidth = ctx.lineWidth * 0.5 + targetWidth * 0.5;
+
+      const dx = Math.cos(Math.PI / 4) * ctx.lineWidth / 2;
+      const dy = Math.sin(Math.PI / 4) * ctx.lineWidth / 2;
+
+      ctx.fillStyle = currentColor;
+      ctx.beginPath();
+      ctx.moveTo(lastX - dx, lastY - dy);
+      ctx.lineTo(pos.x - dx, pos.y - dy);
+      ctx.lineTo(pos.x + dx, pos.y + dy);
+      ctx.lineTo(lastX + dx, lastY + dy);
+      ctx.closePath();
+      ctx.fill();
+
+      lastX = pos.x;
+      lastY = pos.y;
+      lastTime = now;
+    } else {
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    }
+  } else {
+    ctx.putImageData(snapshot, 0, 0);
+    ctx.beginPath();
+    ctx.strokeStyle = currentColor;
+    ctx.globalAlpha = activePen === 'pencil' ? 0.55 : 1.0;
+    ctx.lineWidth = activePen === 'pencil' ? Math.max(1.5, currentSize / 2) : currentSize;
+    
+    if (activeShape === 'line') {
+      ctx.moveTo(startPos.x, startPos.y);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    } else if (activeShape === 'rect') {
+      ctx.rect(startPos.x, startPos.y, pos.x - startPos.x, pos.y - startPos.y);
+      ctx.stroke();
+    } else if (activeShape === 'circle') {
+      const radius = Math.sqrt(Math.pow(pos.x - startPos.x, 2) + Math.pow(pos.y - startPos.y, 2));
+      ctx.arc(startPos.x, startPos.y, radius, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+  }
+});
+
+const stopDrawing = () => {
+  if (!drawing) return;
+  drawing = false;
+  block.data.image = canvas.toDataURL();
+  save();
+};
+
+canvas.addEventListener('mouseup', stopDrawing);
+canvas.addEventListener('mouseleave', stopDrawing);
+
+toolbar.querySelector('.clear-btn').addEventListener('click', () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  block.data.image = '';
+  save();
+});
+
+// Height Resizing Logic
+const resizeHandle = document.createElement('div');
+resizeHandle.className = 'canvas-bottom-resize-handle';
+
+let isResizing = false;
+let startY = 0;
+let startHeight = 0;
+
+resizeHandle.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  isResizing = true;
+  startY = e.clientY;
+  startHeight = canvas.offsetHeight;
+
+  const overlay = document.createElement('div');
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100vw';
+  overlay.style.height = '100vh';
+  overlay.style.cursor = 'ns-resize';
+  overlay.style.zIndex = '99999';
+  document.body.appendChild(overlay);
+
+  const onMouseMove = (moveEvent) => {
+    if (!isResizing) return;
+    const deltaY = moveEvent.clientY - startY;
+    const newHeight = Math.max(120, Math.min(800, startHeight + deltaY));
+    canvas.style.height = newHeight + 'px';
+  };
+
+  const onMouseUp = () => {
+    isResizing = false;
+    document.body.removeChild(overlay);
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+
+    const finalHeight = canvas.offsetHeight;
+    const currentWidth = canvas.clientWidth || 600;
+    const finalBackingHeight = Math.round(finalHeight * (600 / currentWidth));
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempCanvas.getContext('2d').drawImage(canvas, 0, 0);
+
+    canvas.height = finalBackingHeight;
+    canvas.style.height = 'auto';
+
+    ctx.drawImage(tempCanvas, 0, 0);
+
+    ctx.lineWidth = currentSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = currentColor;
+
+    block.data.height = finalBackingHeight;
+    block.data.image = canvas.toDataURL();
+    save();
+  };
+
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+});
+
+wrapper.appendChild(toolbar);
+wrapper.appendChild(canvas);
+wrapper.appendChild(resizeHandle);
+container.appendChild(wrapper);`
   },
   {
     id: 'autocomplete',
@@ -2075,7 +2505,12 @@ export const db = {
         DEFAULT_PLUGINS.forEach(defaultP => {
           const idx = existingPlugins.findIndex(p => p.id === defaultP.id);
           if (idx >= 0) {
-            if (existingPlugins[idx].isBuiltIn) {
+            if (defaultP.isBuiltIn) {
+              // Ensure it's marked as built-in in the database too
+              if (!existingPlugins[idx].isBuiltIn) {
+                existingPlugins[idx].isBuiltIn = true;
+                updated = true;
+              }
               if (existingPlugins[idx].renderCode !== defaultP.renderCode) {
                 existingPlugins[idx].renderCode = defaultP.renderCode;
                 updated = true;
