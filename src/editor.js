@@ -568,6 +568,43 @@ export class Editor {
       syncData();
     });
 
+    editable.addEventListener('paste', (e) => {
+      if (e.clipboardData && e.clipboardData.items) {
+        const items = e.clipboardData.items;
+        // Check for images
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            const file = items[i].getAsFile();
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const newId = 'b-' + Math.random().toString(36).substr(2, 9);
+              const newBlock = {
+                id: newId,
+                type: 'image-widget',
+                data: {
+                  image: event.target.result,
+                  name: file.name || 'Pasted Image.png',
+                  size: file.size || 0
+                },
+                indent: block.indent || 0
+              };
+              this.blocks.splice(index + 1, 0, newBlock);
+              this.save();
+              this.render();
+            };
+            reader.readAsDataURL(file);
+            return;
+          }
+        }
+      }
+
+      // Default to plain text paste to prevent unwanted HTML inline styles
+      e.preventDefault();
+      const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+
     editable.addEventListener('keydown', (e) => {
       const sug = editable.querySelector('.loop-autocomplete-suggestion');
       if (sug) {
