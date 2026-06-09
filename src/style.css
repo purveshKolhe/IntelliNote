@@ -2032,3 +2032,15 @@ body.dark-mode ::-webkit-scrollbar-thumb {
 body.dark-mode ::-webkit-scrollbar-thumb:hover {
   background: rgba(192, 132, 252, 0.5);
 }
+
+/* Chapter and Bin item emoji fallback styling */
+.chapter-nav-emoji {
+  font-size: 15.8px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.bin-item-emoji {
+  font-size: 20px;
+  display: inline-block;
+  vertical-align: middle;
+}

@@ -43,6 +43,24 @@ const COVER_PRESETS = [
   'linear-gradient(135deg, #2b5876, #4e4376)'  // Deep Sea
 ];
 
+const PRESET_IMAGES = [
+  { name: 'Beach', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Abstract', url: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Forest', url: 'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Office', url: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80' }
+];
+
+function getCoverBackgroundStyle(coverVal) {
+  if (!coverVal) return '';
+  if (coverVal.startsWith('linear-gradient') || coverVal.startsWith('gradient')) {
+    return coverVal;
+  }
+  if (coverVal.startsWith('url(')) {
+    return coverVal;
+  }
+  return `url('${coverVal}')`;
+}
+
 // Initialize DB structure
 db.init();
 
@@ -471,7 +489,9 @@ function renderSecondarySidebarChapters(chapters) {
   container.innerHTML = chapters.map(c => `
     <div class="chapter-nav-item ${activeChapterId === c.id ? 'active' : ''}" data-id="${c.id}" draggable="true">
       <div class="chapter-nav-left">
-        <span class="chapter-nav-icon">${PAGE_SVG_HTML(14)}</span>
+        <span class="chapter-nav-icon-container">
+          ${c.emoji ? `<span class="chapter-nav-emoji">${c.emoji}</span>` : `<span class="chapter-nav-icon">${PAGE_SVG_HTML(14.7)}</span>`}
+        </span>
         <span class="chapter-nav-title">${c.title || 'Untitled Page'}</span>
       </div>
       <button class="chapter-nav-delete-btn" data-id="${c.id}" title="Delete Page">×</button>
@@ -618,7 +638,7 @@ function renderEditorPane() {
         <div class="editor-page-metadata">
           
           <!-- Banner Cover -->
-          <div class="editor-cover-banner" id="page-cover-banner" style="${chapter.cover ? `background: ${chapter.cover};` : 'display: none;'}">
+          <div class="editor-cover-banner" id="page-cover-banner" style="${chapter.cover ? `background: ${getCoverBackgroundStyle(chapter.cover)};` : 'display: none;'}">
             <div class="cover-actions-overlay">
               <button class="cover-btn change" id="btn-change-cover">Change cover</button>
               <button class="cover-btn remove" id="btn-remove-cover">Remove cover</button>
@@ -626,9 +646,9 @@ function renderEditorPane() {
           </div>
 
           <!-- Add decorations rows -->
-          <div class="page-add-decorations-row" id="page-decorations-row" style="${chapter.emoji || chapter.cover ? 'display: none;' : ''}">
-            <button class="decoration-add-btn" id="btn-add-emoji-meta"><span>😀</span> Add emoji</button>
-            <button class="decoration-add-btn" id="btn-add-cover-meta"><span>🖼️</span> Add cover</button>
+          <div class="page-add-decorations-row" id="page-decorations-row" style="${chapter.emoji && chapter.cover ? 'display: none;' : ''}">
+            <button class="decoration-add-btn" id="btn-add-emoji-meta" style="${chapter.emoji ? 'display: none;' : ''}"><span>😀</span> Add emoji</button>
+            <button class="decoration-add-btn" id="btn-add-cover-meta" style="${chapter.cover ? 'display: none;' : ''}"><span>🖼️</span> Add cover</button>
           </div>
 
           <!-- Large Emoji Head -->
@@ -657,6 +677,21 @@ function renderEditorPane() {
   const emojiHead = document.getElementById('page-large-emoji');
   const addEmojiMeta = document.getElementById('btn-add-emoji-meta');
 
+  const updateDecorationButtonsVisibility = () => {
+    const decorationsRow = document.getElementById('page-decorations-row');
+    const addEmojiBtn = document.getElementById('btn-add-emoji-meta');
+    const addCoverBtn = document.getElementById('btn-add-cover-meta');
+    if (!decorationsRow || !addEmojiBtn || !addCoverBtn) return;
+    
+    if (chapter.emoji && chapter.cover) {
+      decorationsRow.style.display = 'none';
+    } else {
+      decorationsRow.style.display = '';
+      addEmojiBtn.style.display = chapter.emoji ? 'none' : '';
+      addCoverBtn.style.display = chapter.cover ? 'none' : '';
+    }
+  };
+
   const triggerEmojiPicker = (element) => {
     emoji.showPicker(element, (selectedEmoji) => {
       chapter.emoji = selectedEmoji;
@@ -664,10 +699,12 @@ function renderEditorPane() {
       
       emojiHead.textContent = selectedEmoji;
       emojiHead.style.display = '';
-      document.getElementById('page-decorations-row').style.display = (chapter.emoji || chapter.cover) ? 'none' : '';
+      updateDecorationButtonsVisibility();
       
-      const activeSidebarItem = document.querySelector(`.chapter-nav-item[data-id="${chapter.id}"] .chapter-nav-emoji`);
-      if (activeSidebarItem) activeSidebarItem.textContent = selectedEmoji;
+      const activeSidebarItem = document.querySelector(`.chapter-nav-item[data-id="${chapter.id}"] .chapter-nav-icon-container`);
+      if (activeSidebarItem) {
+        activeSidebarItem.innerHTML = `<span class="chapter-nav-emoji">${selectedEmoji}</span>`;
+      }
     });
   };
 
@@ -688,9 +725,9 @@ function renderEditorPane() {
     chapter.cover = preset;
     db.saveChapter(chapter);
     
-    coverBanner.style.background = preset;
+    coverBanner.style.background = getCoverBackgroundStyle(preset);
     coverBanner.style.display = '';
-    document.getElementById('page-decorations-row').style.display = (chapter.emoji || chapter.cover) ? 'none' : '';
+    updateDecorationButtonsVisibility();
   };
 
   addCoverMeta.addEventListener('click', addCover);
@@ -699,7 +736,7 @@ function renderEditorPane() {
     chapter.cover = null;
     db.saveChapter(chapter);
     coverBanner.style.display = 'none';
-    document.getElementById('page-decorations-row').style.display = (chapter.emoji || chapter.cover) ? 'none' : '';
+    updateDecorationButtonsVisibility();
   });
 
   document.getElementById('btn-change-cover').addEventListener('click', (e) => {
@@ -707,7 +744,8 @@ function renderEditorPane() {
     showCoverPresetDropdown(e.target, (selectedCover) => {
       chapter.cover = selectedCover;
       db.saveChapter(chapter);
-      coverBanner.style.background = selectedCover;
+      coverBanner.style.background = getCoverBackgroundStyle(selectedCover);
+      updateDecorationButtonsVisibility();
     });
   });
 
@@ -746,13 +784,50 @@ function showCoverPresetDropdown(anchorElement, onSelect) {
   const dropdown = document.createElement('div');
   dropdown.id = 'cover-preset-dropdown-menu';
   dropdown.className = 'loop-slash-menu-popup';
-  dropdown.style.width = '252px';
+  dropdown.style.width = '280px';
   dropdown.innerHTML = `
-    <div style="font-size: 11.5px; font-weight:600; text-transform: uppercase; color: var(--text-light); padding: 8.4px 12.6px;">Gradient Covers</div>
-    <div class="presets-container-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6.3px; padding: 6.3px 12.6px 12.6px 12.6px;">
-      ${COVER_PRESETS.map(preset => `
-        <button class="preset-color-block" data-preset="${preset}" style="height: 39.9px; border-radius: 6.3px; border: 1px solid var(--border-color); cursor:pointer; background: ${preset};"></button>
-      `).join('')}
+    <!-- Tab Headers -->
+    <div class="cover-dropdown-tabs" style="display: flex; border-bottom: 1px solid var(--border-color); padding: 4.2px 8.4px 0 8.4px; gap: 8.4px;">
+      <button class="cover-tab-btn active" data-tab="colors" style="flex: 1; padding: 6.3px; font-size: 12.6px; font-weight: 600; border: none; background: transparent; border-bottom: 2px solid var(--primary); cursor: pointer; color: var(--primary); font-family: var(--font-sans);">Colors</button>
+      <button class="cover-tab-btn" data-tab="images" style="flex: 1; padding: 6.3px; font-size: 12.6px; font-weight: 500; border: none; background: transparent; border-bottom: 2px solid transparent; cursor: pointer; color: var(--text-muted); font-family: var(--font-sans);">Images</button>
+      <button class="cover-tab-btn" data-tab="custom" style="flex: 1; padding: 6.3px; font-size: 12.6px; font-weight: 500; border: none; background: transparent; border-bottom: 2px solid transparent; cursor: pointer; color: var(--text-muted); font-family: var(--font-sans);">Upload</button>
+    </div>
+
+    <!-- Colors Tab -->
+    <div id="cover-tab-colors" class="cover-tab-content" style="padding: 12.6px;">
+      <div style="font-size: 11.5px; font-weight:600; text-transform: uppercase; color: var(--text-light); margin-bottom: 8.4px;">Gradient Covers</div>
+      <div class="presets-container-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6.3px;">
+        ${COVER_PRESETS.map(preset => `
+          <button class="preset-color-block" data-preset="${preset}" style="height: 39.9px; border-radius: 6.3px; border: 1px solid var(--border-color); cursor:pointer; background: ${preset};"></button>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- Images Tab -->
+    <div id="cover-tab-images" class="cover-tab-content" style="padding: 12.6px; display: none;">
+      <div style="font-size: 11.5px; font-weight:600; text-transform: uppercase; color: var(--text-light); margin-bottom: 8.4px;">Preset Images</div>
+      <div class="presets-images-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8.4px;">
+        ${PRESET_IMAGES.map(img => `
+          <button class="preset-image-block" data-preset="${img.url}" style="height: 52.5px; border-radius: 6.3px; border: 1px solid var(--border-color); cursor:pointer; background: url('${img.url}') center/cover no-repeat;" title="${img.name}"></button>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- Custom/Upload Tab -->
+    <div id="cover-tab-custom" class="cover-tab-content" style="padding: 12.6px; display: none; display: flex; flex-direction: column; gap: 10.5px;">
+      <div>
+        <label style="font-size: 11.5px; font-weight:600; text-transform: uppercase; color: var(--text-light); display: block; margin-bottom: 6.3px;">Image URL</label>
+        <div style="display: flex; gap: 6.3px;">
+          <input type="text" id="cover-custom-url-input" placeholder="Paste image link..." style="flex-grow: 1; padding: 6.3px 10.5px; border-radius: 6.3px; border: 1px solid var(--border-color); outline: none; font-size: 12.6px; font-family: var(--font-sans); background: var(--bg-secondary-sidebar); color: var(--text-main);">
+          <button id="btn-apply-custom-cover" style="padding: 6.3px 10.5px; border-radius: 6.3px; border: none; background: var(--primary); color: white; font-weight: 500; font-size: 12.6px; cursor: pointer; font-family: var(--font-sans);">Apply</button>
+        </div>
+      </div>
+      <hr style="border: none; border-top: 1px solid var(--border-color); margin: 4.2px 0;">
+      <div>
+        <label style="font-size: 11.5px; font-weight:600; text-transform: uppercase; color: var(--text-light); display: block; margin-bottom: 6.3px;">Upload Local Image</label>
+        <input type="file" id="cover-file-input" accept="image/*" style="display: none;">
+        <button id="btn-trigger-file-upload" style="width: 100%; padding: 8.4px; border-radius: 6.3px; border: 1px dashed var(--primary); background: var(--primary-light); color: var(--primary); font-weight: 600; font-size: 12.6px; cursor: pointer; text-align: center; font-family: var(--font-sans);">Choose an image file</button>
+      </div>
     </div>
   `;
 
@@ -762,11 +837,83 @@ function showCoverPresetDropdown(anchorElement, onSelect) {
   dropdown.style.top = `${rect.bottom + window.scrollY + 6}px`;
   dropdown.style.left = `${rect.left + window.scrollX - 120}px`;
 
+  // Tab switching logic
+  dropdown.querySelectorAll('.cover-tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tab = btn.getAttribute('data-tab');
+      
+      dropdown.querySelectorAll('.cover-tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.style.color = 'var(--text-muted)';
+        b.style.fontWeight = '500';
+        b.style.borderBottomColor = 'transparent';
+      });
+      btn.classList.add('active');
+      btn.style.color = 'var(--primary)';
+      btn.style.fontWeight = '600';
+      btn.style.borderBottomColor = 'var(--primary)';
+
+      dropdown.querySelectorAll('.cover-tab-content').forEach(c => c.style.display = 'none');
+      dropdown.querySelector(`#cover-tab-${tab}`).style.display = tab === 'custom' ? 'flex' : 'block';
+    });
+  });
+
+  // Handle color/image preset selection
   dropdown.addEventListener('click', (e) => {
-    const block = e.target.closest('.preset-color-block');
-    if (block) {
-      onSelect(block.getAttribute('data-preset'));
+    const colorBlock = e.target.closest('.preset-color-block');
+    if (colorBlock) {
+      onSelect(colorBlock.getAttribute('data-preset'));
       dropdown.remove();
+      return;
+    }
+
+    const imgBlock = e.target.closest('.preset-image-block');
+    if (imgBlock) {
+      onSelect(imgBlock.getAttribute('data-preset'));
+      dropdown.remove();
+      return;
+    }
+  });
+
+  // Handle Custom URL Cover
+  const customUrlInput = dropdown.querySelector('#cover-custom-url-input');
+  const applyCustomBtn = dropdown.querySelector('#btn-apply-custom-cover');
+  applyCustomBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const url = customUrlInput.value.trim();
+    if (url) {
+      onSelect(url);
+      dropdown.remove();
+    }
+  });
+  customUrlInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      const url = customUrlInput.value.trim();
+      if (url) {
+        onSelect(url);
+        dropdown.remove();
+      }
+    }
+  });
+
+  // Handle File Upload
+  const fileInput = dropdown.querySelector('#cover-file-input');
+  const triggerBtn = dropdown.querySelector('#btn-trigger-file-upload');
+  triggerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        onSelect(event.target.result);
+        dropdown.remove();
+      };
+      reader.readAsDataURL(file);
     }
   });
 
@@ -872,7 +1019,7 @@ function showCreateWorkspaceModal() {
       id: chapterId,
       workspaceId: wsId,
       title: '', // Start empty to let user type title
-      emoji: '📄',
+      emoji: null,
       blocks: [
         { id: 'b1', type: 'text', data: '', indent: 0 }
       ],
@@ -899,7 +1046,7 @@ function createNewChapter() {
     id: chapterId,
     workspaceId: activeWorkspaceId,
     title: '', // Start empty to let user write title
-    emoji: '📄',
+    emoji: null,
     blocks: [
       { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }
     ],
@@ -962,7 +1109,9 @@ function showRecycleBinModal() {
         ${trash.map(c => `
           <div class="bin-item" data-id="${c.id}">
             <div class="bin-item-left">
-              <span class="bin-item-icon">${PAGE_SVG_HTML(14)}</span>
+              <span class="bin-item-icon-container">
+                ${c.emoji ? `<span class="bin-item-emoji">${c.emoji}</span>` : `<span class="bin-item-icon">${PAGE_SVG_HTML(14.7)}</span>`}
+              </span>
               <span class="bin-item-title">${c.title || 'Untitled Page'}</span>
             </div>
             <div class="bin-actions">
