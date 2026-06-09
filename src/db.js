@@ -1,9 +1,17 @@
-// Local Database Manager using localStorage
+// Local Database Manager using IndexedDB + Memory Cache
+import { get, set } from 'idb-keyval';
 
 const WORKSPACES_KEY = 'intellinote_workspaces';
 const CHAPTERS_KEY = 'intellinote_chapters';
 const TRASH_KEY = 'intellinote_trash';
 const PLUGINS_KEY = 'intellinote_plugins';
+
+let memoryState = {
+  workspaces: null,
+  chapters: null,
+  trash: null,
+  plugins: null
+};
 
 const DEFAULT_PLUGINS = [
   {
@@ -2481,71 +2489,268 @@ container.appendChild(wrapper);`
     enabled: true,
     isBuiltIn: true,
     renderCode: `container.innerHTML = '<div style="padding:13.2px; font-size:13.7px; color:var(--text-muted); background:#fafafa; border:1px solid rgba(0,0,0,0.05); border-radius:8.4px;">🤖 AI Autocomplete is active globally on all text blocks. Configure your Groq Cloud API Key in the settings panel above. Stop typing for 2 seconds to get suggestions, and press Tab to autocomplete.</div>';`
+  },
+  {
+    id: 'image-widget',
+    name: 'Image Uploader',
+    icon: '🖼️',
+    description: 'Upload, embed, and download images with formatted file size and previews.',
+    enabled: true,
+    isBuiltIn: true,
+    renderCode: `if (!block.data || typeof block.data !== 'object') {
+  block.data = { image: '', name: '', size: 0 };
+}
+container.innerHTML = '';
+const wrapper = document.createElement('div');
+wrapper.style.position = 'relative';
+wrapper.style.width = '100%';
+wrapper.style.margin = '10.5px 0';
+wrapper.style.borderRadius = '10.5px';
+wrapper.style.border = '1px solid var(--border-color)';
+wrapper.style.background = '#f8fafc';
+wrapper.style.overflow = 'hidden';
+
+const formatSize = (bytes) => {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+const renderEmpty = () => {
+  const dropArea = document.createElement('div');
+  dropArea.style.padding = '32px 20px';
+  dropArea.style.textAlign = 'center';
+  dropArea.style.cursor = 'pointer';
+  dropArea.style.display = 'flex';
+  dropArea.style.flexDirection = 'column';
+  dropArea.style.alignItems = 'center';
+  dropArea.style.gap = '10px';
+  dropArea.style.color = 'var(--text-muted)';
+  dropArea.innerHTML = '<svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg><div style="font-size:14px; font-weight:500; color:var(--text);">Click or drag image to upload</div><div style="font-size:12px;">Supports JPG, PNG, GIF, WebP</div>';
+  
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  });
+  
+  dropArea.addEventListener('click', () => fileInput.click());
+  
+  dropArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropArea.style.background = 'var(--primary-light)';
+  });
+  
+  dropArea.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropArea.style.background = 'transparent';
+  });
+  
+  dropArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropArea.style.background = 'transparent';
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith('image/')) {
+        handleFile(file);
+      }
+    }
+  });
+  
+  wrapper.appendChild(dropArea);
+  wrapper.appendChild(fileInput);
+};
+
+const handleFile = (file) => {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    block.data.image = e.target.result;
+    block.data.name = file.name;
+    block.data.size = file.size;
+    save();
+    renderContent();
+  };
+  reader.readAsDataURL(file);
+};
+
+const renderContent = () => {
+  wrapper.innerHTML = '';
+  
+  const imgWrapper = document.createElement('div');
+  imgWrapper.style.width = '100%';
+  imgWrapper.style.display = 'flex';
+  imgWrapper.style.justifyContent = 'center';
+  imgWrapper.style.background = 'rgba(0,0,0,0.02)';
+  
+  const img = document.createElement('img');
+  img.src = block.data.image;
+  img.style.maxWidth = '100%';
+  img.style.maxHeight = '600px';
+  img.style.objectFit = 'contain';
+  img.style.display = 'block';
+  
+  imgWrapper.appendChild(img);
+  
+  const metaBar = document.createElement('div');
+  metaBar.style.display = 'flex';
+  metaBar.style.alignItems = 'center';
+  metaBar.style.padding = '8.4px 12.6px';
+  metaBar.style.borderTop = '1px solid var(--border-color)';
+  metaBar.style.background = '#ffffff';
+  metaBar.style.gap = '10.5px';
+  
+  const thumb = document.createElement('img');
+  thumb.src = block.data.image;
+  thumb.style.width = '32px';
+  thumb.style.height = '32px';
+  thumb.style.borderRadius = '4.2px';
+  thumb.style.objectFit = 'cover';
+  thumb.style.border = '1px solid var(--border-color)';
+  
+  const info = document.createElement('div');
+  info.style.flex = '1';
+  info.style.display = 'flex';
+  info.style.flexDirection = 'column';
+  info.style.minWidth = '0';
+  
+  const nameEl = document.createElement('div');
+  nameEl.textContent = block.data.name || 'image.png';
+  nameEl.style.fontSize = '13px';
+  nameEl.style.fontWeight = '500';
+  nameEl.style.color = 'var(--text)';
+  nameEl.style.whiteSpace = 'nowrap';
+  nameEl.style.overflow = 'hidden';
+  nameEl.style.textOverflow = 'ellipsis';
+  
+  const sizeEl = document.createElement('div');
+  sizeEl.textContent = formatSize(block.data.size);
+  sizeEl.style.fontSize = '11px';
+  sizeEl.style.color = 'var(--text-muted)';
+  
+  info.appendChild(nameEl);
+  info.appendChild(sizeEl);
+  
+  const actions = document.createElement('div');
+  actions.style.display = 'flex';
+  actions.style.gap = '6px';
+  
+  const downloadLink = document.createElement('a');
+  downloadLink.href = block.data.image;
+  downloadLink.download = block.data.name || 'image.png';
+  downloadLink.title = 'Download';
+  downloadLink.style.display = 'flex';
+  downloadLink.style.alignItems = 'center';
+  downloadLink.style.justifyContent = 'center';
+  downloadLink.style.padding = '6px';
+  downloadLink.style.borderRadius = '4.2px';
+  downloadLink.style.color = 'var(--text-muted)';
+  downloadLink.style.background = 'var(--primary-light)';
+  downloadLink.style.cursor = 'pointer';
+  downloadLink.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+  
+  const deleteBtn = document.createElement('button');
+  deleteBtn.title = 'Remove Image';
+  deleteBtn.style.display = 'flex';
+  deleteBtn.style.alignItems = 'center';
+  deleteBtn.style.justifyContent = 'center';
+  deleteBtn.style.padding = '6px';
+  deleteBtn.style.borderRadius = '4.2px';
+  deleteBtn.style.color = '#ef4444';
+  deleteBtn.style.background = '#fef2f2';
+  deleteBtn.style.border = 'none';
+  deleteBtn.style.cursor = 'pointer';
+  deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+  
+  deleteBtn.addEventListener('click', () => {
+    block.data = { image: '', name: '', size: 0 };
+    save();
+    renderContent();
+  });
+  
+  actions.appendChild(downloadLink);
+  actions.appendChild(deleteBtn);
+  
+  metaBar.appendChild(thumb);
+  metaBar.appendChild(info);
+  metaBar.appendChild(actions);
+  
+  wrapper.appendChild(imgWrapper);
+  wrapper.appendChild(metaBar);
+};
+
+if (block.data.image) {
+  renderContent();
+} else {
+  renderEmpty();
+}
+container.appendChild(wrapper);`
   }
 ];
 
 export const db = {
-  init() {
-    if (!localStorage.getItem(WORKSPACES_KEY)) {
-      localStorage.setItem(WORKSPACES_KEY, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(CHAPTERS_KEY)) {
-      localStorage.setItem(CHAPTERS_KEY, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(TRASH_KEY)) {
-      localStorage.setItem(TRASH_KEY, JSON.stringify([]));
-    }
-    const existingPluginsStr = localStorage.getItem(PLUGINS_KEY);
-    if (!existingPluginsStr) {
-      localStorage.setItem(PLUGINS_KEY, JSON.stringify(DEFAULT_PLUGINS));
+  async init() {
+    if (memoryState.workspaces !== null) return; // already initialized
+
+    // Migration step from localStorage
+    if (localStorage.getItem(WORKSPACES_KEY)) {
+      memoryState.workspaces = JSON.parse(localStorage.getItem(WORKSPACES_KEY));
+      memoryState.chapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
+      memoryState.trash = JSON.parse(localStorage.getItem(TRASH_KEY)) || [];
+      const pluginStr = localStorage.getItem(PLUGINS_KEY);
+      memoryState.plugins = pluginStr ? JSON.parse(pluginStr) : [...DEFAULT_PLUGINS];
+
+      await set(WORKSPACES_KEY, memoryState.workspaces);
+      await set(CHAPTERS_KEY, memoryState.chapters);
+      await set(TRASH_KEY, memoryState.trash);
+      await set(PLUGINS_KEY, memoryState.plugins);
+
+      localStorage.removeItem(WORKSPACES_KEY);
+      localStorage.removeItem(CHAPTERS_KEY);
+      localStorage.removeItem(TRASH_KEY);
+      localStorage.removeItem(PLUGINS_KEY);
     } else {
-      try {
-        let existingPlugins = JSON.parse(existingPluginsStr);
-        let updated = false;
-        DEFAULT_PLUGINS.forEach(defaultP => {
-          const idx = existingPlugins.findIndex(p => p.id === defaultP.id);
-          if (idx >= 0) {
-            if (defaultP.isBuiltIn) {
-              // Ensure it's marked as built-in in the database too
-              if (!existingPlugins[idx].isBuiltIn) {
-                existingPlugins[idx].isBuiltIn = true;
-                updated = true;
-              }
-              if (existingPlugins[idx].renderCode !== defaultP.renderCode) {
-                existingPlugins[idx].renderCode = defaultP.renderCode;
-                updated = true;
-              }
-              if (existingPlugins[idx].name !== defaultP.name) {
-                existingPlugins[idx].name = defaultP.name;
-                updated = true;
-              }
-              if (existingPlugins[idx].description !== defaultP.description) {
-                existingPlugins[idx].description = defaultP.description;
-                updated = true;
-              }
-              if (existingPlugins[idx].icon !== defaultP.icon) {
-                existingPlugins[idx].icon = defaultP.icon;
-                updated = true;
-              }
-            }
-          } else {
-            existingPlugins.push(defaultP);
-            updated = true;
+      memoryState.workspaces = await get(WORKSPACES_KEY) || [];
+      memoryState.chapters = await get(CHAPTERS_KEY) || [];
+      memoryState.trash = await get(TRASH_KEY) || [];
+      memoryState.plugins = await get(PLUGINS_KEY);
+    }
+
+    if (!memoryState.plugins) {
+      memoryState.plugins = [...DEFAULT_PLUGINS];
+      await set(PLUGINS_KEY, memoryState.plugins);
+    } else {
+      let updated = false;
+      DEFAULT_PLUGINS.forEach(defaultP => {
+        const idx = memoryState.plugins.findIndex(p => p.id === defaultP.id);
+        if (idx >= 0) {
+          if (defaultP.isBuiltIn) {
+            if (!memoryState.plugins[idx].isBuiltIn) { memoryState.plugins[idx].isBuiltIn = true; updated = true; }
+            if (memoryState.plugins[idx].renderCode !== defaultP.renderCode) { memoryState.plugins[idx].renderCode = defaultP.renderCode; updated = true; }
+            if (memoryState.plugins[idx].name !== defaultP.name) { memoryState.plugins[idx].name = defaultP.name; updated = true; }
+            if (memoryState.plugins[idx].description !== defaultP.description) { memoryState.plugins[idx].description = defaultP.description; updated = true; }
+            if (memoryState.plugins[idx].icon !== defaultP.icon) { memoryState.plugins[idx].icon = defaultP.icon; updated = true; }
           }
-        });
-        if (updated) {
-          localStorage.setItem(PLUGINS_KEY, JSON.stringify(existingPlugins));
+        } else {
+          memoryState.plugins.push(defaultP);
+          updated = true;
         }
-      } catch (e) {
-        localStorage.setItem(PLUGINS_KEY, JSON.stringify(DEFAULT_PLUGINS));
+      });
+      if (updated) {
+        await set(PLUGINS_KEY, memoryState.plugins);
       }
     }
   },
 
   // Workspaces
   getWorkspaces() {
-    this.init();
-    return JSON.parse(localStorage.getItem(WORKSPACES_KEY)) || [];
+    return memoryState.workspaces || [];
   },
 
   getWorkspace(id) {
@@ -2557,36 +2762,31 @@ export const db = {
     const index = workspaces.findIndex(w => w.id === workspace.id);
     workspace.updatedAt = new Date().toISOString();
     
-    // Default properties if missing
     if (workspace.starred === undefined) workspace.starred = false;
     
-    if (index >= 0) {
-      workspaces[index] = workspace;
-    } else {
-      workspaces.push(workspace);
-    }
-    localStorage.setItem(WORKSPACES_KEY, JSON.stringify(workspaces));
+    if (index >= 0) { workspaces[index] = workspace; } 
+    else { workspaces.push(workspace); }
+    
+    set(WORKSPACES_KEY, workspaces);
     return workspace;
   },
 
   saveWorkspacesOrder(workspacesList) {
-    localStorage.setItem(WORKSPACES_KEY, JSON.stringify(workspacesList));
+    memoryState.workspaces = workspacesList;
+    set(WORKSPACES_KEY, workspacesList);
   },
 
   deleteWorkspace(workspaceId) {
-    // Deletes the workspace
-    const workspaces = this.getWorkspaces().filter(w => w.id !== workspaceId);
-    localStorage.setItem(WORKSPACES_KEY, JSON.stringify(workspaces));
+    memoryState.workspaces = this.getWorkspaces().filter(w => w.id !== workspaceId);
+    set(WORKSPACES_KEY, memoryState.workspaces);
 
-    // Move all chapters of this workspace to trash
     const chapters = this.getChapters(workspaceId);
     chapters.forEach(c => this.deleteChapter(c.id));
   },
 
   // Chapters
   getChapters(workspaceId) {
-    this.init();
-    const chapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
+    const chapters = memoryState.chapters || [];
     if (workspaceId) {
       return chapters.filter(c => c.workspaceId === workspaceId);
     }
@@ -2594,24 +2794,19 @@ export const db = {
   },
 
   getChapter(id) {
-    this.init();
-    const chapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
-    return chapters.find(c => c.id === id);
+    return (memoryState.chapters || []).find(c => c.id === id);
   },
 
   saveChapter(chapter) {
-    this.init();
-    const chapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
+    const chapters = memoryState.chapters || [];
     const index = chapters.findIndex(c => c.id === chapter.id);
     chapter.updatedAt = new Date().toISOString();
-    if (index >= 0) {
-      chapters[index] = chapter;
-    } else {
-      chapters.push(chapter);
-    }
-    localStorage.setItem(CHAPTERS_KEY, JSON.stringify(chapters));
     
-    // Also update workspace timestamp
+    if (index >= 0) { chapters[index] = chapter; } 
+    else { chapters.push(chapter); }
+    
+    set(CHAPTERS_KEY, chapters);
+    
     const workspace = this.getWorkspace(chapter.workspaceId);
     if (workspace) {
       this.saveWorkspace(workspace);
@@ -2620,100 +2815,83 @@ export const db = {
   },
 
   saveChaptersOrder(chaptersList, workspaceId) {
-    this.init();
-    const allChapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
-    
-    // Filter out chapters belonging to this workspace and replace them in order
+    const allChapters = memoryState.chapters || [];
     const otherChapters = allChapters.filter(c => c.workspaceId !== workspaceId);
-    const updatedChapters = [...otherChapters, ...chaptersList];
-    
-    localStorage.setItem(CHAPTERS_KEY, JSON.stringify(updatedChapters));
+    memoryState.chapters = [...otherChapters, ...chaptersList];
+    set(CHAPTERS_KEY, memoryState.chapters);
   },
 
   deleteChapter(id) {
-    this.init();
-    const chapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
+    const chapters = memoryState.chapters || [];
     const chapterToDelete = chapters.find(c => c.id === id);
     if (!chapterToDelete) return;
 
-    // Remove from active chapters
-    const updatedChapters = chapters.filter(c => c.id !== id);
-    localStorage.setItem(CHAPTERS_KEY, JSON.stringify(updatedChapters));
+    memoryState.chapters = chapters.filter(c => c.id !== id);
+    set(CHAPTERS_KEY, memoryState.chapters);
 
-    // Add to trash
-    const trash = JSON.parse(localStorage.getItem(TRASH_KEY)) || [];
+    const trash = memoryState.trash || [];
     chapterToDelete.deletedAt = new Date().toISOString();
     trash.push(chapterToDelete);
-    localStorage.setItem(TRASH_KEY, JSON.stringify(trash));
+    set(TRASH_KEY, trash);
   },
 
   // Trash (Recycle Bin)
   getTrash() {
-    this.init();
-    return JSON.parse(localStorage.getItem(TRASH_KEY)) || [];
+    return memoryState.trash || [];
   },
 
   restoreChapter(id) {
-    this.init();
-    const trash = JSON.parse(localStorage.getItem(TRASH_KEY)) || [];
+    const trash = memoryState.trash || [];
     const chapterToRestore = trash.find(c => c.id === id);
     if (!chapterToRestore) return;
 
-    // Remove from trash
-    const updatedTrash = trash.filter(c => c.id !== id);
-    localStorage.setItem(TRASH_KEY, JSON.stringify(updatedTrash));
+    memoryState.trash = trash.filter(c => c.id !== id);
+    set(TRASH_KEY, memoryState.trash);
 
-    // Add back to active chapters
     delete chapterToRestore.deletedAt;
-    const chapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
+    const chapters = memoryState.chapters || [];
     chapters.push(chapterToRestore);
-    localStorage.setItem(CHAPTERS_KEY, JSON.stringify(chapters));
+    set(CHAPTERS_KEY, chapters);
     return chapterToRestore;
   },
 
   permanentlyDeleteChapter(id) {
-    this.init();
-    const trash = JSON.parse(localStorage.getItem(TRASH_KEY)) || [];
-    const updatedTrash = trash.filter(c => c.id !== id);
-    localStorage.setItem(TRASH_KEY, JSON.stringify(updatedTrash));
+    const trash = memoryState.trash || [];
+    memoryState.trash = trash.filter(c => c.id !== id);
+    set(TRASH_KEY, memoryState.trash);
   },
 
   clearTrash() {
-    localStorage.setItem(TRASH_KEY, JSON.stringify([]));
+    memoryState.trash = [];
+    set(TRASH_KEY, memoryState.trash);
   },
 
   // Plugins Manager Store
   getPlugins() {
-    this.init();
-    return JSON.parse(localStorage.getItem(PLUGINS_KEY)) || [];
+    return memoryState.plugins || [];
   },
 
   savePlugin(plugin) {
-    this.init();
     const plugins = this.getPlugins();
     const idx = plugins.findIndex(p => p.id === plugin.id);
-    if (idx >= 0) {
-      plugins[idx] = plugin;
-    } else {
-      plugins.push(plugin);
-    }
-    localStorage.setItem(PLUGINS_KEY, JSON.stringify(plugins));
+    if (idx >= 0) { plugins[idx] = plugin; } 
+    else { plugins.push(plugin); }
+    
+    set(PLUGINS_KEY, plugins);
     return plugin;
   },
 
   deletePlugin(id) {
-    this.init();
-    const plugins = this.getPlugins().filter(p => p.id !== id);
-    localStorage.setItem(PLUGINS_KEY, JSON.stringify(plugins));
+    memoryState.plugins = this.getPlugins().filter(p => p.id !== id);
+    set(PLUGINS_KEY, memoryState.plugins);
   },
 
   togglePlugin(id) {
-    this.init();
     const plugins = this.getPlugins();
     const plugin = plugins.find(p => p.id === id);
     if (plugin) {
       plugin.enabled = !plugin.enabled;
-      localStorage.setItem(PLUGINS_KEY, JSON.stringify(plugins));
+      set(PLUGINS_KEY, plugins);
     }
     return plugin;
   }

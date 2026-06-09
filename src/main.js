@@ -62,7 +62,11 @@ function getCoverBackgroundStyle(coverVal) {
 }
 
 // Initialize DB structure
-db.init();
+try {
+  await db.init();
+} catch (e) {
+  console.error("Failed to init DB:", e);
+}
 
 // --- Routing System ---
 function handleRouting() {
@@ -99,10 +103,15 @@ function handleRouting() {
 }
 
 window.addEventListener('hashchange', handleRouting);
-window.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', () => {
+    handleRouting();
+    setupPrimarySidebarEvents();
+  });
+} else {
   handleRouting();
   setupPrimarySidebarEvents();
-});
+}
 
 // --- Primary Sidebar Setup ---
 function setupPrimarySidebarEvents() {
