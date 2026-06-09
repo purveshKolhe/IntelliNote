@@ -1790,11 +1790,10 @@ body {
 /* AI Autocomplete suggestion inline gray style */
 .loop-autocomplete-suggestion {
   color: #94a3b8 !important;
-  opacity: 0.82 !important;
+  opacity: 0.92 !important;
   font-style: italic;
   pointer-events: none;
   user-select: none;
   font-weight: normal;
   display: inline;
-  filter: blur(0.15px);
 }

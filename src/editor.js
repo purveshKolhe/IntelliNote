@@ -1554,8 +1554,9 @@ export class Editor {
             content: contextText
           }
         ],
-        max_tokens: 100,
-        temperature: 0.3
+        max_completion_tokens: 150,
+        temperature: 0.3,
+        reasoning_effort: "low"
       })
     })
     .then(res => {
