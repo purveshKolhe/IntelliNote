@@ -5,12 +5,14 @@ const WORKSPACES_KEY = 'intellinote_workspaces';
 const CHAPTERS_KEY = 'intellinote_chapters';
 const TRASH_KEY = 'intellinote_trash';
 const PLUGINS_KEY = 'intellinote_plugins';
+const NOTIFICATIONS_KEY = 'intellinote_notifications';
 
 let memoryState = {
   workspaces: null,
   chapters: null,
   trash: null,
-  plugins: null
+  plugins: null,
+  notifications: null
 };
 
 const DEFAULT_PLUGINS = [
@@ -136,7 +138,8 @@ if (block.data.url) {
 wrapper.appendChild(inputEl);
 wrapper.appendChild(iframeContainer);
 wrapper.appendChild(changeBtn);
-container.appendChild(wrapper);`
+container.appendChild(wrapper);
+`
   },
   {
     id: 'timer-widget',
@@ -286,10 +289,26 @@ window.loopTimersManager = window.loopTimersManager || {
   
   triggerCompletionAlert(taskName) {
     try {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-200.wav');
-      audio.volume = 0.5;
-      audio.play();
-    } catch(err) {}
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/911/911-200.wav');
+      audio.volume = 0.8;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn("Audio play failed, user interaction may be required:", err);
+        });
+      }
+    } catch(err) {
+      console.warn("Audio creation failed:", err);
+    }
+    
+    const dbInstance = this.db;
+    if (dbInstance && typeof dbInstance.addNotification === 'function') {
+      dbInstance.addNotification({
+        title: 'Timer Finished',
+        message: 'Session completed for: ' + taskName,
+        type: 'timer'
+      });
+    }
     
     if (typeof Notification !== 'undefined') {
       if (Notification.permission === 'granted') {
@@ -1015,6 +1034,7 @@ window.loopTimersManager.getAllAnalyticsData = function(dbInstance) {
         fullCh.blocks.forEach(bl => {
           if (bl.type === 'timer-widget' && bl.data && bl.data.tasks) {
             bl.data.tasks.forEach(task => {
+              // Add completed history sessions
               if (task.history && task.history.length > 0) {
                 task.history.forEach(session => {
                   data.push({
@@ -1031,6 +1051,21 @@ window.loopTimersManager.getAllAnalyticsData = function(dbInstance) {
                   });
                 });
               }
+              // Add active currentSession if exists
+              if (task.currentSession) {
+                data.push({
+                  workspaceId: ws.id,
+                  workspaceName: ws.name,
+                  chapterId: ch.id,
+                  chapterName: ch.title || 'Untitled Page',
+                  blockId: bl.id,
+                  taskId: task.id,
+                  taskName: task.name || 'Unnamed Task',
+                  sessionStart: task.currentSession.sessionStart,
+                  sessionEnd: task.currentSession.sessionEnd,
+                  pauses: task.currentSession.pauses || []
+                });
+              }
             });
           }
         });
@@ -1041,7 +1076,7 @@ window.loopTimersManager.getAllAnalyticsData = function(dbInstance) {
 };
 
 // Floating Global Analytics Dashboard
-window.loopShowAnalyticsDashboard = () => {
+window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
   let panel = document.getElementById('loop-timer-analytics-panel');
   const dbInstance = window.loopTimersManager.db || db;
   
@@ -1059,7 +1094,8 @@ window.loopShowAnalyticsDashboard = () => {
   }
   
   if (!panel.dataset.tab) panel.dataset.tab = 'recent';
-  if (!panel.dataset.workspaceId) panel.dataset.workspaceId = 'all';
+  if (!panel.dataset.workspaceId) panel.dataset.workspaceId = defaultWorkspaceId || 'all';
+
   if (!panel.dataset.sortBy) panel.dataset.sortBy = 'newest';
   
   const currentTab = panel.dataset.tab;
@@ -1257,7 +1293,8 @@ const renderLogCard = (log) => {
   card.className = 'loop-analytics-log-card';
   
   const dStr = new Date(log.sessionStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const timeRange = formatTimeStr(log.sessionStart) + ' - ' + formatTimeStr(log.sessionEnd);
+  const endTimeStr = log.sessionEnd ? formatTimeStr(log.sessionEnd) : 'Active';
+  const timeRange = formatTimeStr(log.sessionStart) + ' - ' + endTimeStr;
   const durationSecs = Math.round(getSessionActiveDuration(log) / 1000);
   const durationStr = Math.floor(durationSecs / 60) + 'm ' + (durationSecs % 60) + 's';
   
@@ -1548,7 +1585,7 @@ window.loopUpdatePipUI = () => {
       
       gearBtn.onclick = (e) => {
         e.stopPropagation();
-        window.loopShowAnalyticsDashboard();
+        window.loopShowAnalyticsDashboard(chapter.workspaceId);
       };
       
       right.appendChild(timeDisp);
@@ -1912,7 +1949,7 @@ const renderBlockUI = () => {
     gearBtn.title = 'Session Logs';
     
     gearBtn.addEventListener('click', () => {
-      window.loopShowAnalyticsDashboard();
+      window.loopShowAnalyticsDashboard(editor.chapter.workspaceId);
     });
     
     const delBtn = document.createElement('button');
@@ -2721,6 +2758,7 @@ export const db = {
       memoryState.trash = await get(TRASH_KEY) || [];
       memoryState.plugins = await get(PLUGINS_KEY);
     }
+    memoryState.notifications = await get(NOTIFICATIONS_KEY) || [];
 
     if (!memoryState.plugins) {
       memoryState.plugins = [...DEFAULT_PLUGINS];
@@ -2894,5 +2932,44 @@ export const db = {
       set(PLUGINS_KEY, plugins);
     }
     return plugin;
+  },
+
+  // Notifications
+  getNotifications() {
+    return memoryState.notifications || [];
+  },
+  
+  addNotification(notification) {
+    const notifications = this.getNotifications();
+    notification.id = 'n-' + Math.random().toString(36).substr(2, 9);
+    notification.timestamp = Date.now();
+    notification.read = false;
+    notifications.push(notification);
+    memoryState.notifications = notifications;
+    set(NOTIFICATIONS_KEY, notifications);
+    
+    if (typeof window.loopOnNotificationAdded === 'function') {
+      window.loopOnNotificationAdded(notification);
+    }
+  },
+  
+  markAllNotificationsRead() {
+    const notifications = this.getNotifications();
+    notifications.forEach(n => n.read = true);
+    memoryState.notifications = notifications;
+    set(NOTIFICATIONS_KEY, notifications);
+    
+    if (typeof window.loopOnNotificationAdded === 'function') {
+      window.loopOnNotificationAdded();
+    }
+  },
+  
+  clearNotifications() {
+    memoryState.notifications = [];
+    set(NOTIFICATIONS_KEY, []);
+    
+    if (typeof window.loopOnNotificationAdded === 'function') {
+      window.loopOnNotificationAdded();
+    }
   }
 };

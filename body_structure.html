@@ -1,17 +1,8 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>IntelliNote - Local-First Microsoft Loop Clone</title>
-    <meta name="description" content="IntelliNote is a premium local-first documentation tool matching Microsoft Loop. Build workspaces, organize chapters, write with Markdown commands, and highlight code offline." />
-  </head>
-  <body>
+
     <div id="app">
       <!-- Primary Sidebar (Left-most panel) -->
       <aside id="sidebar-primary" class="loop-primary-sidebar">
-        <div class="loop-logo-area">
+        <div class="loop-logo-area" style="cursor: pointer;">
           <div style="display:flex; align-items:center; gap: 8.4px;">
             <div class="loop-logo-icon">I</div>
             <h1 class="loop-logo-text">IntelliNote</h1>
@@ -38,14 +29,13 @@
               </svg>
             </span> <span class="nav-item-text">Search</span>
           </button>
-          <button id="btn-nav-notifications" class="nav-item" style="position: relative;">
+          <button id="btn-nav-notifications" class="nav-item">
             <span class="nav-item-icon">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 8.4C18 6.70261 17.3679 5.07475 16.2426 3.87452C15.1174 2.67428 13.5913 2 12 2C10.4087 2 8.88258 2.67428 7.75736 3.87452C6.63214 5.07475 6 6.70261 6 8.4C6 15.8667 3 18 3 18H21C21 18 18 15.8667 18 8.4Z"></path>
                 <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21"></path>
               </svg>
             </span> <span class="nav-item-text">Notifications</span>
-            <span id="nav-notifications-badge" class="nav-badge" style="display: none;"></span>
           </button>
           <button id="btn-nav-plugins" class="nav-item">
             <span class="nav-item-icon">
@@ -76,8 +66,15 @@
           </button>
         </nav>
         <div id="sidebar-workspaces-container" class="sidebar-workspaces-list">
-          <!-- Dynamic workspaces loaded from localStorage -->
-        </div>
+    <!-- Favorites Section -->
+    
+
+    <!-- Workspaces Section -->
+    <div class="sidebar-section-title" style="padding-left: 14.7px; margin-top: 14.7px; margin-bottom: 6.3px;">Workspaces</div>
+    <div class="regular-workspaces-list" id="reg-ws-drag-container">
+      
+    </div>
+  </div>
       </aside>
 
       <!-- Secondary Sidebar (Active Workspace Chapter hierarchy) -->
@@ -87,9 +84,29 @@
 
       <!-- Main Panel (Dashboard workspace grid OR document paper) -->
       <main id="main-pane" class="loop-main-pane">
-        <!-- Dynamic contents loaded by main.js routing -->
-      </main>
+    <div class="loop-dashboard-view">
+      <h2 class="dashboard-greeting">☀️ Good Morning</h2>
+      <p class="dashboard-subgreeting">Welcome to IntelliNote. Workspaces and chapters are saved locally and securely inside your browser.</p>
+      
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 21px;">
+        <div class="sidebar-section-title" style="padding-left:0; margin-bottom: 0;">Recent Workspaces</div>
+        
+      </div>
+      
+      
+        <div class="dashboard-empty-workspaces" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 50.4px; border:2px dashed var(--border-color); border-radius: var(--radius-lg); text-align:center;">
+          <div style="font-size:37.8px; margin-bottom: 12.6px;">📂</div>
+          <div style="font-size: 16.8px; font-weight:600; margin-bottom: 4.2px;">No Workspaces Yet</div>
+          <div style="font-size: 13.7px; color: var(--text-muted); margin-bottom: 21px;">Create your first workspace to start writing documents.</div>
+          <div style="display:flex; gap: 10.5px;">
+            <button id="btn-dashboard-create-ws" class="create-new-btn" style="margin-bottom:0;">+ Create Workspace</button>
+            <button id="btn-dashboard-import-ws" class="create-new-btn" style="margin-bottom:0; background: var(--primary-light); color: var(--primary); border-color: var(--primary);">📥 Import Workspace</button>
+          </div>
+        </div>
+      
+    </div>
+  </main>
     </div>
     <script type="module" src="/src/main.js"></script>
-  </body>
-</html>
+  
+

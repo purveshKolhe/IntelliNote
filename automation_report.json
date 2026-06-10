@@ -1,0 +1,33 @@
+{
+  "logs": [
+    "[debug] [vite] connecting...",
+    "[log] PWA Service Worker registered: http://localhost:5174/",
+    "[debug] [vite] connected."
+  ],
+  "dashboardDetails": {
+    "opened": true,
+    "title": "Analytics Dashboard",
+    "stats": [
+      {
+        "value": "0m 3s",
+        "label": "Time Logged"
+      },
+      {
+        "value": "1",
+        "label": "Sessions"
+      },
+      {
+        "value": "1",
+        "label": "Tasks"
+      }
+    ],
+    "logCards": [
+      {
+        "taskName": "My Sprint Task",
+        "meta": "Workspace: Automation Workspace\n      Page: Untitled Page"
+      }
+    ],
+    "htmlLength": 2620
+  },
+  "screenshotPath": "/home/purveshkolhe/Desktop/intellinote/final_state.png"
+}

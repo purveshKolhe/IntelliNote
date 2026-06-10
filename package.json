@@ -15,6 +15,7 @@
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/outfit": "^5.2.8",
     "idb-keyval": "^6.2.5",
-    "katex": "^0.17.0"
+    "katex": "^0.17.0",
+    "puppeteer-core": "^24.43.1"
   }
 }

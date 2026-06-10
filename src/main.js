@@ -80,9 +80,30 @@ function getCoverBackgroundStyle(coverVal) {
 // Initialize DB structure
 try {
   await db.init();
+  updateNotificationsBadge();
 } catch (e) {
   console.error("Failed to init DB:", e);
 }
+
+function updateNotificationsBadge() {
+  const badge = document.getElementById('nav-notifications-badge');
+  if (!badge) return;
+  const unreadCount = db.getNotifications().filter(n => !n.read).length;
+  if (unreadCount > 0) {
+    badge.textContent = unreadCount;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+window.loopOnNotificationAdded = () => {
+  updateNotificationsBadge();
+  const dialogBody = document.getElementById('notifications-dialog-body');
+  if (dialogBody) {
+    drawNotificationsList(dialogBody);
+  }
+};
 
 // --- Routing System ---
 function handleRouting() {
@@ -1336,26 +1357,77 @@ function showRecycleBinModal() {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 }
 
+function drawNotificationsList(container) {
+  const notifications = db.getNotifications();
+  if (notifications.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 42px 25.2px; text-align: center; color: var(--text-muted); font-size:14.7px;">
+        <div style="font-size: 33.6px; margin-bottom: 12.6px;">🔔</div>
+        <div>No notifications right now. Keep styling cozy.</div>
+      </div>
+    `;
+    return;
+  }
+
+  // Sort by latest timestamp first
+  const sorted = [...notifications].sort((a, b) => b.timestamp - a.timestamp);
+
+  container.innerHTML = `
+    <div style="display: flex; flex-direction: column; max-height: 400px; overflow-y: auto;">
+      ${sorted.map(n => {
+        const timeStr = new Date(n.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        const icon = n.type === 'timer' ? '⏱️' : '🔔';
+        return `
+          <div class="notification-item ${n.read ? '' : 'unread'}">
+            <span class="notification-icon">${icon}</span>
+            <div class="notification-content">
+              <div class="notification-title">${n.title}</div>
+              <div class="notification-message">${n.message}</div>
+              <div class="notification-time">${timeStr}</div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
 // --- Notifications Drawer Modal ---
 function showNotificationsDrawer() {
   const overlay = document.createElement('div');
   overlay.className = 'loop-search-modal-overlay';
   overlay.innerHTML = `
-    <div class="loop-search-dialog" style="width: 420px;">
+    <div class="loop-search-dialog" style="width: 420px; display: flex; flex-direction: column; overflow: hidden;">
       <div class="bin-header">
         <h3 class="bin-title">Notifications</h3>
-        <button class="bin-close-btn" id="notify-close">×</button>
+        <div class="notifications-header-actions">
+          <button class="notifications-action-btn" id="notifications-mark-read">Mark all read</button>
+          <button class="notifications-action-btn notifications-clear-btn" id="notifications-clear">Clear all</button>
+        </div>
+        <button class="bin-close-btn" id="notify-close" style="margin-left: 8px;">×</button>
       </div>
-      <div style="padding: 42px 25.2px; text-align: center; color: var(--text-muted); font-size:14.7px;">
-        <div style="font-size: 33.6px; margin-bottom: 12.6px;">🔔</div>
-        <div>No notifications right now. Same chill UI. Keep styling cozy.</div>
+      <div id="notifications-dialog-body" style="flex-grow: 1; min-height: 200px;">
       </div>
     </div>
   `;
 
   document.body.appendChild(overlay);
 
-  const closeModal = () => overlay.remove();
+  const dialogBody = overlay.querySelector('#notifications-dialog-body');
+  drawNotificationsList(dialogBody);
+
+  overlay.querySelector('#notifications-mark-read').addEventListener('click', () => {
+    db.markAllNotificationsRead();
+  });
+
+  overlay.querySelector('#notifications-clear').addEventListener('click', () => {
+    db.clearNotifications();
+  });
+
+  const closeModal = () => {
+    db.markAllNotificationsRead();
+    overlay.remove();
+  };
   overlay.querySelector('#notify-close').addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 }
