@@ -6,13 +6,15 @@ const CHAPTERS_KEY = 'intellinote_chapters';
 const TRASH_KEY = 'intellinote_trash';
 const PLUGINS_KEY = 'intellinote_plugins';
 const NOTIFICATIONS_KEY = 'intellinote_notifications';
+const ANALYTICS_KEY = 'intellinote_analytics';
 
 let memoryState = {
   workspaces: null,
   chapters: null,
   trash: null,
   plugins: null,
-  notifications: null
+  notifications: null,
+  analytics: null
 };
 
 const DEFAULT_PLUGINS = [
@@ -289,7 +291,7 @@ window.loopTimersManager = window.loopTimersManager || {
   
   triggerCompletionAlert(taskName) {
     try {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/911/911-200.wav');
+      const audio = new Audio('/bell.mp3');
       audio.volume = 0.8;
       const playPromise = audio.play();
       if (playPromise !== undefined) {
@@ -1025,6 +1027,31 @@ const getSessionActiveDuration = (session) => {
 // Extend loopTimersManager with global log aggregator
 window.loopTimersManager.getAllAnalyticsData = function(dbInstance) {
   const data = [];
+  const seenSessions = new Set();
+  
+  // 1. Load persistent historical sessions
+  if (typeof dbInstance.getAnalytics === 'function') {
+    const persistent = dbInstance.getAnalytics();
+    persistent.forEach(session => {
+      const key = session.taskId + '_' + session.sessionStart;
+      seenSessions.add(key);
+      data.push({
+        id: session.id,
+        workspaceId: session.workspaceId,
+        workspaceName: session.workspaceName || 'Untitled Workspace',
+        chapterId: session.chapterId,
+        chapterName: session.chapterName || 'Untitled Page',
+        blockId: session.blockId,
+        taskId: session.taskId,
+        taskName: session.taskName || 'Unnamed Task',
+        sessionStart: session.sessionStart,
+        sessionEnd: session.sessionEnd,
+        pauses: session.pauses || []
+      });
+    });
+  }
+
+  // 2. Load active tasks sessions (including currently running ones)
   const workspaces = dbInstance.getWorkspaces() || [];
   workspaces.forEach(ws => {
     const chapters = dbInstance.getChapters(ws.id) || [];
@@ -1034,24 +1061,34 @@ window.loopTimersManager.getAllAnalyticsData = function(dbInstance) {
         fullCh.blocks.forEach(bl => {
           if (bl.type === 'timer-widget' && bl.data && bl.data.tasks) {
             bl.data.tasks.forEach(task => {
-              // Add completed history sessions
+              // Add completed history sessions from widgets
               if (task.history && task.history.length > 0) {
                 task.history.forEach(session => {
-                  data.push({
-                    workspaceId: ws.id,
-                    workspaceName: ws.name,
-                    chapterId: ch.id,
-                    chapterName: ch.title || 'Untitled Page',
-                    blockId: bl.id,
-                    taskId: task.id,
-                    taskName: task.name || 'Unnamed Task',
-                    sessionStart: session.sessionStart,
-                    sessionEnd: session.sessionEnd,
-                    pauses: session.pauses || []
-                  });
+                  const key = task.id + '_' + session.sessionStart;
+                  if (!seenSessions.has(key)) {
+                    seenSessions.add(key);
+                    // Also backport this session into database analytics for persistency
+                    const newSession = {
+                      id: 'a-' + Math.random().toString(36).substr(2, 9),
+                      workspaceId: ws.id,
+                      workspaceName: ws.name,
+                      chapterId: ch.id,
+                      chapterName: ch.title || 'Untitled Page',
+                      blockId: bl.id,
+                      taskId: task.id,
+                      taskName: task.name || 'Unnamed Task',
+                      sessionStart: session.sessionStart,
+                      sessionEnd: session.sessionEnd,
+                      pauses: session.pauses || []
+                    };
+                    if (typeof dbInstance.addAnalyticsSession === 'function') {
+                      dbInstance.addAnalyticsSession(newSession);
+                    }
+                    data.push(newSession);
+                  }
                 });
               }
-              // Add active currentSession if exists
+              // Add active currentSession if exists (don't persist until done/reset)
               if (task.currentSession) {
                 data.push({
                   workspaceId: ws.id,
@@ -1095,25 +1132,35 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
   
   if (!panel.dataset.tab) panel.dataset.tab = 'recent';
   if (!panel.dataset.workspaceId) panel.dataset.workspaceId = defaultWorkspaceId || 'all';
-
   if (!panel.dataset.sortBy) panel.dataset.sortBy = 'newest';
   
   const currentTab = panel.dataset.tab;
   const currentWorkspaceId = panel.dataset.workspaceId;
   const currentSortBy = panel.dataset.sortBy;
   
-  panel.innerHTML = \`
-    <div class="loop-analytics-header">
-      <div class="loop-analytics-title">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4.2px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-        Analytics Dashboard
-      </div>
-      <button class="loop-pip-btn" title="Close" onclick="document.getElementById('loop-timer-analytics-panel').remove();">\${closeIcon}</button>
-    </div>
-    <div class="loop-analytics-body"></div>
-  \`;
+  panel.innerHTML = '';
   
-  const body = panel.querySelector('.loop-analytics-body');
+  const header = document.createElement('div');
+  header.className = 'loop-analytics-header';
+  
+  const title = document.createElement('div');
+  title.className = 'loop-analytics-title';
+  title.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4.2px;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Analytics Dashboard';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'loop-pip-btn';
+  closeBtn.title = 'Close';
+  closeBtn.innerHTML = closeIcon;
+  closeBtn.onclick = () => panel.remove();
+  
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+  
+  const body = document.createElement('div');
+  body.className = 'loop-analytics-body';
+  panel.appendChild(body);
+  
   const rawLogs = window.loopTimersManager.getAllAnalyticsData(dbInstance);
   
   let filteredLogs = rawLogs;
@@ -1122,10 +1169,8 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
   }
   
   let totalMs = 0;
-  const uniqueTasks = new Set();
   filteredLogs.forEach(log => {
     totalMs += getSessionActiveDuration(log);
-    uniqueTasks.add(log.workspaceId + '_' + log.chapterId + '_' + log.taskId);
   });
   
   const formatTotalTime = (ms) => {
@@ -1140,20 +1185,17 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
   
   const statsGrid = document.createElement('div');
   statsGrid.className = 'loop-analytics-stats-grid';
-  statsGrid.innerHTML = \`
-    <div class="loop-analytics-stat-card">
-      <div class="loop-analytics-stat-val">\${formatTotalTime(totalMs)}</div>
-      <div class="loop-analytics-stat-lbl">Time Logged</div>
-    </div>
-    <div class="loop-analytics-stat-card">
-      <div class="loop-analytics-stat-val">\${filteredLogs.length}</div>
-      <div class="loop-analytics-stat-lbl">Sessions</div>
-    </div>
-    <div class="loop-analytics-stat-card">
-      <div class="loop-analytics-stat-val">\${uniqueTasks.size}</div>
-      <div class="loop-analytics-stat-lbl">Tasks</div>
-    </div>
-  \`;
+  
+  const totalCard = document.createElement('div');
+  totalCard.className = 'loop-analytics-stat-card';
+  totalCard.innerHTML = '<div class="loop-analytics-stat-val">' + formatTotalTime(totalMs) + '</div><div class="loop-analytics-stat-lbl">Time Logged</div>';
+  
+  const sessionCard = document.createElement('div');
+  sessionCard.className = 'loop-analytics-stat-card';
+  sessionCard.innerHTML = '<div class="loop-analytics-stat-val">' + filteredLogs.length + '</div><div class="loop-analytics-stat-lbl">Sessions</div>';
+  
+  statsGrid.appendChild(totalCard);
+  statsGrid.appendChild(sessionCard);
   body.appendChild(statsGrid);
   
   const filtersSection = document.createElement('div');
@@ -1161,9 +1203,10 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
   
   const wsSelect = document.createElement('select');
   wsSelect.className = 'loop-analytics-select';
-  wsSelect.innerHTML = \`<option value="all">All Workspaces</option>\`;
+  wsSelect.innerHTML = '<option value="all">All Workspaces</option>';
   dbInstance.getWorkspaces().forEach(ws => {
-    wsSelect.innerHTML += \`<option value="\${ws.id}" \${currentWorkspaceId === ws.id ? 'selected' : ''}>\${ws.name}</option>\`;
+    const selected = currentWorkspaceId === ws.id ? 'selected' : '';
+    wsSelect.innerHTML += '<option value="' + ws.id + '" ' + selected + '>' + ws.name + '</option>';
   });
   wsSelect.onchange = () => {
     panel.dataset.workspaceId = wsSelect.value;
@@ -1172,11 +1215,10 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
   
   const sortSelect = document.createElement('select');
   sortSelect.className = 'loop-analytics-select';
-  sortSelect.innerHTML = \`
-    <option value="newest" \${currentSortBy === 'newest' ? 'selected' : ''}>Newest First</option>
-    <option value="oldest" \${currentSortBy === 'oldest' ? 'selected' : ''}>Oldest First</option>
-    <option value="longest" \${currentSortBy === 'longest' ? 'selected' : ''}>Longest Session</option>
-  \`;
+  sortSelect.innerHTML = 
+    '<option value="newest" ' + (currentSortBy === 'newest' ? 'selected' : '') + '>Newest First</option>' +
+    '<option value="oldest" ' + (currentSortBy === 'oldest' ? 'selected' : '') + '>Oldest First</option>' +
+    '<option value="longest" ' + (currentSortBy === 'longest' ? 'selected' : '') + '>Longest Session</option>';
   sortSelect.onchange = () => {
     panel.dataset.sortBy = sortSelect.value;
     window.loopShowAnalyticsDashboard();
@@ -1230,7 +1272,7 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
   listContainer.className = 'loop-analytics-list';
   
   if (filteredLogs.length === 0) {
-    listContainer.innerHTML = \`<div style="text-align:center; padding:31.5px; color:var(--text-muted); font-size:13.7px;">No session logs found. Start and complete tasks to record analytics.</div>\`;
+    listContainer.innerHTML = '<div style="text-align:center; padding:31.5px; color:var(--text-muted); font-size:13.7px;">No session logs found. Start and complete tasks to record analytics.</div>';
   } else {
     if (currentTab === 'recent') {
       filteredLogs.forEach(log => {
@@ -1245,15 +1287,15 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
       });
       
       Object.keys(groups).forEach(dStr => {
-        const header = document.createElement('div');
-        header.style.fontSize = '12.6px';
-        header.style.fontWeight = '600';
-        header.style.color = 'var(--primary)';
-        header.style.marginTop = '10.5px';
-        header.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
-        header.style.paddingBottom = '4.2px';
-        header.textContent = dStr;
-        listContainer.appendChild(header);
+        const headerEl = document.createElement('div');
+        headerEl.style.fontSize = '12.6px';
+        headerEl.style.fontWeight = '600';
+        headerEl.style.color = 'var(--primary)';
+        headerEl.style.marginTop = '10.5px';
+        headerEl.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
+        headerEl.style.paddingBottom = '4.2px';
+        headerEl.textContent = dStr;
+        listContainer.appendChild(headerEl);
         
         groups[dStr].forEach(log => {
           listContainer.appendChild(renderLogCard(log));
@@ -1268,15 +1310,15 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
       });
       
       Object.keys(groups).forEach(wsName => {
-        const header = document.createElement('div');
-        header.style.fontSize = '12.6px';
-        header.style.fontWeight = '600';
-        header.style.color = 'var(--primary)';
-        header.style.marginTop = '10.5px';
-        header.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
-        header.style.paddingBottom = '4.2px';
-        header.textContent = wsName;
-        listContainer.appendChild(header);
+        const headerEl = document.createElement('div');
+        headerEl.style.fontSize = '12.6px';
+        headerEl.style.fontWeight = '600';
+        headerEl.style.color = 'var(--primary)';
+        headerEl.style.marginTop = '10.5px';
+        headerEl.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
+        headerEl.style.paddingBottom = '4.2px';
+        headerEl.textContent = wsName;
+        listContainer.appendChild(headerEl);
         
         groups[wsName].forEach(log => {
           listContainer.appendChild(renderLogCard(log));
@@ -1291,6 +1333,7 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
 const renderLogCard = (log) => {
   const card = document.createElement('div');
   card.className = 'loop-analytics-log-card';
+  card.style.position = 'relative';
   
   const dStr = new Date(log.sessionStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const endTimeStr = log.sessionEnd ? formatTimeStr(log.sessionEnd) : 'Active';
@@ -1298,30 +1341,80 @@ const renderLogCard = (log) => {
   const durationSecs = Math.round(getSessionActiveDuration(log) / 1000);
   const durationStr = Math.floor(durationSecs / 60) + 'm ' + (durationSecs % 60) + 's';
   
-  card.innerHTML = \`
-    <div class="loop-analytics-log-header">
-      <span>\${dStr} • \${timeRange}</span>
-      <span style="font-weight:700; color:var(--primary); font-family:var(--font-mono);">\${durationStr}</span>
-    </div>
-    <div class="loop-analytics-log-task">\${log.taskName}</div>
-    <div class="loop-analytics-log-meta">
-      <span>Workspace: \${log.workspaceName}</span>
-      <span>Page: \${log.chapterName}</span>
-    </div>
-  \`;
+  card.innerHTML = 
+    '<div class="loop-analytics-log-header" style="padding-right: 24px;">' +
+      '<span>' + dStr + ' • ' + timeRange + '</span>' +
+      '<span style="font-weight:700; color:var(--primary); font-family:var(--font-mono);">' + durationStr + '</span>' +
+    '</div>' +
+    '<div class="loop-analytics-log-task">' + log.taskName + '</div>' +
+    '<div class="loop-analytics-log-meta">' +
+      '<span>Workspace: ' + log.workspaceName + '</span>' +
+      '<span>Page: ' + log.chapterName + '</span>' +
+    '</div>';
   
   if (log.pauses && log.pauses.length > 0) {
     const pauseStrs = log.pauses.map(p => {
       const pDuration = p.resumedAt ? Math.round((p.resumedAt - p.pausedAt) / 1000) : null;
-      const pDurStr = pDuration !== null ? \`\${pDuration}s\` : 'active';
-      return \`\${formatTimeStr(p.pausedAt)} (\${pDurStr})\`;
+      const pDurStr = pDuration !== null ? pDuration + 's' : 'active';
+      return formatTimeStr(p.pausedAt) + ' (' + pDurStr + ')';
     }).join(', ');
     
-    card.innerHTML += \`
-      <div class="loop-analytics-log-pauses">
-        <strong>Pauses:</strong> \${pauseStrs}
-      </div>
-    \`;
+    card.innerHTML += 
+      '<div class="loop-analytics-log-pauses">' +
+        '<strong>Pauses:</strong> ' + pauseStrs +
+      '</div>';
+  }
+
+  // Deletion logic button (only if session has completed)
+  if (log.sessionEnd && log.id) {
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'loop-pip-btn';
+    deleteBtn.title = 'Delete Log Entry';
+    deleteBtn.style.position = 'absolute';
+    deleteBtn.style.top = '10.5px';
+    deleteBtn.style.right = '10.5px';
+    deleteBtn.style.opacity = '0';
+    deleteBtn.style.transition = 'opacity 0.2s';
+    deleteBtn.innerHTML = trashIcon;
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dbInstance = window.loopTimersManager.db || db;
+      if (typeof dbInstance.deleteAnalyticsSession === 'function') {
+        dbInstance.deleteAnalyticsSession(log.id);
+      }
+      // If the task still exists in a widget, clear its history so it doesn't get re-imported
+      const workspaces = dbInstance.getWorkspaces() || [];
+      workspaces.forEach(ws => {
+        const chapters = dbInstance.getChapters(ws.id) || [];
+        chapters.forEach(ch => {
+          const fullCh = dbInstance.getChapter(ch.id);
+          if (fullCh && fullCh.blocks) {
+            let chUpdated = false;
+            fullCh.blocks.forEach(bl => {
+              if (bl.type === 'timer-widget' && bl.data && bl.data.tasks) {
+                bl.data.tasks.forEach(task => {
+                  if (task.id === log.taskId && task.history) {
+                    const originalLength = task.history.length;
+                    task.history = task.history.filter(session => session.sessionStart !== log.sessionStart);
+                    if (task.history.length !== originalLength) {
+                      chUpdated = true;
+                    }
+                  }
+                });
+              }
+            });
+            if (chUpdated) {
+              dbInstance.saveChapter(fullCh);
+            }
+          }
+        });
+      });
+      window.loopShowAnalyticsDashboard();
+    });
+
+    card.addEventListener('mouseenter', () => { deleteBtn.style.opacity = '1'; });
+    card.addEventListener('mouseleave', () => { deleteBtn.style.opacity = '0'; });
+    card.appendChild(deleteBtn);
   }
   
   return card;
@@ -1571,6 +1664,7 @@ window.loopUpdatePipUI = () => {
           tTask.currentSession.sessionEnd = Date.now();
           tTask.history = tTask.history || [];
           tTask.history.push(tTask.currentSession);
+          window.loopTimersManager.getAllAnalyticsData(dbInstance);
           tTask.currentSession = null;
         }
         
@@ -1938,6 +2032,7 @@ const renderBlockUI = () => {
         task.history.push(task.currentSession);
         task.currentSession = null;
       }
+      window.loopTimersManager.getAllAnalyticsData(db);
       task.secondsLeft = task.totalSeconds;
       save();
       window.loopTimersManager.notifyListeners(blockId);
@@ -1958,6 +2053,12 @@ const renderBlockUI = () => {
     delBtn.title = 'Delete task';
     delBtn.addEventListener('click', () => {
       window.loopTimersManager.stopTimer(chapterId, blockId, task.id, db);
+      if (task.currentSession) {
+        task.currentSession.sessionEnd = Date.now();
+        task.history.push(task.currentSession);
+        task.currentSession = null;
+      }
+      window.loopTimersManager.getAllAnalyticsData(db);
       block.data.tasks = block.data.tasks.filter(t => t.id !== task.id);
       save();
       window.loopTimersManager.notifyListeners(blockId);
@@ -2759,6 +2860,7 @@ export const db = {
       memoryState.plugins = await get(PLUGINS_KEY);
     }
     memoryState.notifications = await get(NOTIFICATIONS_KEY) || [];
+    memoryState.analytics = await get(ANALYTICS_KEY) || [];
 
     if (!memoryState.plugins) {
       memoryState.plugins = [...DEFAULT_PLUGINS];
@@ -2971,5 +3073,26 @@ export const db = {
     if (typeof window.loopOnNotificationAdded === 'function') {
       window.loopOnNotificationAdded();
     }
+  },
+
+  // Persistent Analytics Manager
+  getAnalytics() {
+    return memoryState.analytics || [];
+  },
+
+  addAnalyticsSession(session) {
+    const analytics = this.getAnalytics();
+    // Ensure unique ID for deletion
+    if (!session.id) {
+      session.id = 'a-' + Math.random().toString(36).substr(2, 9);
+    }
+    analytics.push(session);
+    memoryState.analytics = analytics;
+    set(ANALYTICS_KEY, analytics);
+  },
+
+  deleteAnalyticsSession(id) {
+    memoryState.analytics = this.getAnalytics().filter(s => s.id !== id);
+    set(ANALYTICS_KEY, memoryState.analytics);
   }
 };

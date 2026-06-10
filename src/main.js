@@ -83,6 +83,13 @@ try {
   updateNotificationsBadge();
 } catch (e) {
   console.error("Failed to init DB:", e);
+} finally {
+  const loader = document.getElementById('app-loading-screen');
+  if (loader) {
+    loader.style.opacity = '0';
+    loader.style.transform = 'scale(1.05)';
+    setTimeout(() => loader.remove(), 550);
+  }
 }
 
 function updateNotificationsBadge() {
