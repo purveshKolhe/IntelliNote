@@ -1584,7 +1584,7 @@ function showPluginsModal() {
           </div>
           <div style="display:flex; flex-direction:column; gap:4.2px;">
             <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq Model ID</label>
-            <input type="text" id="groq-chat-model-id" placeholder="openai/gpt-oss-120b" value="${localStorage.getItem('intellinote_groq_chat_model_name') || 'openai/gpt-oss-120b'}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+            <input type="text" id="groq-chat-model-id" placeholder="meta-llama/llama-4-scout-17b-16e-instruct" value="${(localStorage.getItem('intellinote_groq_chat_model_name') && localStorage.getItem('intellinote_groq_chat_model_name') !== 'openai/gpt-oss-120b') ? localStorage.getItem('intellinote_groq_chat_model_name') : 'meta-llama/llama-4-scout-17b-16e-instruct'}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
           </div>
           <div style="text-align:right;">
             <button id="btn-save-groq-chat-config" style="padding:5.3px 12.6px; font-size:12.6px; font-weight:500; background:var(--primary); color:#ffffff; border:none; border-radius:6.3px; cursor:pointer; font-family:inherit;">Save Settings</button>
@@ -1606,7 +1606,7 @@ function showPluginsModal() {
     if (plugin.id === 'ai-chat') {
       detailPane.querySelector('#btn-save-groq-chat-config').addEventListener('click', () => {
         const keyVal = detailPane.querySelector('#groq-chat-api-key').value.trim();
-        const modelVal = detailPane.querySelector('#groq-chat-model-id').value.trim() || 'openai/gpt-oss-120b';
+        const modelVal = detailPane.querySelector('#groq-chat-model-id').value.trim() || 'meta-llama/llama-4-scout-17b-16e-instruct';
         localStorage.setItem('intellinote_groq_api_key', keyVal);
         localStorage.setItem('intellinote_groq_chat_model_name', modelVal);
         alert('Groq AI Chat configuration saved successfully!');
@@ -1834,151 +1834,218 @@ function closeAllDropdowns() {
 // --- AI Chat Drawer Feature ---
 
 let aiChatMessagesByChapter = {}; // chapterId -> messages array
+let activeChatSession = null; // null (main page chat), or { chatId: string, blockId: string }
+
+const formatBlockDataInline = (dataText) => {
+  if (typeof dataText !== 'string') return dataText;
+
+  let html = dataText;
+
+  // 1. Display Math
+  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+    const decodedFormula = formula.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    if (window.katex) {
+      try {
+        return window.katex.renderToString(decodedFormula, { displayMode: true, throwOnError: false });
+      } catch (e) {
+        return `<span class="inline-math-error" title="${e.message}">$$${formula}$$</span>`;
+      }
+    }
+    return `<span class="inline-math">$$${formula}$$</span>`;
+  });
+
+  // 2. Inline Math
+  html = html.replace(/(?<![\w\\])\$([^\$\s](?:[^\$]*?[^\$\s])?)\$/g, (match, formula) => {
+    const decodedFormula = formula.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    if (window.katex) {
+      try {
+        return window.katex.renderToString(decodedFormula, { displayMode: false, throwOnError: false });
+      } catch (e) {
+        return `<span class="inline-math-error" title="${e.message}">$${formula}$</span>`;
+      }
+    }
+    return `<span class="inline-math">$${formula}$</span>`;
+  });
+
+  // 3. Inline Code: `code`
+  html = html.replace(/(?<![\w\\])`([^`\s](?:[^`]*?[^`\s])?)`/g, '<code>$1</code>');
+
+  // 4. Bold
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+  // 5. Italic
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  return html;
+};
+
+window.openAiChatSidebarForBlock = (chatId, blockId) => {
+  activeChatSession = { chatId, blockId };
+  const sidebar = document.getElementById('sidebar-ai-chat');
+  if (sidebar) {
+    sidebar.style.display = 'none';
+    toggleAiChatSidebar();
+  }
+};
 
 const renderMarkdownAndKatex = (text) => {
   if (!text) return '';
 
-  let html = text
+  const mathBlocks = [];
+  
+  // 1. Temporarily extract Display Math: \[ ... \] or $$ ... $$
+  let placeholderText = text.replace(/\\\[([\s\S]*?)\\\]/g, (match, formula) => {
+    const id = `@@MATHBLOCK_${mathBlocks.length}@@`;
+    mathBlocks.push({ formula, displayMode: true });
+    return id;
+  });
+  placeholderText = placeholderText.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+    const id = `@@MATHBLOCK_${mathBlocks.length}@@`;
+    mathBlocks.push({ formula, displayMode: true });
+    return id;
+  });
+
+  // 2. Temporarily extract Inline Math: \( ... \) or $ ... $
+  placeholderText = placeholderText.replace(/\\\(([\s\S]*?)\\\)/g, (match, formula) => {
+    const id = `@@MATHBLOCK_${mathBlocks.length}@@`;
+    mathBlocks.push({ formula, displayMode: false });
+    return id;
+  });
+  placeholderText = placeholderText.replace(/(?<![\w\\])\$([^\$\s](?:[^\$]*?[^\$\s])?)\$/g, (match, formula) => {
+    const id = `@@MATHBLOCK_${mathBlocks.length}@@`;
+    mathBlocks.push({ formula, displayMode: false });
+    return id;
+  });
+
+  // 3. Escape HTML on the placeholder text
+  let html = placeholderText
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // 1. Display Math: \[ ... \] or $$ ... $$
-  html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, formula) => {
-    if (window.katex) {
-      try {
-        return window.katex.renderToString(formula, { displayMode: true, throwOnError: false });
-      } catch (e) {
-        return `<span class="math-error">$$\n${formula}\n$$</span>`;
-      }
-    }
-    return `$$\n${formula}\n$$`;
-  });
-
-  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
-    if (window.katex) {
-      try {
-        return window.katex.renderToString(formula, { displayMode: true, throwOnError: false });
-      } catch (e) {
-        return `<span class="math-error">$$\n${formula}\n$$</span>`;
-      }
-    }
-    return `$$\n${formula}\n$$`;
-  });
-
-  // 2. Inline Math: \( ... \) or $ ... $
-  html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, formula) => {
-    if (window.katex) {
-      try {
-        return window.katex.renderToString(formula, { displayMode: false, throwOnError: false });
-      } catch (e) {
-        return `<span class="math-error">$${formula}$</span>`;
-      }
-    }
-    return `$${formula}$`;
-  });
-
-  html = html.replace(/(?<![\w\\])\$([^\$\s](?:[^\$]*?[^\$\s])?)\$/g, (match, formula) => {
-    if (window.katex) {
-      try {
-        return window.katex.renderToString(formula, { displayMode: false, throwOnError: false });
-      } catch (e) {
-        return `<span class="math-error">$${formula}$</span>`;
-      }
-    }
-    return `$${formula}$`;
-  });
-
-  // 3. Code Blocks: ```[lang] ... ```
+  // 4. Apply standard markdown replacements on the HTML
+  // Code Blocks: ```[lang] ... ```
   html = html.replace(/```([a-zA-Z0-9-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
     return `<pre class="chat-code-block"><code class="language-${lang}">${code.trim()}</code></pre>`;
   });
 
-  // 4. Inline Code: `code`
+  // Inline Code: `code`
   html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
 
-  // 5. Bold & Italic: **bold** & *italic*
+  // Bold & Italic: **bold** & *italic*
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-  // 6. Headers: #, ##, ###
+  // Headers: #, ##, ###
   html = html.replace(/(?:^|\n)### ([^\n]+)/g, '<h3>$1</h3>');
   html = html.replace(/(?:^|\n)## ([^\n]+)/g, '<h2>$1</h2>');
   html = html.replace(/(?:^|\n)# ([^\n]+)/g, '<h1>$1</h1>');
 
-  // 7. Process lines for lists, horizontal rules, and paragraphs
+  // Process lines for lists, horizontal rules, and paragraphs
   const lines = html.split('\n');
-  let inUl = false;
-  let inOl = false;
-  let result = [];
+  let processedLines = [];
+  let inList = false;
+  let listType = null; // 'ul' or 'ol'
+
+  const closeListIfNeeded = () => {
+    if (inList) {
+      processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+      inList = false;
+      listType = null;
+    }
+  };
 
   lines.forEach(line => {
     const trimmed = line.trim();
-    
-    // Bullet lists: - item or * item
-    const ulMatch = trimmed.match(/^[-*]\s+(.*)$/);
-    if (ulMatch) {
-      if (inOl) {
-        result.push('</ol>');
-        inOl = false;
-      }
-      if (!inUl) {
-        result.push('<ul class="chat-ul">');
-        inUl = true;
-      }
-      result.push(`<li>${ulMatch[1]}</li>`);
+    if (!trimmed) {
+      closeListIfNeeded();
+      processedLines.push('<br>');
       return;
     }
 
-    // Numbered lists: 1. item
-    const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
-    if (olMatch) {
-      if (inUl) {
-        result.push('</ul>');
-        inUl = false;
-      }
-      if (!inOl) {
-        result.push('<ol class="chat-ol">');
-        inOl = true;
-      }
-      result.push(`<li>${olMatch[2]}</li>`);
+    // Horizontal Rule
+    if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+      closeListIfNeeded();
+      processedLines.push('<hr class="chat-hr">');
       return;
     }
 
-    // Close lists if we hit a blank line or non-list line
-    if (inUl) {
-      result.push('</ul>');
-      inUl = false;
-    }
-    if (inOl) {
-      result.push('</ol>');
-      inOl = false;
-    }
-
-    // Horizontal rule: ---
-    if (trimmed === '---') {
-      result.push('<hr class="chat-hr">');
+    // Bullet List Item
+    const bulletMatch = line.match(/^(\s*)(?:-|\*|\+)\s+(.+)$/);
+    if (bulletMatch) {
+      if (inList && listType !== 'ul') {
+        closeListIfNeeded();
+      }
+      if (!inList) {
+        processedLines.push('<ul class="chat-ul">');
+        inList = true;
+        listType = 'ul';
+      }
+      processedLines.push(`<li class="chat-li">${bulletMatch[2]}</li>`);
       return;
     }
 
-    // Keep headers or empty lines as is, wrap text lines in paragraphs
-    if (trimmed === '') {
-      result.push('');
-    } else if (trimmed.startsWith('<h1') || trimmed.startsWith('<h2') || trimmed.startsWith('<h3') || trimmed.startsWith('<pre') || trimmed.startsWith('<hr')) {
-      result.push(line);
+    // Numbered List Item
+    const numberMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
+    if (numberMatch) {
+      if (inList && listType !== 'ol') {
+        closeListIfNeeded();
+      }
+      if (!inList) {
+        processedLines.push('<ol class="chat-ol">');
+        inList = true;
+        listType = 'ol';
+      }
+      processedLines.push(`<li class="chat-li">${numberMatch[2]}</li>`);
+      return;
+    }
+
+    // Paragraph
+    closeListIfNeeded();
+    if (trimmed.startsWith('<h1>') || trimmed.startsWith('<h2>') || trimmed.startsWith('<h3>') || trimmed.startsWith('<pre>') || trimmed.startsWith('</pre>') || trimmed.startsWith('<hr')) {
+      processedLines.push(line);
     } else {
-      result.push(`<p>${line}</p>`);
+      processedLines.push(`<p class="chat-p">${line}</p>`);
     }
   });
 
-  if (inUl) result.push('</ul>');
-  if (inOl) result.push('</ol>');
+  closeListIfNeeded();
+  html = processedLines.join('\n');
 
-  return result.join('\n');
+  // 5. Restore Math Blocks using KaTeX
+  mathBlocks.forEach((mb, index) => {
+    const id = `@@MATHBLOCK_${index}@@`;
+    const decodedFormula = mb.formula.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    
+    let rendered = '';
+    if (window.katex) {
+      try {
+        rendered = window.katex.renderToString(decodedFormula, { displayMode: mb.displayMode, throwOnError: false });
+      } catch (e) {
+        rendered = mb.displayMode ? `<span class="math-error">$$\n${mb.formula}\n$$</span>` : `<span class="math-error">$${mb.formula}$</span>`;
+      }
+    } else {
+      rendered = mb.displayMode ? `$$\n${mb.formula}\n$$` : `$${mb.formula}$`;
+    }
+    // Simple global replace
+    html = html.split(id).join(rendered);
+  });
+
+  return html;
 };
 
 function getAiChatMessages() {
   if (!activeChapterId) return [];
+  if (activeChatSession && activeChatSession.blockId) {
+    const chapter = db.getChapter(activeChapterId);
+    if (chapter && chapter.blocks) {
+      const block = chapter.blocks.find(b => b.id === activeChatSession.blockId);
+      if (block && block.type === 'chat-block' && block.data) {
+        if (!block.data.messages) block.data.messages = [];
+        return block.data.messages;
+      }
+    }
+  }
   if (!aiChatMessagesByChapter[activeChapterId]) {
     aiChatMessagesByChapter[activeChapterId] = [];
   }
@@ -2083,6 +2150,95 @@ const getNoteTextContext = () => {
   return text.trim();
 };
 
+const sanitizeBlock = (block) => {
+  const id = block.id || ('b-' + Math.random().toString(36).substr(2, 9));
+  let type = block.type || 'text';
+  let data = block.data;
+
+  // Auto-transform text blocks containing markdown prefixes if generated by AI
+  if (type === 'text' && typeof data === 'string') {
+    if (data.startsWith('# ')) {
+      type = 'heading-1';
+      data = data.substring(2);
+    } else if (data.startsWith('## ')) {
+      type = 'heading-2';
+      data = data.substring(3);
+    } else if (data.startsWith('### ')) {
+      type = 'heading-3';
+      data = data.substring(4);
+    } else if (data.startsWith('- ') || data.startsWith('* ')) {
+      type = 'bullet-list';
+      data = data.substring(2);
+    } else if (data.startsWith('1. ')) {
+      type = 'number-list';
+      data = data.substring(3);
+    } else if (data.startsWith('> ')) {
+      type = 'quote';
+      data = data.substring(2);
+    }
+  }
+
+  if (type === 'code') {
+    if (typeof data === 'string') {
+      data = {
+        code: data,
+        language: block.language || 'JavaScript',
+        lineNumbers: block.lineNumbers !== false
+      };
+    } else if (data && typeof data === 'object') {
+      data = {
+        code: data.code || '',
+        language: data.language || block.language || 'JavaScript',
+        lineNumbers: data.lineNumbers !== false
+      };
+    } else {
+      data = { code: '', language: 'JavaScript', lineNumbers: true };
+    }
+  } else if (type === 'equation') {
+    if (typeof data === 'string') {
+      data = { latex: data };
+    } else if (data && typeof data === 'object') {
+      data = { latex: data.latex || '' };
+    } else {
+      data = { latex: '' };
+    }
+  } else if (type === 'table') {
+    if (Array.isArray(data)) {
+      data = { rows: data };
+    } else if (data && typeof data === 'object' && Array.isArray(data.rows)) {
+      data = { rows: data.rows };
+    } else {
+      data = { rows: [['Header 1', 'Header 2'], ['', '']] };
+    }
+  } else if (type === 'chat-block') {
+    if (!data || typeof data !== 'object') {
+      data = {
+        chatId: block.chatId || 'chat-' + Math.random().toString(36).substr(2, 9),
+        title: block.title || 'AI Chat Thread',
+        messages: Array.isArray(block.messages) ? block.messages : []
+      };
+    } else {
+      data = {
+        chatId: data.chatId || 'chat-' + Math.random().toString(36).substr(2, 9),
+        title: data.title || 'AI Chat Thread',
+        messages: Array.isArray(data.messages) ? data.messages : []
+      };
+    }
+  } else {
+    // Standard text types
+    if (typeof data === 'string') {
+      data = formatBlockDataInline(data);
+    } else {
+      data = data ? JSON.stringify(data) : '';
+    }
+  }
+  const result = { id, type, data };
+  if (block.indent !== undefined) result.indent = block.indent;
+  if (block.checked !== undefined) result.checked = block.checked;
+  if (block.emoji !== undefined) result.emoji = block.emoji;
+  return result;
+};
+
 function toggleAiChatSidebar() {
   const sidebar = document.getElementById('sidebar-ai-chat');
   if (!sidebar) return;
@@ -2097,9 +2253,26 @@ function toggleAiChatSidebar() {
   const chapter = db.getChapter(activeChapterId);
   if (!chapter) return;
 
+  let titleText = `💬 Chat with AI (${chapter.title || 'Untitled Page'})`;
+  let showBackButton = false;
+
+  if (activeChatSession && activeChatSession.blockId) {
+    const block = chapter.blocks.find(b => b.id === activeChatSession.blockId);
+    if (block && block.type === 'chat-block') {
+      titleText = `💬 ${block.data.title || 'AI Chat Thread'}`;
+      showBackButton = true;
+    }
+  }
+
   sidebar.innerHTML = `
-    <div class="chat-header">
-      <h3 class="chat-title">💬 Chat with AI (${chapter.title || 'Untitled Page'})</h3>
+    <div class="chat-header" style="display:flex; align-items:center; gap:8.4px;">
+      ${showBackButton ? `
+        <button class="chat-back-btn" id="chat-back-to-main" title="Back to Page Chat" style="border:none; background:transparent; font-size:16px; cursor:pointer; padding:0; margin:0; display:flex; align-items:center; justify-content:center; color:var(--text-muted); width:24px; height:24px; border-radius:50%;">←</button>
+      ` : ''}
+      <h3 class="chat-title" style="flex-grow:1; margin:0; font-size:14.7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${titleText}</h3>
+      ${!showBackButton ? `
+        <button class="chat-save-to-page-btn" id="chat-save-to-page" title="Save Chat to Page" style="border:none; background:transparent; font-size:15px; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; color:var(--primary); width:24px; height:24px;">📥</button>
+      ` : ''}
       <button class="chat-close-btn" id="chat-close">&times;</button>
     </div>
     <div class="chat-messages-container" id="chat-messages">
@@ -2127,6 +2300,46 @@ function toggleAiChatSidebar() {
     sidebar.style.display = 'none';
   });
 
+  if (showBackButton) {
+    const backBtn = sidebar.querySelector('#chat-back-to-main');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        activeChatSession = null;
+        sidebar.style.display = 'none';
+        toggleAiChatSidebar();
+      });
+    }
+  } else {
+    const saveToPageBtn = sidebar.querySelector('#chat-save-to-page');
+    if (saveToPageBtn) {
+      saveToPageBtn.addEventListener('click', () => {
+        const msgs = aiChatMessagesByChapter[activeChapterId] || [];
+        if (msgs.length === 0) {
+          alert('Cannot save empty chat. Send a message first!');
+          return;
+        }
+        const chapter = db.getChapter(activeChapterId);
+        if (chapter) {
+          const newId = 'b-' + Math.random().toString(36).substr(2, 9);
+          const newBlock = {
+            id: newId,
+            type: 'chat-block',
+            data: {
+              chatId: 'chat-' + Math.random().toString(36).substr(2, 9),
+              title: `Saved Chat: ${chapter.title || 'Untitled Page'}`,
+              messages: JSON.parse(JSON.stringify(msgs))
+            }
+          };
+          if (!chapter.blocks) chapter.blocks = [];
+          chapter.blocks.push(newBlock);
+          db.saveChapter(chapter);
+          renderEditorPane();
+          alert('Chat saved as a block at the bottom of the page!');
+        }
+      });
+    }
+  }
+
   // Auto-resize textarea heights
   inputEl.addEventListener('input', () => {
     inputEl.style.height = 'auto';
@@ -2142,6 +2355,11 @@ function toggleAiChatSidebar() {
     // Add user message to memory
     const messages = getAiChatMessages();
     messages.push({ role: 'user', content: text });
+    if (activeChatSession && activeChatSession.blockId) {
+      const chapter = db.getChapter(activeChapterId);
+      db.saveChapter(chapter);
+      renderEditorPane();
+    }
     renderAiChatMessages();
 
     // Reset input
@@ -2181,7 +2399,43 @@ function toggleAiChatSidebar() {
     const noteContext = getNoteTextContext();
     
     // Prepare API call payload
-    const systemPrompt = `You are a helpful AI assistant integrated into a note-taking application. You have access to the user's current note content below. Answer the user's questions about the note or general questions in a helpful, friendly, and concise manner. Do not include reasoning <think> blocks in your final response. Keep your answers concise, complete, and strictly under 1000 tokens.`;
+    const systemPrompt = `You are a helpful AI assistant integrated into a note-taking application. You have access to the user's current note content below. Answer the user's questions about the note or general questions in a helpful, friendly, and concise manner. Do not include reasoning <think> blocks in your final response. Keep your answers concise, complete, and strictly under 1000 tokens.
+
+IMPORTANT: If the user asks you to edit, format, delete, or restructure their current note (e.g., "delete everything and add...", "rename the page to...", "add a bullet list about...", "insert a javascript code block..."), you must output a special JSON payload at the very end of your response to perform the action.
+The payload must be prefixed by the exact marker: [NOTE_EDIT_ACTION]
+The payload structure must be a single JSON object:
+{
+  "title": "Updated Title" (optional, specify only if renaming/changing the title),
+  "blocks": [
+    {
+      "type": "text" | "heading-1" | "heading-2" | "heading-3" | "bullet-list" | "number-list" | "checklist" | "code" | "table" | "equation" | "quote" | "callout" | "divider",
+      "data": string | object,
+      "indent": number (optional, nesting level),
+      "checked": boolean (optional, for checklists),
+      "emoji": string (optional, for callouts)
+    }
+  ] (optional, specify only if editing/replacing the blocks)
+}
+
+For standard text, heading-1, heading-2, heading-3, bullet-list, number-list, checklist, quote, callout blocks: "data" must be a string containing the text content.
+For "divider" blocks: "data" can be omitted.
+For "code" blocks: "data" must be an object with {"code": "...", "language": "..."}.
+For "table" blocks: "data" must be an object with {"rows": [["cell1", "cell2"], ...]} (array of arrays).
+For "equation" blocks: "data" must be an object with {"latex": "..."} (LaTeX string, e.g. "\\\\sum_{i=1}^n i").
+
+Example output if asked to delete everything and write notes about programming:
+Sure! I have updated the page with programming notes.
+[NOTE_EDIT_ACTION]
+{
+  "title": "Why Programming Matters",
+  "blocks": [
+    { "type": "heading-1", "data": "Why We Need to Do Programming" },
+    { "type": "text", "data": "Programming is a crucial skill for modern problem solving." }
+  ]
+}
+
+Always keep the conversation natural, but append the JSON payload with [NOTE_EDIT_ACTION] at the end when modifications are needed. Make sure the JSON is valid.`;
+
     const contextPrompt = `Here is the content of the current note:\n---\n${noteContext}\n---`;
 
     const requestMessages = [
@@ -2194,14 +2448,17 @@ function toggleAiChatSidebar() {
       requestMessages.push({ role: msg.role === 'ai' ? 'assistant' : msg.role, content: msg.content });
     });
 
-    const modelName = localStorage.getItem('intellinote_groq_chat_model_name') || 'openai/gpt-oss-120b';
+    let modelName = localStorage.getItem('intellinote_groq_chat_model_name');
+    if (!modelName || modelName === 'openai/gpt-oss-120b') {
+      modelName = 'meta-llama/llama-4-scout-17b-16e-instruct';
+    }
 
     const reqBody = {
       model: modelName,
       messages: requestMessages,
       temperature: 1,
       max_completion_tokens: 1000,
-      top_p: modelName === 'openai/gpt-oss-120b' ? 1 : 0.95
+      top_p: (modelName === 'openai/gpt-oss-120b' || modelName === 'meta-llama/llama-4-scout-17b-16e-instruct') ? 1 : 0.95
     };
     if (modelName === 'openai/gpt-oss-120b') {
       reqBody.reasoning_effort = 'low';
@@ -2239,7 +2496,57 @@ function toggleAiChatSidebar() {
         responseText = responseText.trim();
 
         if (responseText) {
-          messages.push({ role: 'ai', content: responseText });
+          let userText = responseText;
+          let actionJson = null;
+
+          if (responseText.includes('[NOTE_EDIT_ACTION]')) {
+            const parts = responseText.split('[NOTE_EDIT_ACTION]');
+            userText = parts[0].trim();
+            const jsonStr = parts.slice(1).join('[NOTE_EDIT_ACTION]').trim();
+            try {
+              actionJson = JSON.parse(jsonStr);
+            } catch (e) {
+              console.error('[AI Chat] Failed to parse action JSON:', e, jsonStr);
+              // Try to extract JSON if there's trailing junk
+              const firstBrace = jsonStr.indexOf('{');
+              const lastBrace = jsonStr.lastIndexOf('}');
+              if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                try {
+                  actionJson = JSON.parse(jsonStr.substring(firstBrace, lastBrace + 1));
+                } catch (e2) {
+                  console.error('[AI Chat] Fallback JSON parse failed:', e2);
+                }
+              }
+            }
+          }
+
+          if (actionJson) {
+            const chapter = db.getChapter(activeChapterId);
+            if (chapter) {
+              let changed = false;
+              if (actionJson.title !== undefined) {
+                chapter.title = actionJson.title;
+                changed = true;
+              }
+              if (Array.isArray(actionJson.blocks)) {
+                chapter.blocks = actionJson.blocks.map(sanitizeBlock);
+                changed = true;
+              }
+              if (changed) {
+                db.saveChapter(chapter);
+                renderEditorPane();
+                const chapters = db.getChapters(activeWorkspaceId);
+                renderSecondarySidebarChapters(chapters);
+              }
+            }
+          }
+
+          messages.push({ role: 'ai', content: userText });
+          if (activeChatSession && activeChatSession.blockId) {
+            const chapter = db.getChapter(activeChapterId);
+            db.saveChapter(chapter);
+            renderEditorPane();
+          }
           renderAiChatMessages();
         } else {
           throw new Error('Received empty response content.');

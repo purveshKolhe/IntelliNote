@@ -255,9 +255,19 @@ function applyInlineFormatting(editable) {
   }
 
   if (changed) {
-    const offset = getCaretCharacterOffsetWithin(editable);
+    const doc = editable.ownerDocument || editable.document;
+    const win = doc.defaultView || doc.parentWindow;
+    const sel = win.getSelection();
+    const hasFocus = sel && sel.rangeCount > 0 && editable.contains(sel.anchorNode);
+
+    let offset = 0;
+    if (hasFocus) {
+      offset = getCaretCharacterOffsetWithin(editable);
+    }
     editable.innerHTML = html;
-    setCaretPosition(editable, offset);
+    if (hasFocus) {
+      setCaretPosition(editable, offset);
+    }
   }
 }
 
@@ -503,6 +513,9 @@ export class Editor {
       case 'equation':
         this.renderEquationBlock(block, index, contentContainer);
         break;
+      case 'chat-block':
+        this.renderChatBlock(block, index, contentContainer);
+        break;
       default:
         this.renderPluginBlock(block, index, contentContainer);
         break;
@@ -517,6 +530,9 @@ export class Editor {
     editable.contentEditable = 'true';
     editable.innerHTML = block.data || '';
     editable.setAttribute('placeholder', this.getPlaceholderForType(block.type));
+
+    // Apply math/markdown formatting on initial load
+    applyInlineFormatting(editable);
 
     editable.addEventListener('focus', () => {
       if (this.autocompleteTimeout) {
@@ -1194,6 +1210,87 @@ export class Editor {
     });
   }
 
+  // --- Render AI Chat Block ---
+  renderChatBlock(block, index, container) {
+    if (!block.data || typeof block.data !== 'object') {
+      block.data = {
+        chatId: 'chat-' + Math.random().toString(36).substr(2, 9),
+        title: 'AI Chat Thread',
+        messages: []
+      };
+      this.save();
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'loop-chat-block-container';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'chat-block-header';
+    
+    const titleContainer = document.createElement('div');
+    titleContainer.className = 'chat-block-title-container';
+    titleContainer.innerHTML = `<span style="font-size:18px;">💬</span>`;
+    
+    const titleInput = document.createElement('div');
+    titleInput.className = 'chat-block-title-input';
+    titleInput.contentEditable = 'true';
+    titleInput.setAttribute('placeholder', 'Enter chat title...');
+    titleInput.textContent = block.data.title || 'AI Chat Thread';
+    titleInput.addEventListener('blur', () => {
+      block.data.title = titleInput.textContent.trim() || 'AI Chat Thread';
+      this.save();
+    });
+    titleInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        titleInput.blur();
+      }
+    });
+
+    titleContainer.appendChild(titleInput);
+    header.appendChild(titleContainer);
+
+    const countPill = document.createElement('span');
+    countPill.className = 'chat-block-count';
+    const msgLen = block.data.messages ? block.data.messages.length : 0;
+    countPill.textContent = `${msgLen} messages`;
+    header.appendChild(countPill);
+
+    wrapper.appendChild(header);
+
+    // Preview area
+    const preview = document.createElement('div');
+    preview.className = 'chat-block-preview';
+    if (msgLen === 0) {
+      preview.innerHTML = `<span style="color:var(--text-light); font-style:italic;">Empty conversation thread. Click "Open in Sidebar" to begin.</span>`;
+    } else {
+      const lastMsg = block.data.messages[block.data.messages.length - 1];
+      const previewText = lastMsg.content.substring(0, 150) + (lastMsg.content.length > 150 ? '...' : '');
+      const prefix = lastMsg.role === 'ai' ? '🤖 Assistant: ' : '👤 User: ';
+      preview.textContent = prefix + previewText;
+    }
+    wrapper.appendChild(preview);
+
+    // Actions Row
+    const actions = document.createElement('div');
+    actions.className = 'chat-block-actions';
+
+    const openBtn = document.createElement('button');
+    openBtn.className = 'chat-block-open-btn';
+    openBtn.innerHTML = `💬 Open in Sidebar`;
+    openBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.openAiChatSidebarForBlock) {
+        window.openAiChatSidebarForBlock(block.data.chatId, block.id);
+      }
+    });
+    actions.appendChild(openBtn);
+
+    wrapper.appendChild(actions);
+    container.appendChild(wrapper);
+  }
+
   // --- Render Custom Plugin Block ---
   renderPluginBlock(block, index, container) {
     const plugins = db.getPlugins();
@@ -1239,7 +1336,8 @@ export class Editor {
       { type: 'table', label: 'Table', icon: '📊' },
       { type: 'equation', label: 'Math Equation', icon: '∫' },
       { type: 'quote', label: 'Quote', icon: '💬' },
-      { type: 'callout', label: 'Callout Box', icon: '💡' }
+      { type: 'callout', label: 'Callout Box', icon: '💡' },
+      { type: 'chat-block', label: 'AI Chat Thread', icon: '💬' }
     ];
 
     menu.innerHTML = `
@@ -1350,6 +1448,7 @@ export class Editor {
       { type: 'equation', label: 'Math Equation', desc: 'Render LaTeX equations', icon: '∫' },
       { type: 'quote', label: 'Quote', desc: 'Add inline blockquotes', icon: '💬' },
       { type: 'callout', label: 'Callout', desc: 'Make text stand out box', icon: '💡' },
+      { type: 'chat-block', label: 'AI Chat Thread', desc: 'Insert an AI conversation block', icon: '💬' },
       { type: 'divider', label: 'Divider', desc: 'Separate sections line', icon: '―' }
     ];
 
@@ -1452,6 +1551,12 @@ export class Editor {
     } else if (newType === 'callout') {
       block.emoji = '💡';
       block.data = cleanText;
+    } else if (newType === 'chat-block') {
+      block.data = {
+        chatId: 'chat-' + Math.random().toString(36).substr(2, 9),
+        title: cleanText || 'AI Chat Thread',
+        messages: []
+      };
     } else {
       block.data = cleanText;
     }

@@ -2616,3 +2616,112 @@ body.dark-mode .notification-item:hover {
   font-family: var(--font-mono);
 }
 
+/* AI Chat Block Widget Style */
+.loop-chat-block-container {
+  background: rgba(124, 58, 237, 0.03);
+  border: 1.5px dashed rgba(124, 58, 237, 0.20);
+  border-radius: var(--radius-md);
+  padding: 16.1px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin: 13.8px 0;
+  box-sizing: border-box;
+}
+
+body.dark-mode .loop-chat-block-container {
+  background: rgba(124, 58, 237, 0.05);
+  border-color: rgba(124, 58, 237, 0.40);
+}
+
+.chat-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chat-block-title-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-grow: 1;
+}
+
+.chat-block-title-input {
+  font-size: 14.7px;
+  font-weight: 600;
+  color: var(--text-main);
+  border: none;
+  background: transparent;
+  outline: none;
+  flex-grow: 1;
+}
+
+.chat-block-title-input:empty::before {
+  content: attr(placeholder);
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.chat-block-preview {
+  font-size: 13.2px;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.02);
+  padding: 8px 12px;
+  border-radius: 6.3px;
+  border: 1px solid var(--border-color);
+  max-height: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+body.dark-mode .chat-block-preview {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.chat-block-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.chat-block-open-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6.3px 12.6px;
+  font-family: inherit;
+  font-size: 12.6px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6.3px;
+  transition: opacity 0.2s;
+}
+
+.chat-block-open-btn:hover {
+  opacity: 0.9;
+}
+
+.chat-block-count {
+  font-size: 12.1px;
+  color: var(--text-light);
+  background: rgba(0, 0, 0, 0.05);
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+body.dark-mode .chat-block-count {
+  background: rgba(255, 255, 255, 0.1);
+}
+
