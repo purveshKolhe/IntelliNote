@@ -1,8 +1,9 @@
-const CACHE_NAME = 'intellinote-cache-v1';
+const CACHE_NAME = 'intellinote-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/favicon.svg',
+  '/logo.webp',
   // Note: Vite will bundle all styles and code locally.
   // In development mode, files are requested dynamically,
   // while in production they are compiled into /assets/

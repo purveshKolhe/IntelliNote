@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>IntelliNote - Local-First Microsoft Loop Clone</title>
-    <meta name="description" content="IntelliNote is a premium local-first documentation tool matching Microsoft Loop. Build workspaces, organize chapters, write with Markdown commands, and highlight code offline." />
+    <title>IntelliNote - Local-First Collaborative Workspace</title>
+    <meta name="description" content="IntelliNote is a premium local-first collaborative documentation tool. Build workspaces, organize chapters, write with Markdown commands, and highlight code offline." />
   </head>
   <body>
     <!-- App Loading Screen -->
     <div id="app-loading-screen" style="position: fixed; inset: 0; background: #f5f8fc; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.5s ease, transform 0.5s ease; font-family: 'Outfit', sans-serif;">
       <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
-        <div class="loader-logo-icon" style="width: 64px; height: 64px; background: linear-gradient(135deg, #a78bfa, #7c3aed); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; font-weight: 700; box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.4);">I</div>
+        <img class="loader-logo-icon" src="/logo.webp" alt="IntelliNote Logo" style="width: 64px; height: 64px; object-fit: contain; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.4);" />
         <div style="font-size: 24px; font-weight: 600; color: #1e293b; letter-spacing: -0.5px;">IntelliNote</div>
         <div style="width: 120px; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; position: relative;">
           <div style="position: absolute; top: 0; left: -50%; width: 50%; height: 100%; background: #7c3aed; border-radius: 2px; animation: loader-slide 1.5s infinite ease-in-out;"></div>
@@ -24,7 +24,7 @@
       <aside id="sidebar-primary" class="loop-primary-sidebar">
         <div class="loop-logo-area">
           <div style="display:flex; align-items:center; gap: 8.4px;">
-            <div class="loop-logo-icon">I</div>
+            <img class="loop-logo-icon" src="/logo.webp" alt="IntelliNote Logo" />
             <h1 class="loop-logo-text">IntelliNote</h1>
           </div>
         </div>

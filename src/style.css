@@ -1,4 +1,4 @@
-/* IntelliNote - Microsoft Loop Premium CSS Design System */
+/* IntelliNote - Premium CSS Design System */
 @import "@fontsource/outfit/300.css";
 @import "@fontsource/outfit/400.css";
 @import "@fontsource/outfit/500.css";
@@ -9,7 +9,7 @@
 
 
 :root {
-  /* Colors - matching Loop's chill pill aesthetic */
+  /* Colors - Premium chill pill aesthetic */
   --loop-purple-gradient: linear-gradient(135deg, #a78bfa, #7c3aed);
   --loop-blue-gradient: linear-gradient(135deg, #60a5fa, #2563eb);
   --loop-bg-gradient: linear-gradient(180deg, #f5f8fc 0%, #eef3fc 50%, #eaf0fb 100%);
@@ -115,15 +115,10 @@ body {
 .loop-logo-icon {
   width: 36.9px;
   height: 36.9px;
-  background: var(--loop-purple-gradient);
   border-radius: 10.4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 19.7px;
-  box-shadow: 0 4.6px 11.5px rgba(124, 58, 237, 0.25);
+  display: block;
+  object-fit: contain;
+  box-shadow: 0 4.6px 11.5px rgba(124, 58, 237, 0.15);
   user-select: none;
 }
 
@@ -1097,7 +1092,7 @@ body {
   flex-grow: 1;
 }
 
-/* VS Code styled code editor card design - Light Theme matching MS Loop */
+/* VS Code styled code editor card design - Light Theme */
 .loop-code-block-wrapper {
   background: #ffffff;
   border-radius: var(--radius-md);
@@ -1808,7 +1803,7 @@ body {
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
 }
 
-/* Math Equation block component styling - Light Theme matching MS Loop */
+/* Math Equation block component styling - Light Theme */
 .loop-equation-block-wrapper {
   width: 100%;
   border: 1px solid var(--border-color);
