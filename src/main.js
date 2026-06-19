@@ -764,6 +764,9 @@ function renderEditorPane() {
     return;
   }
 
+  const chatPlugin = (db.getPlugins() || []).find(p => p.id === 'ai-chat');
+  const isChatEnabled = chatPlugin ? chatPlugin.enabled : false;
+
   const workspace = db.getWorkspace(activeWorkspaceId);
 
   mainPane.innerHTML = `
@@ -776,6 +779,13 @@ function renderEditorPane() {
       </div>
       <div class="editor-top-actions">
         <div class="user-avatar-badge" title="User initials: Purvesh Kolhe">PK</div>
+        ${isChatEnabled ? `
+        <button class="header-action-btn" id="btn-chat-ai" title="Chat with AI" style="color: var(--primary);">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
+        ` : ''}
         <button class="theme-toggle-btn" id="btn-theme-toggle" title="Toggle Theme">
           <svg class="theme-sun-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="4"></circle>
@@ -843,6 +853,23 @@ function renderEditorPane() {
     const isCurrentlyDark = document.body.classList.toggle('dark-mode');
     localStorage.setItem('intellinote-dark-mode', isCurrentlyDark);
   });
+
+  const chatBtn = document.getElementById('btn-chat-ai');
+  if (chatBtn) {
+    chatBtn.addEventListener('click', () => {
+      toggleAiChatSidebar();
+    });
+  }
+
+  // Update AI Chat sidebar context title and messages if it is currently open
+  const sidebar = document.getElementById('sidebar-ai-chat');
+  if (sidebar && sidebar.style.display === 'flex') {
+    const titleEl = sidebar.querySelector('.chat-title');
+    if (titleEl) {
+      titleEl.textContent = `💬 Chat with AI (${chapter.title || 'Untitled Page'})`;
+    }
+    renderAiChatMessages();
+  }
 
   document.getElementById('btn-page-more').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1454,16 +1481,12 @@ function showPluginsModal() {
       <div style="display: flex; flex-grow: 1; overflow: hidden;">
         <!-- Left panel: list of plugins -->
         <div style="width: 294px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; background: #fafafa;">
-          <div style="padding: 10.5px; display: flex; gap: 8.4px; border-bottom: 1px solid var(--border-color);">
-            <button id="btn-plugins-list-tab" style="flex-grow: 1; padding: 6.3px; font-family: inherit; font-size: 13.7px; font-weight: 600; border: none; background: var(--primary-light-active); color: var(--primary); border-radius: 6.3px; cursor: pointer;">Installed</button>
-            <button id="btn-plugins-create-tab" style="flex-grow: 1; padding: 6.3px; font-family: inherit; font-size: 13.7px; font-weight: 500; border: none; background: transparent; color: var(--text-muted); border-radius: 6.3px; cursor: pointer;">＋ Custom</button>
-          </div>
           <div id="plugins-list-container" style="flex-grow: 1; overflow-y: auto; padding: 8.4px; display: flex; flex-direction: column; gap: 4.2px;">
             <!-- Render list of plugins here -->
           </div>
         </div>
 
-        <!-- Right panel: plugin detail or create form -->
+        <!-- Right panel: plugin detail -->
         <div id="plugins-detail-pane" style="flex-grow: 1; overflow-y: auto; padding: 21px; display: flex; flex-direction: column;">
           <!-- Detail views loaded here -->
         </div>
@@ -1477,8 +1500,6 @@ function showPluginsModal() {
   overlay.querySelector('#plugins-modal-close').addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-  const listTab = overlay.querySelector('#btn-plugins-list-tab');
-  const createTab = overlay.querySelector('#btn-plugins-create-tab');
   const listContainer = overlay.querySelector('#plugins-list-container');
   const detailPane = overlay.querySelector('#plugins-detail-pane');
 
@@ -1530,7 +1551,6 @@ function showPluginsModal() {
           </div>
         </div>
         <div style="display: flex; gap: 8.4px;">
-          ${!plugin.isBuiltIn ? `<button id="btn-plugin-delete" style="border: 1px solid rgba(239, 68, 68, 0.2); background: transparent; color: #ef4444; font-family: inherit; font-size: 13.2px; padding: 6.3px 12.6px; border-radius: 21px; cursor: pointer; font-weight: 500;">Delete</button>` : ''}
           <button id="btn-plugin-toggle" style="border: none; background: ${plugin.enabled ? '#ef4444' : 'var(--primary)'}; color: #fff; font-family: inherit; font-size: 13.2px; padding: 6.3px 12.6px; border-radius: 21px; cursor: pointer; font-weight: 500;">
             ${plugin.enabled ? 'Disable' : 'Enable'}
           </button>
@@ -1547,28 +1567,49 @@ function showPluginsModal() {
           </div>
           <div style="display:flex; flex-direction:column; gap:4.2px;">
             <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq Model ID</label>
-            <input type="text" id="groq-model-id" placeholder="openai/gpt-oss-20b" value="${localStorage.getItem('intellinote_groq_model_name') || 'openai/gpt-oss-20b'}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+            <input type="text" id="groq-model-id" placeholder="qwen/qwen3.6-27b" value="${localStorage.getItem('intellinote_groq_model_name') || 'qwen/qwen3.6-27b'}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
           </div>
           <div style="text-align:right;">
             <button id="btn-save-groq-config" style="padding:5.3px 12.6px; font-size:12.6px; font-weight:500; background:var(--primary); color:#ffffff; border:none; border-radius:6.3px; cursor:pointer; font-family:inherit;">Save Settings</button>
           </div>
         </div>
       ` : ''}
-      
-      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 8.4px; overflow: hidden;">
-        <div style="font-size: 12.6px; font-weight: 600; color: var(--text-light); text-transform: uppercase;">Renderer Code</div>
-        <textarea id="plugin-code-textarea" readonly style="flex-grow: 1; width: 100%; font-family: var(--font-mono); font-size: 13.2px; padding: 12.6px; border: 1px solid var(--border-color); border-radius: 8.4px; background: #f8fafc; color: var(--text-muted); resize: none; outline: none; white-space: pre; overflow: auto;">${plugin.renderCode}</textarea>
-        ${!plugin.isBuiltIn ? `<div style="text-align: right;"><button id="btn-plugin-edit" style="border: 1px solid var(--primary); background: transparent; color: var(--primary); font-family: inherit; font-size: 12.6px; padding: 5.3px 12.6px; border-radius: 6.3px; cursor: pointer; font-weight: 500; margin-top: 4.2px;">Edit Code</button></div>` : ''}
-      </div>
+
+      ${plugin.id === 'ai-chat' ? `
+        <div style="margin-bottom: 16.8px; padding: 14.7px; background: rgba(124, 58, 237, 0.05); border: 1px dashed rgba(124, 58, 237, 0.2); border-radius: 10.5px; display: flex; flex-direction: column; gap: 10.5px;">
+          <div style="font-size: 13.7px; font-weight: 600; color: var(--primary);">Groq AI Chat Settings</div>
+          <div style="display:flex; flex-direction:column; gap:4.2px;">
+            <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq API Key</label>
+            <input type="password" id="groq-chat-api-key" placeholder="gsk_..." value="${localStorage.getItem('intellinote_groq_api_key') || ''}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4.2px;">
+            <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq Model ID</label>
+            <input type="text" id="groq-chat-model-id" placeholder="openai/gpt-oss-120b" value="${localStorage.getItem('intellinote_groq_chat_model_name') || 'openai/gpt-oss-120b'}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+          </div>
+          <div style="text-align:right;">
+            <button id="btn-save-groq-chat-config" style="padding:5.3px 12.6px; font-size:12.6px; font-weight:500; background:var(--primary); color:#ffffff; border:none; border-radius:6.3px; cursor:pointer; font-family:inherit;">Save Settings</button>
+          </div>
+        </div>
+      ` : ''}
     `;
 
     if (plugin.id === 'autocomplete') {
       detailPane.querySelector('#btn-save-groq-config').addEventListener('click', () => {
         const keyVal = detailPane.querySelector('#groq-api-key').value.trim();
-        const modelVal = detailPane.querySelector('#groq-model-id').value.trim() || 'openai/gpt-oss-20b';
+        const modelVal = detailPane.querySelector('#groq-model-id').value.trim() || 'qwen/qwen3.6-27b';
         localStorage.setItem('intellinote_groq_api_key', keyVal);
         localStorage.setItem('intellinote_groq_model_name', modelVal);
         alert('Groq API configuration saved successfully!');
+      });
+    }
+
+    if (plugin.id === 'ai-chat') {
+      detailPane.querySelector('#btn-save-groq-chat-config').addEventListener('click', () => {
+        const keyVal = detailPane.querySelector('#groq-chat-api-key').value.trim();
+        const modelVal = detailPane.querySelector('#groq-chat-model-id').value.trim() || 'openai/gpt-oss-120b';
+        localStorage.setItem('intellinote_groq_api_key', keyVal);
+        localStorage.setItem('intellinote_groq_chat_model_name', modelVal);
+        alert('Groq AI Chat configuration saved successfully!');
       });
     }
 
@@ -1576,121 +1617,9 @@ function showPluginsModal() {
       db.togglePlugin(id);
       renderPluginsList();
       renderPluginDetails(id);
-      if (activeEditorInstance) activeEditorInstance.render();
-    });
-
-    if (!plugin.isBuiltIn) {
-      detailPane.querySelector('#btn-plugin-delete').addEventListener('click', () => {
-        showConfirmationModal({
-          title: 'Delete Plugin?',
-          message: `Are you sure you want to permanently delete custom plugin "${plugin.name}"? This will disable all blocks associated with it.`,
-          confirmText: 'Delete',
-          confirmClass: 'delete',
-          onConfirm: () => {
-            db.deletePlugin(id);
-            selectedPluginId = null;
-            renderPluginsList();
-            if (activeEditorInstance) activeEditorInstance.render();
-          }
-        });
-      });
-
-      detailPane.querySelector('#btn-plugin-edit').addEventListener('click', () => {
-        showCustomPluginForm(plugin);
-      });
-    }
-  };
-
-  const showCustomPluginForm = (existingPlugin = null) => {
-    listTab.style.fontWeight = '500';
-    listTab.style.background = 'transparent';
-    listTab.style.color = 'var(--text-muted)';
-    createTab.style.fontWeight = '600';
-    createTab.style.background = 'var(--primary-light-active)';
-    createTab.style.color = 'var(--primary)';
-
-    const defaultCode = `// Write your custom block renderer code here!\\n// Available variables:\\n// - block: the block data object (store block.data here)\\n// - index: the index of this block in the list\\n// - container: the DOM element container to render your HTML inside\\n// - editor: the Editor instance\\n// - save(): callback function to persist changes\\n// - db: the LocalStorage database manager\\n\\ncontainer.innerHTML = '';\\nconst card = document.createElement('div');\\ncard.style.padding = '16.8px';\\ncard.style.background = '#ffffff';\\ncard.style.border = '1px solid var(--border-color)';\\ncard.style.borderRadius = '10.5px';\\ncard.style.boxShadow = 'var(--shadow-sm)';\\n\\nconst title = document.createElement('h4');\\ntitle.style.margin = '0 0 8.4px 0';\\ntitle.style.fontSize = '15.7px';\\ntitle.textContent = 'Custom Widget: Click to count!';\\ncard.appendChild(title);\\n\\nconst countBtn = document.createElement('button');\\nif (!block.data || typeof block.data !== 'object') {\\n  block.data = { count: 0 };\\n}\\ncountBtn.textContent = 'Clicks: ' + block.data.count;\\ncountBtn.style.padding = '6.3px 14.7px';\\ncountBtn.style.borderRadius = '21px';\\ncountBtn.style.border = '1px solid var(--primary)';\\ncountBtn.style.background = 'transparent';\\ncountBtn.style.color = 'var(--primary)';\\ncountBtn.style.cursor = 'pointer';\\ncountBtn.style.fontWeight = '500';\\n\\ncountBtn.addEventListener('click', () => {\\n  block.data.count++;\\n  countBtn.textContent = 'Clicks: ' + block.data.count;\\n  save();\\n});\\n\\ncard.appendChild(countBtn);\\ncontainer.appendChild(card);`;
-
-    detailPane.innerHTML = `
-      <h3 style="font-size: 17.8px; font-weight: 600; color: var(--text-main); margin-bottom: 16.8px;">
-        \${existingPlugin ? '📝 Edit Custom Plugin' : '🔌 Create Custom Plugin'}
-      </h3>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12.6px; margin-bottom: 12.6px;">
-        <div>
-          <label style="font-size: 12.6px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4.2px;">Plugin Name</label>
-          <input type="text" id="plugin-form-name" placeholder="e.g. Counter Block" style="width:100%; padding:8.4px 12.6px; border-radius:6.3px; border:1px solid var(--border-color); font-size:14.7px; outline:none;" value="\${existingPlugin ? existingPlugin.name : ''}">
-        </div>
-        <div>
-          <label style="font-size: 12.6px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4.2px;">Unique ID (lowercase, no spaces)</label>
-          <input type="text" id="plugin-form-id" placeholder="e.g. click-counter" \${existingPlugin ? 'readonly' : ''} style="width:100%; padding:8.4px 12.6px; border-radius:6.3px; border:1px solid var(--border-color); font-size:14.7px; outline:none; background: \${existingPlugin ? '#f1f5f9; color:var(--text-light);' : '#fff'};" value="\${existingPlugin ? existingPlugin.id : ''}">
-        </div>
-      </div>
-      <div style="display: grid; grid-template-columns: 84px 1fr; gap: 12.6px; margin-bottom: 12.6px;">
-        <div>
-          <label style="font-size: 12.6px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4.2px;">Icon Emoji</label>
-          <input type="text" id="plugin-form-icon" placeholder="🔌" maxlength="4" style="width:100%; padding:8.4px 12.6px; border-radius:6.3px; border:1px solid var(--border-color); font-size:14.7px; text-align:center; outline:none;" value="\${existingPlugin ? existingPlugin.icon : '🔌'}">
-        </div>
-        <div>
-          <label style="font-size: 12.6px; font-weight:500; color: var(--text-muted); display:block; margin-bottom:4.2px;">Short Description</label>
-          <input type="text" id="plugin-form-desc" placeholder="e.g. Click count tracker box." style="width:100%; padding:8.4px 12.6px; border-radius:6.3px; border:1px solid var(--border-color); font-size:14.7px; outline:none;" value="\${existingPlugin ? existingPlugin.description : ''}">
-        </div>
-      </div>
-      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4.2px; overflow: hidden; margin-bottom: 16.8px;">
-        <label style="font-size: 12.6px; font-weight: 500; color: var(--text-muted);">Custom JS Renderer Code</label>
-        <textarea id="plugin-form-code" style="flex-grow: 1; width: 100%; font-family: var(--font-mono); font-size: 12.6px; padding: 12.6px; border: 1px solid var(--border-color); border-radius: 8.4px; resize: none; outline: none; white-space: pre; overflow: auto;">\${existingPlugin ? existingPlugin.renderCode : defaultCode}</textarea>
-      </div>
-      <div style="text-align: right; display:flex; justify-content:flex-end; gap:8.4px;">
-        <button id="btn-plugin-form-cancel" style="border: 1px solid var(--border-color); background:transparent; color: var(--text-muted); font-family: inherit; font-size: 13.7px; padding: 6.3px 16.8px; border-radius: 21px; cursor: pointer;">Cancel</button>
-        <button id="btn-plugin-form-save" style="border: none; background: var(--primary); color: #fff; font-family: inherit; font-size: 13.7px; padding: 6.3px 16.8px; border-radius: 21px; cursor: pointer; font-weight: 500;">Save Plugin</button>
-      </div>
-    `;
-
-    detailPane.querySelector('#btn-plugin-form-cancel').addEventListener('click', () => {
-      listTab.click();
-    });
-
-    detailPane.querySelector('#btn-plugin-form-save').addEventListener('click', () => {
-      const name = detailPane.querySelector('#plugin-form-name').value.trim();
-      const id = detailPane.querySelector('#plugin-form-id').value.trim().toLowerCase().replace(/\\s+/g, '-');
-      const icon = detailPane.querySelector('#plugin-form-icon').value.trim() || '🔌';
-      const desc = detailPane.querySelector('#plugin-form-desc').value.trim() || 'Custom plugin block.';
-      const code = detailPane.querySelector('#plugin-form-code').value;
-
-      if (!name || !id || !code) {
-        alert('Please fill in Name, ID, and Renderer Code!');
-        return;
-      }
-
-      const pluginData = {
-        id,
-        name,
-        icon,
-        description: desc,
-        enabled: existingPlugin ? existingPlugin.enabled : true,
-        isBuiltIn: false,
-        renderCode: code
-      };
-
-      db.savePlugin(pluginData);
-      selectedPluginId = id;
-      listTab.click();
-      if (activeEditorInstance) activeEditorInstance.render();
+      renderEditorPane();
     });
   };
-
-  listTab.addEventListener('click', () => {
-    listTab.style.fontWeight = '600';
-    listTab.style.background = 'var(--primary-light-active)';
-    listTab.style.color = 'var(--primary)';
-    createTab.style.fontWeight = '500';
-    createTab.style.background = 'transparent';
-    createTab.style.color = 'var(--text-muted)';
-    renderPluginsList();
-  });
-
-  createTab.addEventListener('click', () => {
-    showCustomPluginForm();
-  });
 
   renderPluginsList();
 }
@@ -1900,5 +1829,442 @@ function showDropdownMenu(triggerBtn, items) {
 
 function closeAllDropdowns() {
   document.querySelectorAll('.loop-dropdown-menu').forEach(el => el.remove());
+}
+
+// --- AI Chat Drawer Feature ---
+
+let aiChatMessagesByChapter = {}; // chapterId -> messages array
+
+const renderMarkdownAndKatex = (text) => {
+  if (!text) return '';
+
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // 1. Display Math: \[ ... \] or $$ ... $$
+  html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, formula) => {
+    if (window.katex) {
+      try {
+        return window.katex.renderToString(formula, { displayMode: true, throwOnError: false });
+      } catch (e) {
+        return `<span class="math-error">$$\n${formula}\n$$</span>`;
+      }
+    }
+    return `$$\n${formula}\n$$`;
+  });
+
+  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+    if (window.katex) {
+      try {
+        return window.katex.renderToString(formula, { displayMode: true, throwOnError: false });
+      } catch (e) {
+        return `<span class="math-error">$$\n${formula}\n$$</span>`;
+      }
+    }
+    return `$$\n${formula}\n$$`;
+  });
+
+  // 2. Inline Math: \( ... \) or $ ... $
+  html = html.replace(/\\\(([\s\S]*?)\\\)/g, (match, formula) => {
+    if (window.katex) {
+      try {
+        return window.katex.renderToString(formula, { displayMode: false, throwOnError: false });
+      } catch (e) {
+        return `<span class="math-error">$${formula}$</span>`;
+      }
+    }
+    return `$${formula}$`;
+  });
+
+  html = html.replace(/(?<![\w\\])\$([^\$\s](?:[^\$]*?[^\$\s])?)\$/g, (match, formula) => {
+    if (window.katex) {
+      try {
+        return window.katex.renderToString(formula, { displayMode: false, throwOnError: false });
+      } catch (e) {
+        return `<span class="math-error">$${formula}$</span>`;
+      }
+    }
+    return `$${formula}$`;
+  });
+
+  // 3. Code Blocks: ```[lang] ... ```
+  html = html.replace(/```([a-zA-Z0-9-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    return `<pre class="chat-code-block"><code class="language-${lang}">${code.trim()}</code></pre>`;
+  });
+
+  // 4. Inline Code: `code`
+  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  // 5. Bold & Italic: **bold** & *italic*
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  // 6. Headers: #, ##, ###
+  html = html.replace(/(?:^|\n)### ([^\n]+)/g, '<h3>$1</h3>');
+  html = html.replace(/(?:^|\n)## ([^\n]+)/g, '<h2>$1</h2>');
+  html = html.replace(/(?:^|\n)# ([^\n]+)/g, '<h1>$1</h1>');
+
+  // 7. Process lines for lists, horizontal rules, and paragraphs
+  const lines = html.split('\n');
+  let inUl = false;
+  let inOl = false;
+  let result = [];
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    
+    // Bullet lists: - item or * item
+    const ulMatch = trimmed.match(/^[-*]\s+(.*)$/);
+    if (ulMatch) {
+      if (inOl) {
+        result.push('</ol>');
+        inOl = false;
+      }
+      if (!inUl) {
+        result.push('<ul class="chat-ul">');
+        inUl = true;
+      }
+      result.push(`<li>${ulMatch[1]}</li>`);
+      return;
+    }
+
+    // Numbered lists: 1. item
+    const olMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    if (olMatch) {
+      if (inUl) {
+        result.push('</ul>');
+        inUl = false;
+      }
+      if (!inOl) {
+        result.push('<ol class="chat-ol">');
+        inOl = true;
+      }
+      result.push(`<li>${olMatch[2]}</li>`);
+      return;
+    }
+
+    // Close lists if we hit a blank line or non-list line
+    if (inUl) {
+      result.push('</ul>');
+      inUl = false;
+    }
+    if (inOl) {
+      result.push('</ol>');
+      inOl = false;
+    }
+
+    // Horizontal rule: ---
+    if (trimmed === '---') {
+      result.push('<hr class="chat-hr">');
+      return;
+    }
+
+    // Keep headers or empty lines as is, wrap text lines in paragraphs
+    if (trimmed === '') {
+      result.push('');
+    } else if (trimmed.startsWith('<h1') || trimmed.startsWith('<h2') || trimmed.startsWith('<h3') || trimmed.startsWith('<pre') || trimmed.startsWith('<hr')) {
+      result.push(line);
+    } else {
+      result.push(`<p>${line}</p>`);
+    }
+  });
+
+  if (inUl) result.push('</ul>');
+  if (inOl) result.push('</ol>');
+
+  return result.join('\n');
+};
+
+function getAiChatMessages() {
+  if (!activeChapterId) return [];
+  if (!aiChatMessagesByChapter[activeChapterId]) {
+    aiChatMessagesByChapter[activeChapterId] = [];
+  }
+  return aiChatMessagesByChapter[activeChapterId];
+}
+
+function renderAiChatMessages() {
+  const messagesContainer = document.getElementById('chat-messages');
+  if (!messagesContainer) return;
+
+  const chapter = db.getChapter(activeChapterId);
+  const messages = getAiChatMessages();
+
+  messagesContainer.innerHTML = '';
+  
+  if (messages.length === 0) {
+    const greetingDiv = document.createElement('div');
+    greetingDiv.className = 'chat-message ai';
+    greetingDiv.innerHTML = `Hello! I am your AI writing assistant. I can help you summarize, explain, expand, or answer questions about your current note: <strong>${(chapter && chapter.title) || 'Untitled Page'}</strong>.`;
+    messagesContainer.appendChild(greetingDiv);
+  } else {
+    messages.forEach(msg => {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `chat-message ${msg.role}`;
+      msgDiv.innerHTML = renderMarkdownAndKatex(msg.content);
+      messagesContainer.appendChild(msgDiv);
+    });
+  }
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Helper to clean individual strings from base64 Data URLs and extreme lengths
+const cleanStringContext = (str) => {
+  if (typeof str !== 'string') return str;
+  // Replace base64 Data URLs (which start with data: and are typically very long)
+  let cleaned = str.replace(/data:[^;]*;base64,[^"'\s>)]+/gi, '[Base64 Data Truncated]');
+  
+  // Also, if the string itself is abnormally large (e.g. serialized JSON or huge lists), truncate it
+  if (cleaned.length > 2000) {
+    cleaned = cleaned.substring(0, 1000) + `... [Truncated block content (${str.length} chars)]`;
+  }
+  return cleaned;
+};
+
+// Helper to prune large base64/long strings recursively to avoid HTTP 413 Payload Too Large
+const pruneLargeBase64 = (obj) => {
+  if (!obj || typeof obj !== 'object') return obj;
+  const copy = Array.isArray(obj) ? [] : {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const val = obj[key];
+      if (typeof val === 'string') {
+        copy[key] = cleanStringContext(val);
+      } else if (typeof val === 'object') {
+        copy[key] = pruneLargeBase64(val);
+      } else {
+        copy[key] = val;
+      }
+    }
+  }
+  return copy;
+};
+
+// Helper to extract text from all blocks in the note
+const getNoteTextContext = () => {
+  const activeChapter = db.getChapter(activeChapterId);
+  if (!activeChapter) return '';
+
+  let text = '';
+  if (activeChapter.title) {
+    text += `Title: ${activeChapter.title}\n\n`;
+  }
+  const blocks = activeChapter.blocks || [];
+  blocks.forEach(block => {
+    let bText = '';
+    if (typeof block.data === 'string') {
+      bText = cleanStringContext(block.data);
+    } else if (block.data && typeof block.data === 'object') {
+      const cleanedData = pruneLargeBase64(block.data);
+      if (cleanedData.code) {
+        bText = `[Code Block - ${cleanedData.language || 'Plain Text'}]\n${cleanedData.code}`;
+      } else if (block.type === 'table') {
+        if (cleanedData.cells && Array.isArray(cleanedData.cells)) {
+          bText = cleanedData.cells.map(row => row.join(' | ')).join('\n');
+        }
+      } else if (block.type === 'equation') {
+        bText = `[Equation] ${cleanedData.latex || ''}`;
+      } else if (block.type === 'youtube-widget') {
+        bText = `[YouTube Video] ${cleanedData.url || ''}`;
+      } else if (block.type === 'image-widget') {
+        bText = `[Image Upload] ${cleanedData.name || ''}`;
+      } else {
+        bText = `[Widget - ${block.type}] ${JSON.stringify(cleanedData)}`;
+      }
+    }
+    if (bText) {
+      // Strip HTML tag attributes / formatting tags
+      const cleanVal = bText.replace(/<\/?[^>]+(>|$)/g, "");
+      text += cleanVal + '\n';
+    }
+  });
+  return text.trim();
+};
+
+function toggleAiChatSidebar() {
+  const sidebar = document.getElementById('sidebar-ai-chat');
+  if (!sidebar) return;
+
+  if (sidebar.style.display === 'flex') {
+    sidebar.style.display = 'none';
+    return;
+  }
+
+  // If activeChapterId is missing, do nothing
+  if (!activeChapterId) return;
+  const chapter = db.getChapter(activeChapterId);
+  if (!chapter) return;
+
+  sidebar.innerHTML = `
+    <div class="chat-header">
+      <h3 class="chat-title">💬 Chat with AI (${chapter.title || 'Untitled Page'})</h3>
+      <button class="chat-close-btn" id="chat-close">&times;</button>
+    </div>
+    <div class="chat-messages-container" id="chat-messages">
+      <!-- Messages render here -->
+    </div>
+    <div class="chat-input-area">
+      <textarea class="chat-textarea" id="chat-input" placeholder="Ask about this note..." rows="1"></textarea>
+      <button class="chat-send-btn" id="chat-send" title="Send Message">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  `;
+
+  sidebar.style.display = 'flex';
+
+  const closeBtn = sidebar.querySelector('#chat-close');
+  const messagesContainer = sidebar.querySelector('#chat-messages');
+  const inputEl = sidebar.querySelector('#chat-input');
+  const sendBtn = sidebar.querySelector('#chat-send');
+
+  closeBtn.addEventListener('click', () => {
+    sidebar.style.display = 'none';
+  });
+
+  // Auto-resize textarea heights
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = `${Math.min(inputEl.scrollHeight, 120)}px`;
+  });
+
+  renderAiChatMessages();
+
+  const handleSendMessage = () => {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    // Add user message to memory
+    const messages = getAiChatMessages();
+    messages.push({ role: 'user', content: text });
+    renderAiChatMessages();
+
+    // Reset input
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    // Show typing indicator
+    const typingIndicator = document.createElement('div');
+    typingIndicator.className = 'chat-typing-indicator';
+    typingIndicator.id = 'chat-typing-loader';
+    typingIndicator.innerHTML = `
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    `;
+    messagesContainer.appendChild(typingIndicator);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // API Key config
+    const envKey = import.meta.env.VITE_GROQ_API_KEY;
+    const localKey = localStorage.getItem('intellinote_groq_api_key');
+    console.log("[AI Chat] envKey:", envKey ? "Present" : "Missing", "localKey:", localKey ? "Present" : "Missing");
+    const apiKey = envKey || localKey;
+    console.log("[AI Chat] API Key length:", apiKey ? apiKey.length : 0);
+
+    if (!apiKey) {
+      typingIndicator.remove();
+      const errDiv = document.createElement('div');
+      errDiv.className = 'chat-message error';
+      errDiv.textContent = '⚠️ Groq API Key is not configured. Please configure it in the settings panel (under Plugins > Chat with AI or AI Autocomplete settings).';
+      messagesContainer.appendChild(errDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      return;
+    }
+
+    // Build the request body with note context
+    const noteContext = getNoteTextContext();
+    
+    // Prepare API call payload
+    const systemPrompt = `You are a helpful AI assistant integrated into a note-taking application. You have access to the user's current note content below. Answer the user's questions about the note or general questions in a helpful, friendly, and concise manner. Do not include reasoning <think> blocks in your final response. Keep your answers concise, complete, and strictly under 1000 tokens.`;
+    const contextPrompt = `Here is the content of the current note:\n---\n${noteContext}\n---`;
+
+    const requestMessages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'system', content: contextPrompt }
+    ];
+
+    // Add session history
+    messages.forEach(msg => {
+      requestMessages.push({ role: msg.role === 'ai' ? 'assistant' : msg.role, content: msg.content });
+    });
+
+    const modelName = localStorage.getItem('intellinote_groq_chat_model_name') || 'openai/gpt-oss-120b';
+
+    const reqBody = {
+      model: modelName,
+      messages: requestMessages,
+      temperature: 1,
+      max_completion_tokens: 1000,
+      top_p: modelName === 'openai/gpt-oss-120b' ? 1 : 0.95
+    };
+    if (modelName === 'openai/gpt-oss-120b') {
+      reqBody.reasoning_effort = 'low';
+    } else if (modelName.includes('qwen')) {
+      reqBody.reasoning_effort = 'none';
+      reqBody.temperature = 0.6;
+    }
+
+    console.log("[AI Chat] Payload length:", JSON.stringify(reqBody).length, "Messages:", JSON.parse(JSON.stringify(requestMessages)), "Body:", reqBody);
+
+    fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(reqBody)
+    })
+    .then(res => {
+      if (!res.ok) {
+        return res.text().then(text => {
+          throw new Error('API returned HTTP ' + res.status + ': ' + text);
+        });
+      }
+      return res.json();
+    })
+    .then(data => {
+      typingIndicator.remove();
+      if (data && data.choices && data.choices[0]) {
+        let responseText = data.choices[0].message?.content || '';
+        
+        // Strip out <think> tags if reasoning model returns them
+        responseText = responseText.replace(/<think>[\s\S]*?<\/think>/gi, '');
+        responseText = responseText.replace(/<think>[\s\S]*/gi, ''); // Handle unclosed think tags
+        responseText = responseText.trim();
+
+        if (responseText) {
+          messages.push({ role: 'ai', content: responseText });
+          renderAiChatMessages();
+        } else {
+          throw new Error('Received empty response content.');
+        }
+      } else {
+        throw new Error('Invalid response payload format.');
+      }
+    })
+    .catch(err => {
+      typingIndicator.remove();
+      console.error('[AI Chat] Fetch failed:', err);
+      const errDiv = document.createElement('div');
+      errDiv.className = 'chat-message error';
+      errDiv.textContent = `❌ Error: Failed to communicate with the Groq API (${err.message}). Please check your network connection, API Key, or model settings.`;
+      messagesContainer.appendChild(errDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    });
+  };
+
+  sendBtn.addEventListener('click', handleSendMessage);
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  });
 }
 

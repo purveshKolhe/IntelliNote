@@ -2829,6 +2829,15 @@ if (block.data.image) {
   renderEmpty();
 }
 container.appendChild(wrapper);`
+  },
+  {
+    id: 'ai-chat',
+    name: 'Chat with AI',
+    icon: '💬',
+    description: 'Chat with AI about your notes using Groq Cloud.',
+    enabled: true,
+    isBuiltIn: true,
+    renderCode: `container.innerHTML = '<div style="padding:13.2px; font-size:13.7px; color:var(--text-muted); background:#fafafa; border:1px solid rgba(0,0,0,0.05); border-radius:8.4px;">💬 Chat with AI is active. Click the chat button in the top right corner to chat about your notes.</div>';`
   }
 ];
 

@@ -1552,7 +1552,7 @@ export class Editor {
       return;
     }
 
-    const modelName = localStorage.getItem('intellinote_groq_model_name') || 'openai/gpt-oss-20b';
+    const modelName = localStorage.getItem('intellinote_groq_model_name') || 'qwen/qwen3.6-27b';
     console.log("[Autocomplete] Target Model:", modelName);
 
     const cleanText = editable.textContent.replace(/\s+/g, ' ').trim();
@@ -1591,9 +1591,10 @@ export class Editor {
             content: contextText
           }
         ],
-        max_completion_tokens: 150,
-        temperature: 0.3,
-        reasoning_effort: "low"
+        max_completion_tokens: 4096,
+        temperature: 0.6,
+        top_p: 0.95,
+        reasoning_effort: "none"
       })
     })
     .then(res => {
