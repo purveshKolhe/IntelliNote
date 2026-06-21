@@ -1,5 +1,6 @@
 // Global Search Dialog Module
 import { db } from './db.js';
+import { escapeHTML } from './security.js';
 
 let currentSearchDialog = null;
 
@@ -163,10 +164,10 @@ export const search = {
           <div class="search-result-item ${idx === 0 ? 'active' : ''}" 
                data-workspace-id="${r.workspaceId}" 
                data-chapter-id="${r.chapterId || ''}">
-            <span class="result-emoji">${r.emoji}</span>
+            <span class="result-emoji">${escapeHTML(r.emoji)}</span>
             <div class="result-details">
-              <div class="result-title">${r.title}</div>
-              <div class="result-subtitle">${r.subtitle}</div>
+              <div class="result-title">${escapeHTML(r.title)}</div>
+              <div class="result-subtitle">${escapeHTML(r.subtitle)}</div>
             </div>
           </div>
         `).join('')}

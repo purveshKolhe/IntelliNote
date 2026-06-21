@@ -1,35 +1,9 @@
-// Local Database Manager using IndexedDB + Memory Cache
-import { get, set } from 'idb-keyval';
+// Auto-generated Plugin Renderers for IntelliNote
 import { escapeHTML, sanitizeHTML } from './security.js';
 
-const WORKSPACES_KEY = 'intellinote_workspaces';
-const CHAPTERS_KEY = 'intellinote_chapters';
-const TRASH_KEY = 'intellinote_trash';
-const PLUGINS_KEY = 'intellinote_plugins';
-const NOTIFICATIONS_KEY = 'intellinote_notifications';
-const ANALYTICS_KEY = 'intellinote_analytics';
-
-let memoryState = {
-  workspaces: null,
-  chapters: null,
-  trash: null,
-  plugins: null,
-  notifications: null,
-  analytics: null,
-  groq_api_key: null,
-  groq_model_name: null,
-  groq_chat_model_name: null
-};
-
-const DEFAULT_PLUGINS = [
-  {
-    id: 'youtube-widget',
-    name: 'YouTube Embedder',
-    icon: '🎥',
-    description: 'Embed YouTube video players directly inside your notes by pasting links.',
-    enabled: true,
-    isBuiltIn: true,
-    renderCode: `if (!block.data || typeof block.data !== 'object') {
+export const PLUGIN_RENDERERS = {
+  'youtube-widget': (block, index, container, editor, save, db) => {
+if (!block.data || typeof block.data !== 'object') {
   block.data = { url: '' };
 }
 container.innerHTML = '';
@@ -93,14 +67,14 @@ wrapper.addEventListener('mouseleave', () => {
 
 const getYoutubeId = (url) => {
   if (!url) return null;
-  const match = url.match(/(?:youtube\\.com\\/(?:[^\\/]+\\/.+\\/|(?:v|e(?:mbed)?)\\/|.*[?&]v=)|youtu\\.be\\/)([^\"&?\\/\\s]{11})/);
+  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
   return match ? match[1] : null;
 };
 
 const renderVideo = (url) => {
   const videoId = getYoutubeId(url);
   if (videoId) {
-    iframeContainer.innerHTML = \`<iframe width="100%" height="360" src="https://www.youtube.com/embed/\${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border: none; display: block; width: 100%; border-radius: 8.4px;"></iframe>\`;
+    iframeContainer.innerHTML = `<iframe width="100%" height="360" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border: none; display: block; width: 100%; border-radius: 8.4px;"></iframe>`;
     iframeContainer.style.display = 'block';
     inputEl.style.display = 'none';
     wrapper.style.padding = '0';
@@ -145,16 +119,10 @@ wrapper.appendChild(inputEl);
 wrapper.appendChild(iframeContainer);
 wrapper.appendChild(changeBtn);
 container.appendChild(wrapper);
-`
+
   },
-  {
-    id: 'timer-widget',
-    name: 'Timer & Stopwatch',
-    icon: '⏱️',
-    description: 'Track sprint tasks, writing sessions, and timers inside your workspace.',
-    enabled: true,
-    isBuiltIn: true,
-    renderCode: `if (!block.data || typeof block.data !== 'object' || !block.data.tasks) {
+  'timer-widget': (block, index, container, editor, save, db) => {
+if (!block.data || typeof block.data !== 'object' || !block.data.tasks) {
   block.data = {
     tasks: [
       { id: 't-1', name: 'Task 1', completed: false, secondsLeft: 1500, totalSeconds: 1500, isRunning: false, history: [], currentSession: null }
@@ -507,7 +475,7 @@ const renderHistoryUI = (task, panel) => {
 if (!document.getElementById('loop-timer-pip-styles')) {
   const styleEl = document.createElement('style');
   styleEl.id = 'loop-timer-pip-styles';
-  styleEl.textContent = \`
+  styleEl.textContent = `
     .loop-pip-panel {
       position: fixed;
       bottom: 25.2px;
@@ -941,7 +909,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       padding-top: 4.2px;
       margin-top: 2px;
     }
-  \`;
+  `;
   document.head.appendChild(styleEl);
 }
 
@@ -1347,8 +1315,8 @@ const renderLogCard = (log) => {
   
   card.innerHTML = 
     '<div class="loop-analytics-log-header" style="padding-right: 24px;">' +
-      '<span>' + escapeHTML(dStr) + ' • ' + escapeHTML(timeRange) + '</span>' +
-      '<span style="font-weight:700; color:var(--primary); font-family:var(--font-mono);">' + escapeHTML(durationStr) + '</span>' +
+      '<span>' + dStr + ' • ' + timeRange + '</span>' +
+      '<span style="font-weight:700; color:var(--primary); font-family:var(--font-mono);">' + durationStr + '</span>' +
     '</div>' +
     '<div class="loop-analytics-log-task">' + escapeHTML(log.taskName) + '</div>' +
     '<div class="loop-analytics-log-meta">' +
@@ -1472,15 +1440,15 @@ window.loopUpdatePipUI = () => {
   let pulse = pip.querySelector('.loop-pip-bubble-pulse');
   
   if (!header) {
-    pip.innerHTML = \`
+    pip.innerHTML = `
       <div class="loop-pip-header">
-        <div class="loop-pip-title">\${timerIcon} Timers (\${chapter.title || 'Untitled'})</div>
+        <div class="loop-pip-title">${timerIcon} Timers (${chapter.title || 'Untitled'})</div>
         <div class="loop-pip-controls"></div>
       </div>
       <div class="loop-pip-body"></div>
       <div class="loop-pip-bubble-content"></div>
       <div class="loop-pip-bubble-pulse"></div>
-    \`;
+    `;
     header = pip.querySelector('.loop-pip-header');
     body = pip.querySelector('.loop-pip-body');
     bubble = pip.querySelector('.loop-pip-bubble-content');
@@ -1529,7 +1497,7 @@ window.loopUpdatePipUI = () => {
   
   const runningTask = currentBlock.data.tasks.find(t => t.isRunning) || currentBlock.data.tasks[0];
   if (runningTask) {
-    bubble.innerHTML = timerIconLarge + \`<span style="font-size:11.5px; font-weight:bold; display:block; line-height:1; margin-top:2px;">\${formatDuration(runningTask.secondsLeft)}</span>\`;
+    bubble.innerHTML = timerIconLarge + `<span style="font-size:11.5px; font-weight:bold; display:block; line-height:1; margin-top:2px;">${formatDuration(runningTask.secondsLeft)}</span>`;
     if (runningTask.isRunning) {
       pulse.className = 'loop-pip-bubble-pulse active';
     } else {
@@ -1575,7 +1543,7 @@ window.loopUpdatePipUI = () => {
       
       nameInput.addEventListener('input', () => {
         window.loopTimersManager.updateTaskState(currentChapterId, currentBlockId, task.id, { name: nameInput.value }, dbInstance);
-        const blockInputs = document.querySelectorAll(\`[data-task-input-id="\${currentBlockId}_\${task.id}"]\`);
+        const blockInputs = document.querySelectorAll(`[data-task-input-id="${currentBlockId}_${task.id}"]`);
         blockInputs.forEach(inp => {
           inp.value = nameInput.value;
         });
@@ -2182,16 +2150,10 @@ block.data.tasks.forEach(task => {
   if (task.isRunning && !window.loopTimersManager.intervals[blockId + '_' + task.id]) {
     window.loopTimersManager.startTimer(chapterId, blockId, task.id, db);
   }
-});`
+});
   },
-  {
-    id: 'sketch-widget',
-    name: 'Drawing Canvas',
-    icon: '🎨',
-    description: 'Sketch notes, flowcharts, diagrams, or math formulas directly inside notes.',
-    enabled: true,
-    isBuiltIn: true,
-    renderCode: `if (!block.data || typeof block.data !== 'object') {
+  'sketch-widget': (block, index, container, editor, save, db) => {
+if (!block.data || typeof block.data !== 'object') {
   block.data = { image: '', height: 250 };
 }
 if (!block.data.height) {
@@ -2217,7 +2179,7 @@ toolbar.style.gap = '8.4px';
 toolbar.style.alignItems = 'center';
 toolbar.style.paddingBottom = '8.4px';
 toolbar.style.borderBottom = '1px solid var(--border-color)';
-toolbar.innerHTML = \`
+toolbar.innerHTML = `
   <!-- Pen Dropdown -->
   <div class="dropdown-container" style="position:relative;">
     <button class="toolbar-drop-btn" id="pen-select-btn" style="display:flex; align-items:center; padding:4.2px 8.4px; font-size:12px; border-radius:4.2px; border:1px solid var(--border-color); background:#ffffff; color:var(--text-muted); cursor:pointer; font-family:var(--font-sans); font-weight:500;">
@@ -2304,7 +2266,7 @@ toolbar.innerHTML = \`
     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4.2px; color:var(--text-muted);"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
     Clear
   </button>
-\`;
+`;
 
 const canvas = document.createElement('canvas');
 canvas.width = 600;
@@ -2621,25 +2583,13 @@ resizeHandle.addEventListener('mousedown', (e) => {
 wrapper.appendChild(toolbar);
 wrapper.appendChild(canvas);
 wrapper.appendChild(resizeHandle);
-container.appendChild(wrapper);`
+container.appendChild(wrapper);
   },
-  {
-    id: 'autocomplete',
-    name: 'AI Autocomplete',
-    icon: '🤖',
-    description: 'Provide real-time inline AI writing assistance using Groq cloud. Triggers automatically when you stop typing for 2 seconds. Press Tab to accept.',
-    enabled: true,
-    isBuiltIn: true,
-    renderCode: `container.innerHTML = '<div style="padding:13.2px; font-size:13.7px; color:var(--text-muted); background:#fafafa; border:1px solid rgba(0,0,0,0.05); border-radius:8.4px;">🤖 AI Autocomplete is active globally on all text blocks. Configure your Groq Cloud API Key in the settings panel above. Stop typing for 2 seconds to get suggestions, and press Tab to autocomplete.</div>';`
+  'autocomplete': (block, index, container, editor, save, db) => {
+container.innerHTML = '<div style="padding:13.2px; font-size:13.7px; color:var(--text-muted); background:#fafafa; border:1px solid rgba(0,0,0,0.05); border-radius:8.4px;">🤖 AI Autocomplete is active globally on all text blocks. Configure your Groq Cloud API Key in the settings panel above. Stop typing for 2 seconds to get suggestions, and press Tab to autocomplete.</div>';
   },
-  {
-    id: 'image-widget',
-    name: 'Image Uploader',
-    icon: '🖼️',
-    description: 'Upload, embed, and download images with formatted file size and previews.',
-    enabled: true,
-    isBuiltIn: true,
-    renderCode: `if (!block.data || typeof block.data !== 'object') {
+  'image-widget': (block, index, container, editor, save, db) => {
+if (!block.data || typeof block.data !== 'object') {
   block.data = { image: '', name: '', size: 0 };
 }
 container.innerHTML = '';
@@ -2711,8 +2661,7 @@ const renderEmpty = () => {
 };
 
 const handleFile = (file) => {
-  if (!file) return;
-  if (!file.type || !file.type.startsWith('image/')) {
+  if (!file.type.startsWith('image/')) {
     alert('Please select a valid image file (JPG, PNG, GIF, WebP).');
     return;
   }
@@ -2841,339 +2790,9 @@ if (block.data.image) {
 } else {
   renderEmpty();
 }
-container.appendChild(wrapper);`
+container.appendChild(wrapper);
   },
-  {
-    id: 'ai-chat',
-    name: 'Chat with AI',
-    icon: '💬',
-    description: 'Chat with AI about your notes using Groq Cloud.',
-    enabled: true,
-    isBuiltIn: true,
-    renderCode: `container.innerHTML = '<div style="padding:13.2px; font-size:13.7px; color:var(--text-muted); background:#fafafa; border:1px solid rgba(0,0,0,0.05); border-radius:8.4px;">💬 Chat with AI is active. Click the chat button in the top right corner to chat about your notes.</div>';`
-  }
-];
-
-export const db = {
-  async init() {
-    if (memoryState.workspaces !== null) return; // already initialized
-
-    // Migration step from localStorage
-    if (localStorage.getItem(WORKSPACES_KEY)) {
-      try {
-        memoryState.workspaces = JSON.parse(localStorage.getItem(WORKSPACES_KEY)) || [];
-        memoryState.chapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
-        memoryState.trash = JSON.parse(localStorage.getItem(TRASH_KEY)) || [];
-        const pluginStr = localStorage.getItem(PLUGINS_KEY);
-        memoryState.plugins = pluginStr ? JSON.parse(pluginStr) : [...DEFAULT_PLUGINS];
-
-        await set(WORKSPACES_KEY, memoryState.workspaces);
-        await set(CHAPTERS_KEY, memoryState.chapters);
-        await set(TRASH_KEY, memoryState.trash);
-        await set(PLUGINS_KEY, memoryState.plugins);
-
-        localStorage.removeItem(WORKSPACES_KEY);
-        localStorage.removeItem(CHAPTERS_KEY);
-        localStorage.removeItem(TRASH_KEY);
-        localStorage.removeItem(PLUGINS_KEY);
-      } catch (e) {
-        console.warn("Local storage migration parse failed:", e);
-      }
-    } else {
-      memoryState.workspaces = await get(WORKSPACES_KEY) || [];
-      memoryState.chapters = await get(CHAPTERS_KEY) || [];
-      memoryState.trash = await get(TRASH_KEY) || [];
-      memoryState.plugins = await get(PLUGINS_KEY);
-    }
-    memoryState.notifications = await get(NOTIFICATIONS_KEY) || [];
-    memoryState.analytics = await get(ANALYTICS_KEY) || [];
-
-    if (!memoryState.plugins) {
-      memoryState.plugins = [...DEFAULT_PLUGINS];
-      await set(PLUGINS_KEY, memoryState.plugins);
-    } else {
-      let updated = false;
-      DEFAULT_PLUGINS.forEach(defaultP => {
-        const idx = memoryState.plugins.findIndex(p => p.id === defaultP.id);
-        if (idx >= 0) {
-          if (defaultP.isBuiltIn) {
-            if (!memoryState.plugins[idx].isBuiltIn) { memoryState.plugins[idx].isBuiltIn = true; updated = true; }
-            if (memoryState.plugins[idx].renderCode !== defaultP.renderCode) { memoryState.plugins[idx].renderCode = defaultP.renderCode; updated = true; }
-            if (memoryState.plugins[idx].name !== defaultP.name) { memoryState.plugins[idx].name = defaultP.name; updated = true; }
-            if (memoryState.plugins[idx].description !== defaultP.description) { memoryState.plugins[idx].description = defaultP.description; updated = true; }
-            if (memoryState.plugins[idx].icon !== defaultP.icon) { memoryState.plugins[idx].icon = defaultP.icon; updated = true; }
-          }
-        } else {
-          memoryState.plugins.push(defaultP);
-          updated = true;
-        }
-      });
-      if (updated) {
-        await set(PLUGINS_KEY, memoryState.plugins);
-      }
-    }
-
-    // Migrate Groq Settings from localStorage if present
-    const localApiKey = localStorage.getItem('intellinote_groq_api_key');
-    if (localApiKey !== null) {
-      memoryState.groq_api_key = localApiKey;
-      await set('intellinote_groq_api_key', localApiKey);
-      localStorage.removeItem('intellinote_groq_api_key');
-    } else {
-      memoryState.groq_api_key = await get('intellinote_groq_api_key') || '';
-    }
-
-    const localModelName = localStorage.getItem('intellinote_groq_model_name');
-    if (localModelName !== null) {
-      memoryState.groq_model_name = localModelName;
-      await set('intellinote_groq_model_name', localModelName);
-      localStorage.removeItem('intellinote_groq_model_name');
-    } else {
-      memoryState.groq_model_name = await get('intellinote_groq_model_name') || 'qwen/qwen3.6-27b';
-    }
-
-    const localChatModel = localStorage.getItem('intellinote_groq_chat_model_name');
-    if (localChatModel !== null) {
-      memoryState.groq_chat_model_name = localChatModel;
-      await set('intellinote_groq_chat_model_name', localChatModel);
-      localStorage.removeItem('intellinote_groq_chat_model_name');
-    } else {
-      memoryState.groq_chat_model_name = await get('intellinote_groq_chat_model_name') || 'meta-llama/llama-4-scout-17b-16e-instruct';
-    }
+  'ai-chat': (block, index, container, editor, save, db) => {
+container.innerHTML = '<div style="padding:13.2px; font-size:13.7px; color:var(--text-muted); background:#fafafa; border:1px solid rgba(0,0,0,0.05); border-radius:8.4px;">💬 Chat with AI is active. Click the chat button in the top right corner to chat about your notes.</div>';
   },
-
-  getGroqApiKey() {
-    return memoryState.groq_api_key || '';
-  },
-
-  async setGroqApiKey(value) {
-    memoryState.groq_api_key = value;
-    await set('intellinote_groq_api_key', value);
-  },
-
-  getGroqModelName() {
-    return memoryState.groq_model_name || 'qwen/qwen3.6-27b';
-  },
-
-  async setGroqModelName(value) {
-    memoryState.groq_model_name = value;
-    await set('intellinote_groq_model_name', value);
-  },
-
-  getGroqChatModelName() {
-    return memoryState.groq_chat_model_name || 'meta-llama/llama-4-scout-17b-16e-instruct';
-  },
-
-  async setGroqChatModelName(value) {
-    memoryState.groq_chat_model_name = value;
-    await set('intellinote_groq_chat_model_name', value);
-  },
-
-  // Workspaces
-  getWorkspaces() {
-    return memoryState.workspaces || [];
-  },
-
-  getWorkspace(id) {
-    return this.getWorkspaces().find(w => w.id === id);
-  },
-
-  saveWorkspace(workspace) {
-    const workspaces = this.getWorkspaces();
-    const index = workspaces.findIndex(w => w.id === workspace.id);
-    workspace.updatedAt = new Date().toISOString();
-    
-    if (workspace.starred === undefined) workspace.starred = false;
-    
-    if (index >= 0) { workspaces[index] = workspace; } 
-    else { workspaces.push(workspace); }
-    
-    set(WORKSPACES_KEY, workspaces);
-    return workspace;
-  },
-
-  saveWorkspacesOrder(workspacesList) {
-    memoryState.workspaces = workspacesList;
-    set(WORKSPACES_KEY, workspacesList);
-  },
-
-  deleteWorkspace(workspaceId) {
-    memoryState.workspaces = this.getWorkspaces().filter(w => w.id !== workspaceId);
-    set(WORKSPACES_KEY, memoryState.workspaces);
-
-    const chapters = this.getChapters(workspaceId);
-    chapters.forEach(c => this.deleteChapter(c.id));
-  },
-
-  // Chapters
-  getChapters(workspaceId) {
-    const chapters = memoryState.chapters || [];
-    if (workspaceId) {
-      return chapters.filter(c => c.workspaceId === workspaceId);
-    }
-    return chapters;
-  },
-
-  getChapter(id) {
-    return (memoryState.chapters || []).find(c => c.id === id);
-  },
-
-  saveChapter(chapter) {
-    const chapters = memoryState.chapters || [];
-    const index = chapters.findIndex(c => c.id === chapter.id);
-    chapter.updatedAt = new Date().toISOString();
-    
-    if (index >= 0) { chapters[index] = chapter; } 
-    else { chapters.push(chapter); }
-    
-    set(CHAPTERS_KEY, chapters);
-    
-    const workspace = this.getWorkspace(chapter.workspaceId);
-    if (workspace) {
-      this.saveWorkspace(workspace);
-    }
-    return chapter;
-  },
-
-  saveChaptersOrder(chaptersList, workspaceId) {
-    const allChapters = memoryState.chapters || [];
-    const otherChapters = allChapters.filter(c => c.workspaceId !== workspaceId);
-    memoryState.chapters = [...otherChapters, ...chaptersList];
-    set(CHAPTERS_KEY, memoryState.chapters);
-  },
-
-  deleteChapter(id) {
-    const chapters = memoryState.chapters || [];
-    const chapterToDelete = chapters.find(c => c.id === id);
-    if (!chapterToDelete) return;
-
-    memoryState.chapters = chapters.filter(c => c.id !== id);
-    set(CHAPTERS_KEY, memoryState.chapters);
-
-    const trash = memoryState.trash || [];
-    chapterToDelete.deletedAt = new Date().toISOString();
-    trash.push(chapterToDelete);
-    set(TRASH_KEY, trash);
-  },
-
-  // Trash (Recycle Bin)
-  getTrash() {
-    return memoryState.trash || [];
-  },
-
-  restoreChapter(id) {
-    const trash = memoryState.trash || [];
-    const chapterToRestore = trash.find(c => c.id === id);
-    if (!chapterToRestore) return;
-
-    memoryState.trash = trash.filter(c => c.id !== id);
-    set(TRASH_KEY, memoryState.trash);
-
-    delete chapterToRestore.deletedAt;
-    const chapters = memoryState.chapters || [];
-    chapters.push(chapterToRestore);
-    set(CHAPTERS_KEY, chapters);
-    return chapterToRestore;
-  },
-
-  permanentlyDeleteChapter(id) {
-    const trash = memoryState.trash || [];
-    memoryState.trash = trash.filter(c => c.id !== id);
-    set(TRASH_KEY, memoryState.trash);
-  },
-
-  clearTrash() {
-    memoryState.trash = [];
-    set(TRASH_KEY, memoryState.trash);
-  },
-
-  // Plugins Manager Store
-  getPlugins() {
-    return memoryState.plugins || [];
-  },
-
-  savePlugin(plugin) {
-    const plugins = this.getPlugins();
-    const idx = plugins.findIndex(p => p.id === plugin.id);
-    if (idx >= 0) { plugins[idx] = plugin; } 
-    else { plugins.push(plugin); }
-    
-    set(PLUGINS_KEY, plugins);
-    return plugin;
-  },
-
-  deletePlugin(id) {
-    memoryState.plugins = this.getPlugins().filter(p => p.id !== id);
-    set(PLUGINS_KEY, memoryState.plugins);
-  },
-
-  togglePlugin(id) {
-    const plugins = this.getPlugins();
-    const plugin = plugins.find(p => p.id === id);
-    if (plugin) {
-      plugin.enabled = !plugin.enabled;
-      set(PLUGINS_KEY, plugins);
-    }
-    return plugin;
-  },
-
-  // Notifications
-  getNotifications() {
-    return memoryState.notifications || [];
-  },
-  
-  addNotification(notification) {
-    const notifications = this.getNotifications();
-    notification.id = 'n-' + Math.random().toString(36).substr(2, 9);
-    notification.timestamp = Date.now();
-    notification.read = false;
-    notifications.push(notification);
-    memoryState.notifications = notifications;
-    set(NOTIFICATIONS_KEY, notifications);
-    
-    if (typeof window.loopOnNotificationAdded === 'function') {
-      window.loopOnNotificationAdded(notification);
-    }
-  },
-  
-  markAllNotificationsRead() {
-    const notifications = this.getNotifications();
-    notifications.forEach(n => n.read = true);
-    memoryState.notifications = notifications;
-    set(NOTIFICATIONS_KEY, notifications);
-    
-    if (typeof window.loopOnNotificationAdded === 'function') {
-      window.loopOnNotificationAdded();
-    }
-  },
-  
-  clearNotifications() {
-    memoryState.notifications = [];
-    set(NOTIFICATIONS_KEY, []);
-    
-    if (typeof window.loopOnNotificationAdded === 'function') {
-      window.loopOnNotificationAdded();
-    }
-  },
-
-  // Persistent Analytics Manager
-  getAnalytics() {
-    return memoryState.analytics || [];
-  },
-
-  addAnalyticsSession(session) {
-    const analytics = this.getAnalytics();
-    // Ensure unique ID for deletion
-    if (!session.id) {
-      session.id = 'a-' + Math.random().toString(36).substr(2, 9);
-    }
-    analytics.push(session);
-    memoryState.analytics = analytics;
-    set(ANALYTICS_KEY, analytics);
-  },
-
-  deleteAnalyticsSession(id) {
-    memoryState.analytics = this.getAnalytics().filter(s => s.id !== id);
-    set(ANALYTICS_KEY, memoryState.analytics);
-  }
 };

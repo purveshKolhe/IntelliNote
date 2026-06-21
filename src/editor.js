@@ -1,6 +1,8 @@
 // IntelliNote Block-Based Editor Engine
 import { db } from './db.js';
 import { emoji } from './emoji.js';
+import { escapeHTML, sanitizeHTML } from './security.js';
+import { PLUGIN_RENDERERS } from './pluginRenderers.js';
 
 // --- Syntax Highlighter ---
 export function highlightCode(code, lang) {
@@ -220,12 +222,12 @@ function applyInlineFormatting(editable) {
       const decodedFormula = formula.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
       if (window.katex) {
         try {
-          return window.katex.renderToString(decodedFormula, { displayMode: true, throwOnError: false });
+          return window.katex.renderToString(decodedFormula, { displayMode: true, throwOnError: false, trust: false });
         } catch (e) {
-          return `<span class="inline-math-error" title="${e.message}">$$${formula}$$</span>`;
+          return `<span class="inline-math-error" title="${escapeHTML(e.message)}">$$${escapeHTML(formula)}$$</span>`;
         }
       }
-      return `<span class="inline-math">$$${formula}$$</span>`;
+      return `<span class="inline-math">$$${escapeHTML(formula)}$$</span>`;
     });
     changed = true;
   }
@@ -237,12 +239,12 @@ function applyInlineFormatting(editable) {
       const decodedFormula = formula.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
       if (window.katex) {
         try {
-          return window.katex.renderToString(decodedFormula, { displayMode: false, throwOnError: false });
+          return window.katex.renderToString(decodedFormula, { displayMode: false, throwOnError: false, trust: false });
         } catch (e) {
-          return `<span class="inline-math-error" title="${e.message}">$${formula}$</span>`;
+          return `<span class="inline-math-error" title="${escapeHTML(e.message)}">$${escapeHTML(formula)}$</span>`;
         }
       }
-      return `<span class="inline-math">$${formula}$</span>`;
+      return `<span class="inline-math">$${escapeHTML(formula)}$</span>`;
     });
     changed = true;
   }
@@ -528,7 +530,7 @@ export class Editor {
     const editable = document.createElement('div');
     editable.className = `block-editable ${extraClass}`;
     editable.contentEditable = 'true';
-    editable.innerHTML = block.data || '';
+    editable.innerHTML = sanitizeHTML(block.data || '');
     editable.setAttribute('placeholder', this.getPlaceholderForType(block.type));
 
     // Apply math/markdown formatting on initial load
@@ -592,15 +594,24 @@ export class Editor {
           if (items[i].type.indexOf('image') !== -1) {
             e.preventDefault();
             const file = items[i].getAsFile();
-            const reader = new FileReader();
-            reader.onload = (event) => {
+            if (file) {
+              if (!file.type || !file.type.startsWith('image/')) {
+                alert('Please paste a valid image.');
+                return;
+              }
+              if (file.size > 5 * 1024 * 1024) {
+                alert('Pasted image size exceeds the 5MB limit. Please upload a smaller image.');
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = (event) => {
               const newId = 'b-' + Math.random().toString(36).substr(2, 9);
               const newBlock = {
                 id: newId,
                 type: 'image-widget',
                 data: {
                   image: event.target.result,
-                  name: file.name || 'Pasted Image.png',
+                  name: escapeHTML(file.name || 'Pasted Image.png'),
                   size: file.size || 0
                 },
                 indent: block.indent || 0
@@ -611,9 +622,10 @@ export class Editor {
             };
             reader.readAsDataURL(file);
             return;
-          }
         }
       }
+    }
+  }
 
       // Default to plain text paste to prevent unwanted HTML inline styles
       e.preventDefault();
@@ -1095,10 +1107,10 @@ export class Editor {
       row.forEach((cell, colIndex) => {
         const cellEl = document.createElement(rowIndex === 0 ? 'th' : 'td');
         cellEl.contentEditable = 'true';
-        cellEl.innerHTML = cell;
+        cellEl.innerHTML = sanitizeHTML(cell);
         
         cellEl.addEventListener('input', () => {
-          block.data.rows[rowIndex][colIndex] = cellEl.innerHTML;
+          block.data.rows[rowIndex][colIndex] = sanitizeHTML(cellEl.innerHTML);
           this.save();
         });
 
@@ -1156,10 +1168,10 @@ export class Editor {
             throwOnError: false
           });
         } catch (err) {
-          previewArea.innerHTML = `<span class="inline-math-error" style="color:#ef4444; font-size:14.7px;">${err.message}</span>`;
+          previewArea.innerHTML = `<span class="inline-math-error" style="color:#ef4444; font-size:14.7px;">${escapeHTML(err.message)}</span>`;
         }
       } else {
-        previewArea.innerHTML = `<div style="font-family:var(--font-mono); font-size:15.7px; text-align:center; padding:10.5px; border:1px dashed var(--border-color); border-radius:6.3px; background:#f8fafc;">${latex}</div>`;
+        previewArea.innerHTML = `<div style="font-family:var(--font-mono); font-size:15.7px; text-align:center; padding:10.5px; border:1px dashed var(--border-color); border-radius:6.3px; background:#f8fafc;">${escapeHTML(latex)}</div>`;
       }
     };
 
@@ -1301,9 +1313,12 @@ export class Editor {
     }
 
     try {
-      // Execute the custom javascript logic of the plugin dynamically
-      const renderFn = new Function('block', 'index', 'container', 'editor', 'save', 'db', plugin.renderCode);
-      renderFn(block, index, container, this, () => this.save(), db);
+      const renderer = PLUGIN_RENDERERS[block.type];
+      if (renderer) {
+        renderer(block, index, container, this, () => this.save(), db);
+      } else {
+        container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px solid rgba(239,68,68,0.2); border-radius:10.5px; background:#fef2f2; font-size:14.7px; font-weight:500;">Plugin renderer for "${block.type}" not found.</div>`;
+      }
     } catch (e) {
       container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px dashed #ef4444; border-radius:10.5px; background:#fef2f2; font-family:var(--font-mono); font-size:13.7px; white-space:pre-wrap;">Plugin Render Error:\n${e.stack || e.message}</div>`;
     }
@@ -1647,17 +1662,13 @@ export class Editor {
       return;
     }
 
-    const envKey = import.meta.env.VITE_GROQ_API_KEY;
-    const localKey = localStorage.getItem('intellinote_groq_api_key');
-    console.log("[Autocomplete] envKey:", envKey ? "Present" : "Missing", "localKey:", localKey ? "Present" : "Missing");
-    
-    const apiKey = envKey || localKey;
+    const apiKey = db.getGroqApiKey();
     if (!apiKey) {
       console.warn("[Autocomplete] Groq API Key is not configured.");
       return;
     }
 
-    const modelName = localStorage.getItem('intellinote_groq_model_name') || 'qwen/qwen3.6-27b';
+    const modelName = db.getGroqModelName();
     console.log("[Autocomplete] Target Model:", modelName);
 
     const cleanText = editable.textContent.replace(/\s+/g, ' ').trim();

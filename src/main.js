@@ -6,9 +6,12 @@ import { db } from './db.js';
 import { emoji } from './emoji.js';
 import { Editor } from './editor.js';
 import { search } from './search.js';
+import { escapeHTML, sanitizeHTML } from './security.js';
 
-// Expose KaTeX globally for editor blocks
+// Expose KaTeX & security helpers globally
 window.katex = katex;
+window.escapeHTML = escapeHTML;
+window.sanitizeHTML = sanitizeHTML;
 
 // Register Service Worker for offline PWA functionality
 if ('serviceWorker' in navigator) {
@@ -67,14 +70,57 @@ const PRESET_IMAGES = [
 ];
 
 function getCoverBackgroundStyle(coverVal) {
-  if (!coverVal) return '';
-  if (coverVal.startsWith('linear-gradient') || coverVal.startsWith('gradient')) {
-    return coverVal;
+  if (!coverVal || typeof coverVal !== 'string') return '';
+  
+  // Clean coverVal to prevent CSS injection by stripping semicolons, curly braces, and HTML tags
+  let cleaned = coverVal.replace(/[;{}]/g, '').replace(/<\/?[^>]+(>|$)/g, '').trim();
+  
+  // Safe patterns:
+  // 1. Check if it's a hex color or simple color name
+  const hexColorRegex = /^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+  const colorNameRegex = /^[a-zA-Z]+$/;
+  if (hexColorRegex.test(cleaned) || colorNameRegex.test(cleaned)) {
+    return cleaned;
   }
-  if (coverVal.startsWith('url(')) {
-    return coverVal;
+
+  // 2. Check if it's a linear-gradient of hex colors and deg/angles
+  if (cleaned.startsWith('linear-gradient') || cleaned.startsWith('gradient')) {
+    if (/^[a-zA-Z0-9\s,\-#%.()]+$/.test(cleaned)) {
+      return cleaned;
+    }
   }
-  return `url('${coverVal}')`;
+
+  // 3. Check if it's a url()
+  let urlVal = cleaned;
+  if (urlVal.startsWith('url(')) {
+    const match = urlVal.match(/^url\((['"]?)(.*?)\1\)$/);
+    if (match) {
+      urlVal = match[2];
+    } else {
+      return '';
+    }
+  }
+
+  // Sanitize the URL value
+  urlVal = urlVal.trim();
+  const lowerUrl = urlVal.toLowerCase();
+  
+  // Block unsafe URI schemes
+  if (lowerUrl.includes('javascript:') || lowerUrl.includes('data:text/html') || lowerUrl.includes('vbscript:') || lowerUrl.includes('file:')) {
+    return '';
+  }
+
+  // Allow only valid web URLs or base64 data image URLs
+  if (urlVal.startsWith('http://') || urlVal.startsWith('https://') || urlVal.startsWith('data:image/') || urlVal.startsWith('./') || urlVal.startsWith('/')) {
+    return `url('${urlVal.replace(/'/g, "\\'")}')`;
+  }
+
+  // If it's a simple string like an image path without url(), treat it as a path/URL
+  if (/^[a-zA-Z0-9\s_.\-\/:%?&=~+@#]+$/.test(urlVal)) {
+    return `url('${urlVal}')`;
+  }
+
+  return '';
 }
 
 // Initialize DB structure
@@ -340,7 +386,7 @@ function renderWorkspaceListItemHTML(w) {
         <div class="ws-icon-premium">
           ${PAGE_SVG_HTML(12)}
         </div>
-        <span class="ws-item-name">${w.name}</span>
+        <span class="ws-item-name">${escapeHTML(w.name)}</span>
       </div>
       <div style="display:flex; align-items:center; gap: 4.2px;">
         ${w.starred ? '<span class="star-icon-indicator" style="font-size:11.5px; color:#eab308;">⭐</span>' : ''}
@@ -458,7 +504,7 @@ function renderDashboard() {
             const relativeDate = formatRelativeTime(date);
             return `
               <div class="workspace-card" data-id="${w.id}">
-                <div class="workspace-card-cover" style="background: ${w.cover || 'var(--loop-purple-gradient)'}">
+                <div class="workspace-card-cover" style="background: ${getCoverBackgroundStyle(w.cover) || 'var(--loop-purple-gradient)'}">
                   <div class="ws-card-icon-premium">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -470,7 +516,7 @@ function renderDashboard() {
                   </button>
                 </div>
                 <div class="workspace-card-content">
-                  <div class="workspace-card-name">${w.name}</div>
+                  <div class="workspace-card-name">${escapeHTML(w.name)}</div>
                   <div class="workspace-card-date">Updated ${relativeDate}</div>
                 </div>
               </div>
@@ -653,9 +699,9 @@ function renderSecondarySidebarChapters(chapters) {
     <div class="chapter-nav-item ${activeChapterId === c.id ? 'active' : ''}" data-id="${c.id}" draggable="true">
       <div class="chapter-nav-left">
         <span class="chapter-nav-icon-container">
-          ${c.emoji ? `<span class="chapter-nav-emoji">${c.emoji}</span>` : `<span class="chapter-nav-icon">${PAGE_SVG_HTML(14.7)}</span>`}
+          ${c.emoji ? `<span class="chapter-nav-emoji">${escapeHTML(c.emoji)}</span>` : `<span class="chapter-nav-icon">${PAGE_SVG_HTML(14.7)}</span>`}
         </span>
-        <span class="chapter-nav-title">${c.title || 'Untitled Page'}</span>
+        <span class="chapter-nav-title">${escapeHTML(c.title || 'Untitled Page')}</span>
       </div>
       <button class="chapter-nav-delete-btn" data-id="${c.id}" title="Delete Page">×</button>
     </div>
@@ -921,7 +967,7 @@ function renderEditorPane() {
       
       const activeSidebarItem = document.querySelector(`.chapter-nav-item[data-id="${chapter.id}"] .chapter-nav-icon-container`);
       if (activeSidebarItem) {
-        activeSidebarItem.innerHTML = `<span class="chapter-nav-emoji">${selectedEmoji}</span>`;
+        activeSidebarItem.innerHTML = `<span class="chapter-nav-emoji">${escapeHTML(selectedEmoji)}</span>`;
       }
     });
   };
@@ -1126,6 +1172,14 @@ function showCoverPresetDropdown(anchorElement, onSelect) {
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file (JPG, PNG, GIF, WebP).');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size exceeds the 5MB limit. Please upload a smaller image.');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (event) => {
         onSelect(event.target.result);
@@ -1328,9 +1382,9 @@ function showRecycleBinModal() {
           <div class="bin-item" data-id="${c.id}">
             <div class="bin-item-left">
               <span class="bin-item-icon-container">
-                ${c.emoji ? `<span class="bin-item-emoji">${c.emoji}</span>` : `<span class="bin-item-icon">${PAGE_SVG_HTML(14.7)}</span>`}
+                ${c.emoji ? `<span class="bin-item-emoji">${escapeHTML(c.emoji)}</span>` : `<span class="bin-item-icon">${PAGE_SVG_HTML(14.7)}</span>`}
               </span>
-              <span class="bin-item-title">${c.title || 'Untitled Page'}</span>
+              <span class="bin-item-title">${escapeHTML(c.title || 'Untitled Page')}</span>
             </div>
             <div class="bin-actions">
               <button class="bin-action-btn restore" data-id="${c.id}">Restore</button>
@@ -1563,11 +1617,11 @@ function showPluginsModal() {
           <div style="font-size: 13.7px; font-weight: 600; color: var(--primary);">Groq AI Integration Settings</div>
           <div style="display:flex; flex-direction:column; gap:4.2px;">
             <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq API Key</label>
-            <input type="password" id="groq-api-key" placeholder="gsk_..." value="${localStorage.getItem('intellinote_groq_api_key') || ''}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+            <input type="password" id="groq-api-key" placeholder="gsk_..." value="${db.getGroqApiKey()}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
           </div>
           <div style="display:flex; flex-direction:column; gap:4.2px;">
             <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq Model ID</label>
-            <input type="text" id="groq-model-id" placeholder="qwen/qwen3.6-27b" value="${localStorage.getItem('intellinote_groq_model_name') || 'qwen/qwen3.6-27b'}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+            <input type="text" id="groq-model-id" placeholder="qwen/qwen3.6-27b" value="${db.getGroqModelName()}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
           </div>
           <div style="text-align:right;">
             <button id="btn-save-groq-config" style="padding:5.3px 12.6px; font-size:12.6px; font-weight:500; background:var(--primary); color:#ffffff; border:none; border-radius:6.3px; cursor:pointer; font-family:inherit;">Save Settings</button>
@@ -1580,11 +1634,11 @@ function showPluginsModal() {
           <div style="font-size: 13.7px; font-weight: 600; color: var(--primary);">Groq AI Chat Settings</div>
           <div style="display:flex; flex-direction:column; gap:4.2px;">
             <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq API Key</label>
-            <input type="password" id="groq-chat-api-key" placeholder="gsk_..." value="${localStorage.getItem('intellinote_groq_api_key') || ''}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+            <input type="password" id="groq-chat-api-key" placeholder="gsk_..." value="${db.getGroqApiKey()}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
           </div>
           <div style="display:flex; flex-direction:column; gap:4.2px;">
             <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq Model ID</label>
-            <input type="text" id="groq-chat-model-id" placeholder="meta-llama/llama-4-scout-17b-16e-instruct" value="${(localStorage.getItem('intellinote_groq_chat_model_name') && localStorage.getItem('intellinote_groq_chat_model_name') !== 'openai/gpt-oss-120b') ? localStorage.getItem('intellinote_groq_chat_model_name') : 'meta-llama/llama-4-scout-17b-16e-instruct'}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
+            <input type="text" id="groq-chat-model-id" placeholder="meta-llama/llama-4-scout-17b-16e-instruct" value="${db.getGroqChatModelName()}" style="padding:6.3px 10.5px; font-size:13.2px; border:1px solid var(--border-color); border-radius:6.3px; outline:none; font-family:var(--font-mono); width:100%; box-sizing:border-box;" />
           </div>
           <div style="text-align:right;">
             <button id="btn-save-groq-chat-config" style="padding:5.3px 12.6px; font-size:12.6px; font-weight:500; background:var(--primary); color:#ffffff; border:none; border-radius:6.3px; cursor:pointer; font-family:inherit;">Save Settings</button>
@@ -1594,21 +1648,21 @@ function showPluginsModal() {
     `;
 
     if (plugin.id === 'autocomplete') {
-      detailPane.querySelector('#btn-save-groq-config').addEventListener('click', () => {
+      detailPane.querySelector('#btn-save-groq-config').addEventListener('click', async () => {
         const keyVal = detailPane.querySelector('#groq-api-key').value.trim();
         const modelVal = detailPane.querySelector('#groq-model-id').value.trim() || 'qwen/qwen3.6-27b';
-        localStorage.setItem('intellinote_groq_api_key', keyVal);
-        localStorage.setItem('intellinote_groq_model_name', modelVal);
+        await db.setGroqApiKey(keyVal);
+        await db.setGroqModelName(modelVal);
         alert('Groq API configuration saved successfully!');
       });
     }
 
     if (plugin.id === 'ai-chat') {
-      detailPane.querySelector('#btn-save-groq-chat-config').addEventListener('click', () => {
+      detailPane.querySelector('#btn-save-groq-chat-config').addEventListener('click', async () => {
         const keyVal = detailPane.querySelector('#groq-chat-api-key').value.trim();
         const modelVal = detailPane.querySelector('#groq-chat-model-id').value.trim() || 'meta-llama/llama-4-scout-17b-16e-instruct';
-        localStorage.setItem('intellinote_groq_api_key', keyVal);
-        localStorage.setItem('intellinote_groq_chat_model_name', modelVal);
+        await db.setGroqApiKey(keyVal);
+        await db.setGroqChatModelName(modelVal);
         alert('Groq AI Chat configuration saved successfully!');
       });
     }
@@ -1709,17 +1763,26 @@ function exportWorkspace(workspaceId) {
 
 function importPageToWorkspace(workspaceId) {
   triggerJSONUpload((data) => {
-    if (data.type !== 'intellinote-page') {
+    if (!data || typeof data !== 'object' || data.type !== 'intellinote-page') {
       alert('Invalid file format. Please select an IntelliNote Page JSON file.');
       return;
     }
+    
+    const rawBlocks = Array.isArray(data.blocks) ? data.blocks : [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }];
+    const cleanBlocks = rawBlocks.map(b => {
+      if (!b || typeof b !== 'object') {
+        return { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 };
+      }
+      return sanitizeBlock(b);
+    });
+
     const newChapter = {
       id: 'c-' + Math.random().toString(36).substr(2, 9),
       workspaceId: workspaceId,
-      title: data.title || 'Imported Page',
-      emoji: data.emoji || null,
-      cover: data.cover || null,
-      blocks: Array.isArray(data.blocks) ? data.blocks : [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }],
+      title: escapeHTML(String(data.title || 'Imported Page')),
+      emoji: data.emoji ? escapeHTML(String(data.emoji)) : null,
+      cover: data.cover ? String(data.cover).replace(/[;{}]/g, '') : null,
+      blocks: cleanBlocks,
       updatedAt: new Date().toISOString()
     };
     db.saveChapter(newChapter);
@@ -1732,7 +1795,7 @@ function importPageToWorkspace(workspaceId) {
 
 function importWorkspaceGlobal() {
   triggerJSONUpload((data) => {
-    if (data.type !== 'intellinote-workspace') {
+    if (!data || typeof data !== 'object' || data.type !== 'intellinote-workspace') {
       alert('Invalid file format. Please select an IntelliNote Workspace JSON file.');
       return;
     }
@@ -1740,8 +1803,8 @@ function importWorkspaceGlobal() {
     const wsId = 'w-' + Math.random().toString(36).substr(2, 9);
     const newWorkspace = {
       id: wsId,
-      name: data.name || 'Imported Workspace',
-      cover: data.cover || null,
+      name: escapeHTML(String(data.name || 'Imported Workspace')),
+      cover: data.cover ? String(data.cover).replace(/[;{}]/g, '') : null,
       starred: !!data.starred,
       updatedAt: new Date().toISOString()
     };
@@ -1751,15 +1814,26 @@ function importWorkspaceGlobal() {
     let firstChapterId = null;
     if (Array.isArray(data.chapters) && data.chapters.length > 0) {
       data.chapters.forEach((c, idx) => {
+        if (!c || typeof c !== 'object') return;
         const chapterId = 'c-' + Math.random().toString(36).substr(2, 9);
         if (idx === 0) firstChapterId = chapterId;
+        
+        const rawBlocks = Array.isArray(c.blocks) ? c.blocks : [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }];
+        // Sanitize and normalize blocks
+        const cleanBlocks = rawBlocks.map(b => {
+          if (!b || typeof b !== 'object') {
+            return { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 };
+          }
+          return sanitizeBlock(b);
+        });
+
         const newChapter = {
           id: chapterId,
           workspaceId: wsId,
-          title: c.title || 'Untitled Page',
-          emoji: c.emoji || null,
-          cover: c.cover || null,
-          blocks: Array.isArray(c.blocks) ? c.blocks : [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }],
+          title: escapeHTML(String(c.title || 'Untitled Page')),
+          emoji: c.emoji ? escapeHTML(String(c.emoji)) : null,
+          cover: c.cover ? String(c.cover).replace(/[;{}]/g, '') : null,
+          blocks: cleanBlocks,
           updatedAt: new Date().toISOString()
         };
         db.saveChapter(newChapter);
@@ -1798,7 +1872,16 @@ function showDropdownMenu(triggerBtn, items) {
   items.forEach(item => {
     const btn = document.createElement('button');
     btn.className = `loop-dropdown-item ${item.class || ''}`;
-    btn.innerHTML = `${item.icon ? `<span>${item.icon}</span>` : ''} <span>${item.label}</span>`;
+    btn.innerHTML = '';
+    if (item.icon) {
+      const iconSpan = document.createElement('span');
+      iconSpan.textContent = item.icon;
+      btn.appendChild(iconSpan);
+      btn.appendChild(document.createTextNode(' '));
+    }
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = item.label;
+    btn.appendChild(labelSpan);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       item.onClick();
@@ -2020,12 +2103,12 @@ const renderMarkdownAndKatex = (text) => {
     let rendered = '';
     if (window.katex) {
       try {
-        rendered = window.katex.renderToString(decodedFormula, { displayMode: mb.displayMode, throwOnError: false });
+        rendered = window.katex.renderToString(decodedFormula, { displayMode: mb.displayMode, throwOnError: false, trust: false });
       } catch (e) {
-        rendered = mb.displayMode ? `<span class="math-error">$$\n${mb.formula}\n$$</span>` : `<span class="math-error">$${mb.formula}$</span>`;
+        rendered = mb.displayMode ? `<span class="math-error">$$\n${escapeHTML(mb.formula)}\n$$</span>` : `<span class="math-error">$${escapeHTML(mb.formula)}$</span>`;
       }
     } else {
-      rendered = mb.displayMode ? `$$\n${mb.formula}\n$$` : `$${mb.formula}$`;
+      rendered = mb.displayMode ? `$$\n${escapeHTML(mb.formula)}\n$$` : `$${escapeHTML(mb.formula)}$`;
     }
     // Simple global replace
     html = html.split(id).join(rendered);
@@ -2064,7 +2147,7 @@ function renderAiChatMessages() {
   if (messages.length === 0) {
     const greetingDiv = document.createElement('div');
     greetingDiv.className = 'chat-message ai';
-    greetingDiv.innerHTML = `Hello! I am your AI writing assistant. I can help you summarize, explain, expand, or answer questions about your current note: <strong>${(chapter && chapter.title) || 'Untitled Page'}</strong>.`;
+    greetingDiv.innerHTML = `Hello! I am your AI writing assistant. I can help you summarize, explain, expand, or answer questions about your current note: <strong>${escapeHTML((chapter && chapter.title) || 'Untitled Page')}</strong>.`;
     messagesContainer.appendChild(greetingDiv);
   } else {
     messages.forEach(msg => {
@@ -2150,6 +2233,31 @@ const getNoteTextContext = () => {
   return text.trim();
 };
 
+const sanitizeObject = (obj) => {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => {
+      if (typeof item === 'string') return sanitizeHTML(item);
+      if (typeof item === 'object') return sanitizeObject(item);
+      return item;
+    });
+  }
+  const result = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const val = obj[key];
+      if (typeof val === 'string') {
+        result[key] = sanitizeHTML(val);
+      } else if (typeof val === 'object' && val !== null) {
+        result[key] = sanitizeObject(val);
+      } else {
+        result[key] = val;
+      }
+    }
+  }
+  return result;
+};
+
 const sanitizeBlock = (block) => {
   const id = block.id || ('b-' + Math.random().toString(36).substr(2, 9));
   let type = block.type || 'text';
@@ -2203,33 +2311,46 @@ const sanitizeBlock = (block) => {
       data = { latex: '' };
     }
   } else if (type === 'table') {
+    let rows = [['Header 1', 'Header 2'], ['', '']];
     if (Array.isArray(data)) {
-      data = { rows: data };
+      rows = data;
     } else if (data && typeof data === 'object' && Array.isArray(data.rows)) {
-      data = { rows: data.rows };
-    } else {
-      data = { rows: [['Header 1', 'Header 2'], ['', '']] };
+      rows = data.rows;
     }
+    data = {
+      rows: rows.map(row => 
+          Array.isArray(row) ? row.map(cell => sanitizeHTML(String(cell || ''))) : []
+      )
+    };
   } else if (type === 'chat-block') {
-    if (!data || typeof data !== 'object') {
-      data = {
-        chatId: block.chatId || 'chat-' + Math.random().toString(36).substr(2, 9),
-        title: block.title || 'AI Chat Thread',
-        messages: Array.isArray(block.messages) ? block.messages : []
-      };
+    let chatId = 'chat-' + Math.random().toString(36).substr(2, 9);
+    let title = 'AI Chat Thread';
+    let messages = [];
+    if (data && typeof data === 'object') {
+      chatId = data.chatId || chatId;
+      title = data.title || title;
+      messages = Array.isArray(data.messages) ? data.messages : [];
     } else {
-      data = {
-        chatId: data.chatId || 'chat-' + Math.random().toString(36).substr(2, 9),
-        title: data.title || 'AI Chat Thread',
-        messages: Array.isArray(data.messages) ? data.messages : []
-      };
+      chatId = block.chatId || chatId;
+      title = block.title || title;
+      messages = Array.isArray(block.messages) ? block.messages : [];
     }
+    data = {
+      chatId: String(chatId),
+      title: escapeHTML(String(title)),
+      messages: messages.map(msg => ({
+        role: String(msg.role === 'user' ? 'user' : 'ai'),
+        content: sanitizeHTML(String(msg.content || ''))
+      }))
+    };
   } else {
-    // Standard text types
+    // Standard text types or custom plugins/widgets
     if (typeof data === 'string') {
-      data = formatBlockDataInline(data);
+      data = sanitizeHTML(formatBlockDataInline(data));
+    } else if (data && typeof data === 'object') {
+      data = sanitizeObject(data);
     } else {
-      data = data ? JSON.stringify(data) : '';
+      data = '';
     }
   }
   const result = { id, type, data };
@@ -2378,13 +2499,7 @@ function toggleAiChatSidebar() {
     messagesContainer.appendChild(typingIndicator);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-    // API Key config
-    const envKey = import.meta.env.VITE_GROQ_API_KEY;
-    const localKey = localStorage.getItem('intellinote_groq_api_key');
-    console.log("[AI Chat] envKey:", envKey ? "Present" : "Missing", "localKey:", localKey ? "Present" : "Missing");
-    const apiKey = envKey || localKey;
-    console.log("[AI Chat] API Key length:", apiKey ? apiKey.length : 0);
-
+    const apiKey = db.getGroqApiKey();
     if (!apiKey) {
       typingIndicator.remove();
       const errDiv = document.createElement('div');
@@ -2448,7 +2563,7 @@ Always keep the conversation natural, but append the JSON payload with [NOTE_EDI
       requestMessages.push({ role: msg.role === 'ai' ? 'assistant' : msg.role, content: msg.content });
     });
 
-    let modelName = localStorage.getItem('intellinote_groq_chat_model_name');
+    let modelName = db.getGroqChatModelName();
     if (!modelName || modelName === 'openai/gpt-oss-120b') {
       modelName = 'meta-llama/llama-4-scout-17b-16e-instruct';
     }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'intellinote-cache-v2';
+const CACHE_NAME = 'intellinote-cache-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -34,10 +34,18 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   // Exclude AI API endpoints so online checks/requests still hit the network directly
   if (event.request.url.includes('api.groq.com') || event.request.url.includes('api.openai.com')) {
     return;
   }
+
+  const requestUrl = new URL(event.request.url);
+  const isSameOrigin = requestUrl.origin === self.location.origin;
+  const isTrustedCDN = requestUrl.hostname === 'images.unsplash.com' || 
+                       requestUrl.hostname === 'fonts.googleapis.com' || 
+                       requestUrl.hostname === 'fonts.gstatic.com';
 
   // Handle local development asset requests and static files
   event.respondWith(
@@ -45,7 +53,7 @@ self.addEventListener('fetch', (event) => {
       if (cachedResponse) {
         // Fetch in the background to update the cache (stale-while-revalidate)
         fetch(event.request).then((networkResponse) => {
-          if (networkResponse.status === 200) {
+          if (networkResponse.status === 200 && (isSameOrigin || isTrustedCDN)) {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
           }
         }).catch(() => {
@@ -58,6 +66,7 @@ self.addEventListener('fetch', (event) => {
         // Cache dynamic assets if they are valid local requests (exclude dev socket/browser extensions)
         if (
           networkResponse.status === 200 &&
+          (isSameOrigin || isTrustedCDN) &&
           !event.request.url.startsWith('chrome-extension:') &&
           !event.request.url.includes('/@vite/') &&
           !event.request.url.includes('ws://')
