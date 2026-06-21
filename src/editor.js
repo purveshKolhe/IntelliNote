@@ -318,9 +318,50 @@ export class Editor {
       blocksWrapper.appendChild(blockEl);
     });
 
-    this.container.addEventListener('click', (e) => {
+    const scroller = this.container.closest('.editor-scroller') || this.container;
+    scroller.addEventListener('click', (e) => {
+      // Ignore clicks on buttons, inputs, links, context menus or drag handles
+      if (
+        e.target.closest('button') || 
+        e.target.closest('input') || 
+        e.target.closest('a') || 
+        e.target.closest('.loop-slash-menu-popup') || 
+        e.target.closest('.loop-block-left-controls')
+      ) {
+        return;
+      }
+
+      // Restrict triggers to the document paper horizontal width (inside the page margins)
+      const paper = this.container.closest('.editor-document-paper');
+      if (paper) {
+        const paperRect = paper.getBoundingClientRect();
+        if (e.clientX < paperRect.left || e.clientX > paperRect.right) {
+          return;
+        }
+      }
+
+      const lastIdx = this.blocks.length - 1;
+      const lastBlockWrapper = blocksWrapper.lastElementChild;
+      if (lastIdx >= 0 && lastBlockWrapper) {
+        const rect = lastBlockWrapper.getBoundingClientRect();
+        if (e.clientY > rect.bottom) {
+          e.stopPropagation();
+          const lastBlock = this.blocks[lastIdx];
+          const isEmptyText = lastBlock.type === 'text' && typeof lastBlock.data === 'string' && !lastBlock.data.trim();
+          if (isEmptyText) {
+            this.focusBlock(lastIdx);
+          } else {
+            this.insertBlockAfter(lastIdx, lastBlock.type, lastBlock.indent);
+          }
+          return;
+        }
+      }
+
+      // Focus fallback for clicking margins within container
       if (e.target === this.container || e.target === blocksWrapper) {
-        this.focusBlock(this.blocks.length - 1);
+        if (lastIdx >= 0) {
+          this.focusBlock(lastIdx);
+        }
       }
     });
 
