@@ -50,16 +50,16 @@ let activeEditorInstance = null;
 let draggedWorkspaceId = null;
 let draggedChapterId = null;
 
-// Premium Cover Gradient Presets
+// Soothing Cover Gradient Presets
 const COVER_PRESETS = [
-  'linear-gradient(135deg, #a78bfa, #7c3aed)', // Violet Breeze
-  'linear-gradient(135deg, #60a5fa, #2563eb)', // Ocean Splash
-  'linear-gradient(135deg, #34d399, #059669)', // Emerald Glow
-  'linear-gradient(135deg, #f472b6, #ec4899)', // Pink Sunset
-  'linear-gradient(135deg, #fbbf24, #d97706)', // Golden Amber
-  'linear-gradient(135deg, #1e293b, #0f172a)', // Midnight Black
-  'linear-gradient(135deg, #ff7e5f, #feb47b)', // Peach Sunrise
-  'linear-gradient(135deg, #2b5876, #4e4376)'  // Deep Sea
+  'linear-gradient(135deg, #b4a0f4, #8b6cf0)', // Soft Lavender
+  'linear-gradient(135deg, #93b8f7, #5b8def)', // Calm Sky
+  'linear-gradient(135deg, #6dd5b4, #38b089)', // Sage Mint
+  'linear-gradient(135deg, #f0a0c0, #e07098)', // Blush Rose
+  'linear-gradient(135deg, #f5c77e, #e5a44e)', // Warm Honey
+  'linear-gradient(135deg, #2d3348, #1a1e2e)', // Soft Charcoal
+  'linear-gradient(135deg, #f0a08c, #f5c8b0)', // Peach Cream
+  'linear-gradient(135deg, #5a7ea0, #6e5a8e)'  // Twilight Haze
 ];
 
 const PRESET_IMAGES = [
@@ -289,14 +289,14 @@ function renderPrimarySidebarWorkspaces() {
   container.innerHTML = `
     <!-- Favorites Section -->
     ${starredWorkspaces.length > 0 ? `
-      <div class="sidebar-section-title" style="padding-left: 14.7px; margin-top: 14.7px; margin-bottom: 6.3px;">Favorites</div>
+      <div class="sidebar-section-title" style="padding-left: 14px; margin-top: 14px; margin-bottom: 6px;">Favorites</div>
       <div class="favorites-workspaces-list" id="fav-ws-drag-container">
         ${starredWorkspaces.map(w => renderWorkspaceListItemHTML(w)).join('')}
       </div>
     ` : ''}
 
     <!-- Workspaces Section -->
-    <div class="sidebar-section-title" style="padding-left: 14.7px; margin-top: 14.7px; margin-bottom: 6.3px;">Workspaces</div>
+    <div class="sidebar-section-title" style="padding-left: 14px; margin-top: 14px; margin-bottom: 6px;">Workspaces</div>
     <div class="regular-workspaces-list" id="reg-ws-drag-container">
       ${regularWorkspaces.map(w => renderWorkspaceListItemHTML(w)).join('')}
     </div>
@@ -388,8 +388,8 @@ function renderWorkspaceListItemHTML(w) {
         </div>
         <span class="ws-item-name">${escapeHTML(w.name)}</span>
       </div>
-      <div style="display:flex; align-items:center; gap: 4.2px;">
-        ${w.starred ? '<span class="star-icon-indicator" style="font-size:11.5px; color:#eab308;">⭐</span>' : ''}
+      <div style="display:flex; align-items:center; gap: 4px;">
+        ${w.starred ? '<span class="star-icon-indicator" style="font-size:11px; color:#eab308;">⭐</span>' : ''}
         <button class="ws-item-more-btn" title="Actions">•••</button>
       </div>
     </div>
@@ -482,17 +482,17 @@ function renderDashboard() {
       <h2 class="dashboard-greeting">${greetEmoji} ${greeting}</h2>
       <p class="dashboard-subgreeting">Welcome to IntelliNote. Workspaces and chapters are saved locally and securely inside your browser.</p>
       
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 21px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
         <div class="sidebar-section-title" style="padding-left:0; margin-bottom: 0;">Recent Workspaces</div>
-        ${workspaces.length > 0 ? `<button id="btn-dashboard-import-ws-grid" class="create-new-btn" style="margin-bottom:0; padding: 6px 12.6px; font-size:13.7px; border-radius:15.8px; height:auto;">📥 Import Workspace</button>` : ''}
+        ${workspaces.length > 0 ? `<button id="btn-dashboard-import-ws-grid" class="create-new-btn" style="margin-bottom:0; padding: 6px 12px; font-size:13px; border-radius:16px; height:auto;">📥 Import Workspace</button>` : ''}
       </div>
       
       ${workspaces.length === 0 ? `
-        <div class="dashboard-empty-workspaces" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 50.4px; border:2px dashed var(--border-color); border-radius: var(--radius-lg); text-align:center;">
-          <div style="font-size:37.8px; margin-bottom: 12.6px;">📂</div>
-          <div style="font-size: 16.8px; font-weight:600; margin-bottom: 4.2px;">No Workspaces Yet</div>
-          <div style="font-size: 13.7px; color: var(--text-muted); margin-bottom: 21px;">Create your first workspace to start writing documents.</div>
-          <div style="display:flex; gap: 10.5px;">
+        <div class="dashboard-empty-workspaces" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 48px; border:1.5px dashed var(--border-color); border-radius: var(--radius-lg); text-align:center;">
+          <div style="font-size:32px; margin-bottom: 12px;">📂</div>
+          <div style="font-size: 15px; font-weight:600; margin-bottom: 4px;">No Workspaces Yet</div>
+          <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Create your first workspace to start writing documents.</div>
+          <div style="display:flex; gap: 10px;">
             <button id="btn-dashboard-create-ws" class="create-new-btn" style="margin-bottom:0;">+ Create Workspace</button>
             <button id="btn-dashboard-import-ws" class="create-new-btn" style="margin-bottom:0; background: var(--primary-light); color: var(--primary); border-color: var(--primary);">📥 Import Workspace</button>
           </div>
@@ -511,7 +511,7 @@ function renderDashboard() {
                       <polyline points="14 2 14 8 20 8"></polyline>
                     </svg>
                   </div>
-                  <button class="ws-card-star-btn" data-id="${w.id}" title="${w.starred ? 'Starred' : 'Star'}" style="position:absolute; top: 10.5px; right: 10.5px; background: rgba(255,255,255,0.85); border:none; border-radius:50%; width: 29.4px; height: 29.4px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12.6px; color: ${w.starred ? '#eab308' : 'var(--text-light)'};">
+                  <button class="ws-card-star-btn" data-id="${w.id}" title="${w.starred ? 'Starred' : 'Star'}" style="position:absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); backdrop-filter:blur(8px); border:none; border-radius:50%; width: 28px; height: 28px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; color: ${w.starred ? '#eab308' : 'var(--text-light)'}; transition:all 0.2s ease;">
                     ${w.starred ? '★' : '☆'}
                   </button>
                 </div>
@@ -591,12 +591,12 @@ function renderWorkspaceView() {
     <div class="sec-sidebar-header">
       <div class="sec-ws-title-container">
         <div class="sec-ws-details">
-          <div class="ws-icon-premium" style="width:29.4px; height:29.4px; border-radius:7.4px;">
+          <div class="ws-icon-premium" style="width:28px; height:28px; border-radius:8px;">
             ${PAGE_SVG_HTML(14.7)}
           </div>
           <span class="sec-ws-name">${workspace.name}</span>
         </div>
-        <div style="display:flex; align-items:center; gap:4.2px;">
+        <div style="display:flex; align-items:center; gap:4px;">
           <button class="sec-ws-more-btn" id="sec-ws-more-btn" title="Workspace Actions">
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="1.5"></circle>
@@ -691,7 +691,7 @@ function renderSecondarySidebarChapters(chapters) {
   if (!container) return;
 
   if (chapters.length === 0) {
-    container.innerHTML = `<div style="font-size:12.6px; color:var(--text-light); text-align:center; padding: 21px 0;">No pages. Click + to add.</div>`;
+    container.innerHTML = `<div style="font-size:12px; color:var(--text-light); text-align:center; padding: 20px 0;">No pages. Click + to add.</div>`;
     return;
   }
 
@@ -890,7 +890,7 @@ function renderEditorPane() {
         <div id="editor-container"></div>
         
         <!-- Bottom Spacer -->
-        <div style="height: 5vh; width: 100%; flex-shrink: 0; pointer-events: none;"></div>
+        <div style="height: 4vh; width: 100%; flex-shrink: 0; pointer-events: none;"></div>
       </div>
     </div>
   `;
@@ -1343,8 +1343,8 @@ function showConfirmationModal({ title, message, confirmText, confirmClass, onCo
   overlay.style.zIndex = '6000';
   
   overlay.innerHTML = `
-    <div class="loop-search-dialog" style="width: 420px; padding: 21px;">
-      <h3 style="font-size: 17.8px; font-weight: 600; margin-bottom: 12.6px; color: var(--text-main);">${title}</h3>
+    <div class="loop-search-dialog" style="width: 400px; padding: 24px;">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--text-main);">${title}</h3>
       <p style="font-size: 14.7px; line-height: 1.5; color: var(--text-muted); margin-bottom: 25.2px;">${message}</p>
       <div style="display:flex; justify-content:flex-end; gap:12.6px;">
         <button class="confirm-modal-cancel-btn" style="background:transparent; border:1px solid var(--border-color); font-family:inherit; font-size:14.2px; padding:8.4px 16.8px; border-radius:21px; cursor:pointer; color:var(--text-muted); font-weight:500;">Cancel</button>
@@ -1613,7 +1613,7 @@ function showPluginsModal() {
       <p style="font-size: 14.7px; color: var(--text-muted); line-height: 1.5; margin-bottom: 21px; border-bottom: 1px solid var(--border-color); padding-bottom: 12.6px;">${plugin.description}</p>
       
       ${plugin.id === 'autocomplete' ? `
-        <div style="margin-bottom: 16.8px; padding: 14.7px; background: rgba(124, 58, 237, 0.05); border: 1px dashed rgba(124, 58, 237, 0.2); border-radius: 10.5px; display: flex; flex-direction: column; gap: 10.5px;">
+        <div style="margin-bottom: 16.8px; padding: 14.7px; background: rgba(126, 108, 240, 0.05); border: 1px dashed rgba(126, 108, 240, 0.2); border-radius: 10.5px; display: flex; flex-direction: column; gap: 10.5px;">
           <div style="font-size: 13.7px; font-weight: 600; color: var(--primary);">Groq AI Integration Settings</div>
           <div style="display:flex; flex-direction:column; gap:4.2px;">
             <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq API Key</label>
@@ -1630,7 +1630,7 @@ function showPluginsModal() {
       ` : ''}
 
       ${plugin.id === 'ai-chat' ? `
-        <div style="margin-bottom: 16.8px; padding: 14.7px; background: rgba(124, 58, 237, 0.05); border: 1px dashed rgba(124, 58, 237, 0.2); border-radius: 10.5px; display: flex; flex-direction: column; gap: 10.5px;">
+        <div style="margin-bottom: 16.8px; padding: 14.7px; background: rgba(126, 108, 240, 0.05); border: 1px dashed rgba(126, 108, 240, 0.2); border-radius: 10.5px; display: flex; flex-direction: column; gap: 10.5px;">
           <div style="font-size: 13.7px; font-weight: 600; color: var(--primary);">Groq AI Chat Settings</div>
           <div style="display:flex; flex-direction:column; gap:4.2px;">
             <label style="font-size:12.1px; font-weight:500; color:var(--text-main);">Groq API Key</label>
@@ -2386,6 +2386,7 @@ function toggleAiChatSidebar() {
   }
 
   sidebar.innerHTML = `
+    <div class="sidebar-resize-handle" id="chat-sidebar-resize-handle" style="left: -4px; right: auto; width: 8px; z-index: 1000;"></div>
     <div class="chat-header" style="display:flex; align-items:center; gap:8.4px;">
       ${showBackButton ? `
         <button class="chat-back-btn" id="chat-back-to-main" title="Back to Page Chat" style="border:none; background:transparent; font-size:16px; cursor:pointer; padding:0; margin:0; display:flex; align-items:center; justify-content:center; color:var(--text-muted); width:24px; height:24px; border-radius:50%;">←</button>
@@ -2410,6 +2411,10 @@ function toggleAiChatSidebar() {
     </div>
   `;
 
+  // Restore saved width from localStorage if present
+  const savedWidth = localStorage.getItem('intellinote-chat-sidebar-width') || '350px';
+  sidebar.style.width = savedWidth;
+
   sidebar.style.display = 'flex';
 
   const closeBtn = sidebar.querySelector('#chat-close');
@@ -2420,6 +2425,42 @@ function toggleAiChatSidebar() {
   closeBtn.addEventListener('click', () => {
     sidebar.style.display = 'none';
   });
+
+  // Chat sidebar resizing mousedown logic
+  const resizeHandle = sidebar.querySelector('#chat-sidebar-resize-handle');
+  if (resizeHandle) {
+    resizeHandle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      resizeHandle.classList.add('active');
+
+      const startWidth = sidebar.getBoundingClientRect().width;
+      const startX = e.clientX;
+
+      const onMouseMove = (moveEvent) => {
+        let newWidth = startWidth + (startX - moveEvent.clientX);
+        const minW = 250;
+        const maxW = 600;
+        if (newWidth < minW) newWidth = minW;
+        if (newWidth > maxW) newWidth = maxW;
+
+        sidebar.style.width = `${newWidth}px`;
+        localStorage.setItem('intellinote-chat-sidebar-width', `${newWidth}px`);
+      };
+
+      const onMouseUp = () => {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        resizeHandle.classList.remove('active');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  }
 
   if (showBackButton) {
     const backBtn = sidebar.querySelector('#chat-back-to-main');

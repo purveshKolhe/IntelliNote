@@ -518,7 +518,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       -webkit-backdrop-filter: blur(21px);
       border: 1px solid rgba(226, 232, 240, 0.8);
       border-radius: 16.8px;
-      box-shadow: 0 12.6px 31.5px -4.2px rgba(124, 58, 237, 0.12), 0 4.2px 12.6px -2px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 12.6px 31.5px -4.2px rgba(126, 108, 240, 0.12), 0 4.2px 12.6px -2px rgba(0, 0, 0, 0.05);
       z-index: 99999;
       display: flex;
       flex-direction: column;
@@ -529,7 +529,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     
     .loop-pip-header {
       padding: 12.6px 16.8px;
-      background: rgba(124, 58, 237, 0.05);
+      background: rgba(126, 108, 240, 0.05);
       border-bottom: 1px solid rgba(226, 232, 240, 0.6);
       display: flex;
       align-items: center;
@@ -569,7 +569,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     }
     
     .loop-pip-btn:hover {
-      background: rgba(124, 58, 237, 0.1);
+      background: rgba(126, 108, 240, 0.1);
       color: var(--primary);
     }
     
@@ -641,7 +641,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       height: 67.2px;
       border-radius: 50%;
       background: var(--loop-purple-gradient);
-      box-shadow: 0 10.5px 26.2px -5.3px rgba(124, 58, 237, 0.5);
+      box-shadow: 0 10.5px 26.2px -5.3px rgba(126, 108, 240, 0.5);
       border: 2px solid #ffffff;
       justify-content: center;
       align-items: center;
@@ -710,15 +710,15 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     }
     
     .loop-timer-btn:hover {
-      background: rgba(124, 58, 237, 0.05);
+      background: rgba(126, 108, 240, 0.05);
       color: var(--primary);
-      border-color: rgba(124, 58, 237, 0.3);
+      border-color: rgba(126, 108, 240, 0.3);
     }
     
     .loop-timer-btn-primary {
       background: var(--primary-light);
       color: var(--primary);
-      border-color: rgba(124, 58, 237, 0.2);
+      border-color: rgba(126, 108, 240, 0.2);
     }
     
     .loop-timer-btn-primary:hover {
@@ -762,7 +762,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
       gap: 2px;
       position: relative;
       padding-left: 10.5px;
-      border-left: 1.5px solid rgba(124, 58, 237, 0.35);
+      border-left: 1.5px solid rgba(126, 108, 240, 0.35);
     }
     
     /* Analytics Panel Styles */
@@ -792,7 +792,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     
     .loop-analytics-header {
       padding: 14.7px 18.9px;
-      background: rgba(124, 58, 237, 0.06);
+      background: rgba(126, 108, 240, 0.06);
       border-bottom: 1px solid rgba(226, 232, 240, 0.8);
       display: flex;
       align-items: center;
@@ -927,7 +927,7 @@ if (!document.getElementById('loop-timer-pip-styles')) {
     }
     
     .loop-analytics-log-meta span {
-      background: rgba(124, 58, 237, 0.05);
+      background: rgba(126, 108, 240, 0.05);
       color: var(--primary);
       padding: 2px 6.3px;
       border-radius: 4.2px;
@@ -1296,7 +1296,7 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
         headerEl.style.fontWeight = '600';
         headerEl.style.color = 'var(--primary)';
         headerEl.style.marginTop = '10.5px';
-        headerEl.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
+        headerEl.style.borderBottom = '1px solid rgba(126, 108, 240, 0.1)';
         headerEl.style.paddingBottom = '4.2px';
         headerEl.textContent = dStr;
         listContainer.appendChild(headerEl);
@@ -1319,7 +1319,7 @@ window.loopShowAnalyticsDashboard = (defaultWorkspaceId) => {
         headerEl.style.fontWeight = '600';
         headerEl.style.color = 'var(--primary)';
         headerEl.style.marginTop = '10.5px';
-        headerEl.style.borderBottom = '1px solid rgba(124, 58, 237, 0.1)';
+        headerEl.style.borderBottom = '1px solid rgba(126, 108, 240, 0.1)';
         headerEl.style.paddingBottom = '4.2px';
         headerEl.textContent = wsName;
         listContainer.appendChild(headerEl);
@@ -1595,7 +1595,7 @@ window.loopUpdatePipUI = () => {
       if (!task.isRunning) {
         timeDisp.title = 'Click to edit duration (min)';
         timeDisp.addEventListener('mouseenter', () => {
-          timeDisp.style.background = 'rgba(124, 58, 237, 0.08)';
+          timeDisp.style.background = 'rgba(126, 108, 240, 0.08)';
           timeDisp.style.borderRadius = '4.2px';
         });
         timeDisp.addEventListener('mouseleave', () => {
@@ -1967,7 +1967,7 @@ const renderBlockUI = () => {
     if (!task.isRunning) {
       timeSpan.title = 'Click to edit duration (min)';
       timeSpan.addEventListener('mouseenter', () => {
-        timeSpan.style.background = 'rgba(124, 58, 237, 0.08)';
+        timeSpan.style.background = 'rgba(126, 108, 240, 0.08)';
       });
       timeSpan.addEventListener('mouseleave', () => {
         timeSpan.style.background = 'transparent';
@@ -2275,12 +2275,12 @@ toolbar.innerHTML = \`
   <!-- Color Dropdown -->
   <div class="dropdown-container" style="position:relative;">
     <button class="toolbar-drop-btn" id="color-select-btn" style="display:flex; align-items:center; padding:4.2px 8.4px; font-size:12px; border-radius:4.2px; border:1px solid var(--border-color); background:#ffffff; color:var(--text-muted); cursor:pointer; font-family:var(--font-sans); font-weight:500;">
-      <span class="btn-icon" id="color-btn-circle" style="width:12px; height:12px; border-radius:50%; background:#7c3aed; margin-right:4.2px; display:inline-block; border:1px solid rgba(0,0,0,0.1);"></span>
+      <span class="btn-icon" id="color-btn-circle" style="width:12px; height:12px; border-radius:50%; background:#7e6cf0; margin-right:4.2px; display:inline-block; border:1px solid rgba(0,0,0,0.1);"></span>
       <span class="btn-text">Color</span>
       <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-left:4.2px; color:var(--text-light);"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </button>
     <div class="dropdown-menu" id="color-dropdown-menu" style="position:absolute; top:110%; left:0; z-index:1000; display:none; grid-template-columns:repeat(5, 1fr); gap:6.3px; background:#ffffff; border:1px solid var(--border-color); border-radius:6.3px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); padding:8.4px; min-width:145px;">
-      <button class="color-dot active" data-color="#7c3aed" style="width:20px; height:20px; border-radius:50%; border:2px solid var(--primary); background:#7c3aed; cursor:pointer; padding:0; box-sizing:border-box;"></button>
+      <button class="color-dot active" data-color="#7e6cf0" style="width:20px; height:20px; border-radius:50%; border:2px solid var(--primary); background:#7e6cf0; cursor:pointer; padding:0; box-sizing:border-box;"></button>
       <button class="color-dot" data-color="#000000" style="width:20px; height:20px; border-radius:50%; border:1px solid var(--border-color); background:#000000; cursor:pointer; padding:0; box-sizing:border-box;"></button>
       <button class="color-dot" data-color="#ef4444" style="width:20px; height:20px; border-radius:50%; border:1px solid var(--border-color); background:#ef4444; cursor:pointer; padding:0; box-sizing:border-box;"></button>
       <button class="color-dot" data-color="#2563eb" style="width:20px; height:20px; border-radius:50%; border:1px solid var(--border-color); background:#2563eb; cursor:pointer; padding:0; box-sizing:border-box;"></button>
@@ -2322,7 +2322,7 @@ const ctx = canvas.getContext('2d');
 ctx.lineWidth = 3;
 ctx.lineCap = 'round';
 ctx.lineJoin = 'round';
-ctx.strokeStyle = '#7c3aed';
+ctx.strokeStyle = '#7e6cf0';
 
 if (block.data.image) {
   const img = new Image();
@@ -2336,7 +2336,7 @@ let snapshot = null;
 
 let activePen = 'brush'; // brush, fountain, pencil
 let activeShape = 'none'; // none, line, rect, circle
-let currentColor = '#7c3aed';
+let currentColor = '#7e6cf0';
 let currentSize = 3;
 
 // Fountain Pen variables

@@ -9,12 +9,12 @@
   </head>
   <body>
     <!-- App Loading Screen -->
-    <div id="app-loading-screen" style="position: fixed; inset: 0; background: #f5f8fc; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.5s ease, transform 0.5s ease; font-family: 'Outfit', sans-serif;">
+    <div id="app-loading-screen" style="position: fixed; inset: 0; background: #fafbfe; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.5s ease, transform 0.5s ease; font-family: 'Outfit', sans-serif;">
       <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
-        <img class="loader-logo-icon" src="/logo.webp" alt="IntelliNote Logo" style="width: 64px; height: 64px; object-fit: contain; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.4);" />
-        <div style="font-size: 24px; font-weight: 600; color: #1e293b; letter-spacing: -0.5px;">IntelliNote</div>
-        <div style="width: 120px; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; position: relative;">
-          <div style="position: absolute; top: 0; left: -50%; width: 50%; height: 100%; background: #7c3aed; border-radius: 2px; animation: loader-slide 1.5s infinite ease-in-out;"></div>
+        <img class="loader-logo-icon" src="/logo.webp" alt="IntelliNote Logo" style="width: 56px; height: 56px; object-fit: contain; border-radius: 14px; box-shadow: 0 8px 24px -4px rgba(126, 108, 240, 0.2);" />
+        <div style="font-size: 22px; font-weight: 600; color: #2d3348; letter-spacing: -0.4px;">IntelliNote</div>
+        <div style="width: 100px; height: 3px; background: rgba(226, 230, 240, 0.6); border-radius: 2px; overflow: hidden; position: relative;">
+          <div style="position: absolute; top: 0; left: -50%; width: 50%; height: 100%; background: #7e6cf0; border-radius: 2px; animation: loader-slide 1.5s infinite ease-in-out;"></div>
         </div>
       </div>
     </div>
@@ -96,13 +96,13 @@
         <!-- Dynamic active workspace context controls and chapter titles list -->
       </aside>
 
-      <!-- AI Chat Sidebar -->
-      <aside id="sidebar-ai-chat" class="loop-ai-chat-sidebar" style="display: none;"></aside>
-
       <!-- Main Panel (Dashboard workspace grid OR document paper) -->
       <main id="main-pane" class="loop-main-pane">
         <!-- Dynamic contents loaded by main.js routing -->
       </main>
+
+      <!-- AI Chat Sidebar -->
+      <aside id="sidebar-ai-chat" class="loop-ai-chat-sidebar" style="display: none;"></aside>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>
