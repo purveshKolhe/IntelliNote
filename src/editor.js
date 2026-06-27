@@ -610,6 +610,10 @@ export class Editor {
       syncData();
       this.handleMarkdownTransformations(editable, block, index);
 
+      if (this.slashMenu) {
+        this.updateSlashMenuFilter(editable);
+      }
+
       if (this.autocompleteTimeout) {
         clearTimeout(this.autocompleteTimeout);
       }
@@ -1492,45 +1496,39 @@ export class Editor {
     menu.className = 'loop-slash-menu-popup';
 
     const menuItems = [
-      { type: 'text', label: 'Text', desc: 'Plain writing text block', icon: '📝' },
-      { type: 'heading-1', label: 'Heading 1', desc: 'Large title header', icon: 'H1' },
-      { type: 'heading-2', label: 'Heading 2', desc: 'Medium section header', icon: 'H2' },
-      { type: 'heading-3', label: 'Heading 3', desc: 'Small subsection header', icon: 'H3' },
-      { type: 'bullet-list', label: 'Bulleted List', desc: 'Create bullet items list', icon: '•' },
-      { type: 'number-list', label: 'Numbered List', desc: 'Create sequential numbered list', icon: '1.' },
-      { type: 'checklist', label: 'To-do list', desc: 'Track task checkbox list', icon: '☑️' },
-      { type: 'code', label: 'Code Block', desc: 'Write highlighted code blocks', icon: '```' },
-      { type: 'table', label: 'Table', desc: 'Insert data table grids', icon: '📊' },
-      { type: 'equation', label: 'Math Equation', desc: 'Render LaTeX equations', icon: '∫' },
-      { type: 'quote', label: 'Quote', desc: 'Add inline blockquotes', icon: '💬' },
-      { type: 'callout', label: 'Callout', desc: 'Make text stand out box', icon: '💡' },
-      { type: 'chat-block', label: 'AI Chat Thread', desc: 'Insert an AI conversation block', icon: '💬' },
-      { type: 'divider', label: 'Divider', desc: 'Separate sections line', icon: '―' }
+      { type: 'text', label: 'Text', shortcut: '/text', icon: '📝' },
+      { type: 'heading-1', label: 'Heading 1', shortcut: '/h1', icon: 'H1' },
+      { type: 'heading-2', label: 'Heading 2', shortcut: '/h2', icon: 'H2' },
+      { type: 'heading-3', label: 'Heading 3', shortcut: '/h3', icon: 'H3' },
+      { type: 'bullet-list', label: 'Bulleted List', shortcut: '/bullet', icon: '•' },
+      { type: 'number-list', label: 'Numbered List', shortcut: '/number', icon: '1.' },
+      { type: 'checklist', label: 'To-do list', shortcut: '/todo', icon: '☑️' },
+      { type: 'code', label: 'Code Block', shortcut: '/code', icon: '```' },
+      { type: 'table', label: 'Table', shortcut: '/table', icon: '📊' },
+      { type: 'equation', label: 'Math Equation', shortcut: '/math', icon: '∫' },
+      { type: 'quote', label: 'Quote', shortcut: '/quote', icon: '💬' },
+      { type: 'callout', label: 'Callout', shortcut: '/callout', icon: '💡' },
+      { type: 'chat-block', label: 'AI Chat Thread', shortcut: '/chat', icon: '💬' },
+      { type: 'divider', label: 'Divider', shortcut: '/divider', icon: '―' }
     ];
 
-    // Load active plugins dynamically
-    const enabledPlugins = db.getPlugins().filter(p => p.enabled);
+    // Load active plugins dynamically (exclude autocomplete)
+    const enabledPlugins = db.getPlugins().filter(p => p.enabled && p.id !== 'autocomplete');
     enabledPlugins.forEach(p => {
+      let shortcut = `/${p.id.replace('-widget', '').replace('-plugin', '')}`;
       menuItems.push({
         type: p.id,
         label: p.name,
-        desc: p.description,
+        shortcut: shortcut,
         icon: p.icon || '🔌'
       });
     });
 
-    menu.innerHTML = menuItems.map((item, idx) => `
-      <div class="slash-menu-item ${idx === 0 ? 'active' : ''}" data-type="${item.type}">
-        <span class="slash-item-icon">${item.icon}</span>
-        <div class="slash-item-info">
-          <div class="slash-item-label">${item.label}</div>
-          <div class="slash-item-desc">${item.desc}</div>
-        </div>
-      </div>
-    `).join('');
+    this.currentSlashItems = menuItems;
+    this.slashMenu = menu;
+    this.renderSlashMenuItems(menuItems);
 
     document.body.appendChild(menu);
-    this.slashMenu = menu;
 
     const rect = editable.getBoundingClientRect();
     let top = rect.bottom + window.scrollY + 6;
@@ -1552,17 +1550,87 @@ export class Editor {
     });
   }
 
+  renderSlashMenuItems(items) {
+    if (!this.slashMenu) return;
+    if (items.length === 0) {
+      this.slashMenu.innerHTML = '<div style="padding: 8px 12px; color: var(--text-muted); font-size: 13px; text-align: center;">No matching commands</div>';
+      return;
+    }
+    this.slashMenu.innerHTML = items.map((item, idx) => `
+      <div class="slash-menu-item ${idx === 0 ? 'active' : ''}" data-type="${item.type}">
+        <div style="display: flex; align-items: center; gap: 11.5px;">
+          <span class="slash-item-icon">${item.icon}</span>
+          <span class="slash-item-label">${item.label}</span>
+        </div>
+        <span class="slash-item-shortcut">${item.shortcut}</span>
+      </div>
+    `).join('');
+  }
+
+  filterSlashMenuItems(query) {
+    if (!this.slashMenu || !this.currentSlashItems) return;
+    const cleanQuery = query.trim().toLowerCase();
+    
+    if (cleanQuery === '') {
+      this.renderSlashMenuItems(this.currentSlashItems);
+      return;
+    }
+
+    const filtered = this.currentSlashItems.filter(item => {
+      const labelMatch = item.label.toLowerCase().includes(cleanQuery);
+      const shortcutMatch = item.shortcut.replace('/', '').toLowerCase().includes(cleanQuery);
+      const typeMatch = item.type.toLowerCase().includes(cleanQuery);
+      return labelMatch || shortcutMatch || typeMatch;
+    });
+
+    this.renderSlashMenuItems(filtered);
+  }
+
+  updateSlashMenuFilter(editable) {
+    if (!this.slashMenu) return;
+
+    const selection = window.getSelection();
+    if (!selection.rangeCount) {
+      this.closeSlashMenu();
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(editable);
+    preCaretRange.setEnd(range.startContainer, range.startOffset);
+    const textBeforeCaret = preCaretRange.toString();
+
+    const lastSlashIdx = textBeforeCaret.lastIndexOf('/');
+    if (lastSlashIdx === -1) {
+      this.closeSlashMenu();
+      return;
+    }
+
+    const query = textBeforeCaret.slice(lastSlashIdx + 1).toLowerCase();
+    
+    if (query.includes(' ')) {
+      this.closeSlashMenu();
+      return;
+    }
+
+    this.filterSlashMenuItems(query);
+  }
+
   closeSlashMenu() {
     if (this.slashMenu) {
       this.slashMenu.remove();
       this.slashMenu = null;
+      this.currentSlashItems = null;
     }
   }
 
   handleSlashMenuNavigation(e) {
     if (!this.slashMenu) return false;
     const items = this.slashMenu.querySelectorAll('.slash-menu-item');
+    if (items.length === 0) return false;
     let activeIdx = Array.from(items).findIndex(item => item.classList.contains('active'));
+    if (activeIdx === -1) activeIdx = 0;
 
     if (e.key === 'ArrowDown') {
       items[activeIdx].classList.remove('active');
@@ -1595,7 +1663,12 @@ export class Editor {
   }
 
   transformBlock(editable, block, index, newType) {
-    let cleanText = editable.textContent.replace(/\/$/, '');
+    let rawText = editable.textContent;
+    let cleanText = rawText;
+    const lastSlashIdx = rawText.lastIndexOf('/');
+    if (lastSlashIdx !== -1) {
+      cleanText = rawText.substring(0, lastSlashIdx);
+    }
     
     block.type = newType;
     if (newType === 'code') {

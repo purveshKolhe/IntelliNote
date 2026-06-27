@@ -734,8 +734,7 @@ body {
 
 .editor-document-paper {
   width: 100%;
-  max-width: 760px;
-  padding: 0 24px;
+  padding: 0 50px 30px 70px;
   display: flex;
   flex-direction: column;
   margin: 0 auto;
@@ -1331,6 +1330,7 @@ body {
 .slash-menu-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 11.5px;
   padding: 7px 11.5px;
   border-radius: var(--radius-sm);
@@ -1340,6 +1340,32 @@ body {
 
 .slash-menu-item:hover, .slash-menu-item.active {
   background: var(--primary-light-active);
+}
+
+.slash-item-shortcut {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 500;
+  transition: all 0.1s ease;
+}
+
+.slash-menu-item:hover .slash-item-shortcut, .slash-menu-item.active .slash-item-shortcut {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+body.dark-mode .slash-item-shortcut {
+  background: var(--dark-hover);
+  color: var(--text-muted);
+}
+
+body.dark-mode .slash-menu-item:hover .slash-item-shortcut, body.dark-mode .slash-menu-item.active .slash-item-shortcut {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
 }
 
 .slash-item-icon {
