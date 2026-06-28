@@ -1153,13 +1153,108 @@ export const db = {
   async getPomodoroData() {
     return await get('intellinote_pomodoro_data') || {
       timerConfig: { focusDuration: 1500, shortBreakDuration: 300, longBreakDuration: 900, cyclesTarget: 4, autoTransitions: false },
-      dailyTarget: 8,
-      completedTodayCount: 0,
-      lastSessionDate: null,
-      sessions: [], // { id, type, duration, timestamp, completed, focusScore }
-      tasks: [], // { id, name, status: 'pending'/'in_progress'/'completed'/'archived', tags: [], parentId: null, timeSpent: 0 }
-      habits: [], // { id, name, type: 'positive'/'negative', frequency: 'daily'/'weekly'/'monthly', logs: {}, streak: 0, bestStreak: 0 }
-      distractionLogs: [] // { timestamp, reason }
+      dailyTarget: 6,
+      completedTodayCount: 4,
+      lastSessionDate: new Date().toDateString(),
+      sessions: [], // start raw
+      tasks: [
+        {
+          id: 't-1',
+          name: 'Foundation Tokens',
+          status: 'in_progress',
+          parentId: null,
+          tags: ['Design System', 'Urgent'],
+          timeSpent: 15300
+        },
+        {
+          id: 't-1a',
+          name: 'Define Color Palette (Light/Dark)',
+          status: 'completed',
+          parentId: 't-1',
+          tags: [],
+          timeSpent: 9000
+        },
+        {
+          id: 't-1b',
+          name: 'Typography Hierarchy',
+          status: 'in_progress',
+          parentId: 't-1',
+          tags: [],
+          timeSpent: 0,
+          description: 'Map out base sizes, line heights, and weights for desktop and mobile.'
+        },
+        {
+          id: 't-2',
+          name: 'Component Library Audit',
+          status: 'pending',
+          parentId: null,
+          tags: ['Design System'],
+          timeSpent: 0,
+          dueDate: 'Oct 15'
+        },
+        {
+          id: 't-next-1',
+          name: 'Define Typography Tokens',
+          status: 'pending',
+          parentId: null,
+          tags: ['Design System'],
+          timeSpent: 0,
+          description: 'Map out font families and sizes for headers and body text.'
+        },
+        {
+          id: 't-next-2',
+          name: 'Create Color Palette',
+          status: 'pending',
+          parentId: null,
+          tags: ['Design System'],
+          timeSpent: 0,
+          description: 'Establish primary, secondary, and neutral scales.'
+        },
+        {
+          id: 't-next-3',
+          name: 'Draft Component States',
+          status: 'pending',
+          parentId: null,
+          tags: ['Design System'],
+          timeSpent: 0,
+          description: 'Hover, active, and disabled states for buttons.'
+        }
+      ],
+      habits: [
+        {
+          id: 'h-1',
+          name: 'Hydration',
+          type: 'positive',
+          frequency: 'daily',
+          logs: {
+            [new Date().toDateString()]: true,
+            [new Date(Date.now() - 86400000).toDateString()]: true,
+            [new Date(Date.now() - 172800000).toDateString()]: true,
+            [new Date(Date.now() - 259200000).toDateString()]: true
+          },
+          streak: 4,
+          bestStreak: 24
+        },
+        {
+          id: 'h-2',
+          name: 'Read 20 pages',
+          type: 'positive',
+          frequency: 'daily',
+          logs: {},
+          streak: 0,
+          bestStreak: 12
+        },
+        {
+          id: 'h-3',
+          name: 'Stretching',
+          type: 'positive',
+          frequency: 'daily',
+          logs: {},
+          streak: 0,
+          bestStreak: 3
+        }
+      ],
+      distractionLogs: []
     };
   },
   async savePomodoroData(data) {

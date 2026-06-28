@@ -172,10 +172,13 @@ function handleRouting() {
     activeWorkspaceId = null;
     activeChapterId = null;
     renderDashboard();
-  } else if (hash === '#pomodoro') {
+  } else if (hash.startsWith('#pomodoro')) {
     activeWorkspaceId = null;
     activeChapterId = null;
-    renderPomodoroDashboard();
+    const parts = hash.split('/');
+    const tab = parts[1] || 'dashboard';
+    renderPomodoroSecondarySidebar(tab);
+    renderPomodoroDashboard(tab);
     const item = document.getElementById('sub-nav-timer-widget');
     if (item) item.classList.add('active');
   } else if (hash.startsWith('#plugin-view/')) {
@@ -2883,6 +2886,112 @@ async function initPomodoroEngine() {
   if (!window.loopPomodoroTimer.dbData) {
     window.loopPomodoroTimer.dbData = await db.getPomodoroData();
     const d = window.loopPomodoroTimer.dbData;
+    const todayStr = new Date().toDateString();
+
+    // Reset with predefined mock data if completely empty
+    if ((!d.tasks || d.tasks.length === 0) && (!d.habits || d.habits.length === 0)) {
+      d.dailyTarget = 6;
+      d.completedTodayCount = 4;
+      d.lastSessionDate = todayStr;
+      d.tasks = [
+        {
+          id: 't-1',
+          name: 'Foundation Tokens',
+          status: 'in_progress',
+          parentId: null,
+          tags: ['Design System', 'Urgent'],
+          timeSpent: 15300
+        },
+        {
+          id: 't-1a',
+          name: 'Define Color Palette (Light/Dark)',
+          status: 'completed',
+          parentId: 't-1',
+          tags: [],
+          timeSpent: 9000
+        },
+        {
+          id: 't-1b',
+          name: 'Typography Hierarchy',
+          status: 'in_progress',
+          parentId: 't-1',
+          tags: [],
+          timeSpent: 0,
+          description: 'Map out base sizes, line heights, and weights for desktop and mobile.'
+        },
+        {
+          id: 't-2',
+          name: 'Component Library Audit',
+          status: 'pending',
+          parentId: null,
+          tags: ['Design System'],
+          timeSpent: 0,
+          dueDate: 'Oct 15'
+        },
+        {
+          id: 't-next-1',
+          name: 'Define Typography Tokens',
+          status: 'pending',
+          parentId: null,
+          tags: ['Design System'],
+          timeSpent: 0,
+          description: 'Map out font families and sizes for headers and body text.'
+        },
+        {
+          id: 't-next-2',
+          name: 'Create Color Palette',
+          status: 'pending',
+          parentId: null,
+          tags: ['Design System'],
+          timeSpent: 0,
+          description: 'Establish primary, secondary, and neutral scales.'
+        },
+        {
+          id: 't-next-3',
+          name: 'Draft Component States',
+          status: 'pending',
+          parentId: null,
+          tags: ['Design System'],
+          timeSpent: 0,
+          description: 'Hover, active, and disabled states for buttons.'
+        }
+      ];
+      d.habits = [
+        {
+          id: 'h-1',
+          name: 'Hydration',
+          type: 'positive',
+          frequency: 'daily',
+          logs: {
+            [todayStr]: true,
+            [new Date(Date.now() - 86400000).toDateString()]: true,
+            [new Date(Date.now() - 172800000).toDateString()]: true,
+            [new Date(Date.now() - 259200000).toDateString()]: true
+          },
+          streak: 4,
+          bestStreak: 24
+        },
+        {
+          id: 'h-2',
+          name: 'Read 20 pages',
+          type: 'positive',
+          frequency: 'daily',
+          logs: {},
+          streak: 0,
+          bestStreak: 12
+        },
+        {
+          id: 'h-3',
+          name: 'Stretching',
+          type: 'positive',
+          frequency: 'daily',
+          logs: {},
+          streak: 0,
+          bestStreak: 3
+        }
+      ];
+      await db.savePomodoroData(d);
+    }
     
     // Sync configurations
     if (d.timerConfig) {
@@ -2893,7 +3002,6 @@ async function initPomodoroEngine() {
     }
     
     // Check if day changed
-    const todayStr = new Date().toDateString();
     if (d.lastSessionDate !== todayStr) {
       d.completedTodayCount = 0;
       d.lastSessionDate = todayStr;
@@ -3024,673 +3132,888 @@ function updateTimerUIProgress() {
 }
 
 // --- Main Pomodoro Dashboard View Renderer ---
-async function renderPomodoroDashboard() {
+function renderPomodoroSecondarySidebar(activeTab) {
+  const secSidebar = document.getElementById('sidebar-secondary');
+  if (!secSidebar) return;
+  secSidebar.style.display = 'flex';
+
+  secSidebar.innerHTML = `
+    <div class="sec-sidebar-header" style="border-bottom: 1px solid var(--border-color); margin-bottom: 16px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="material-symbols-outlined text-primary" style="font-size:24px; font-variation-settings: 'FILL' 1;">trip_origin</span>
+        <div>
+          <h2 style="font-size:15px; font-weight:700; color:var(--text-main); margin:0; line-height:1.2;">Focus & Flow</h2>
+          <span style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Deep Work Mode</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="sec-sidebar-chapters-list" style="flex:1; padding:0 12px; display:flex; flex-direction:column; gap:4px;">
+      <a class="chapter-nav-item ${activeTab === 'dashboard' ? 'active' : ''}" href="#pomodoro/dashboard" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:13.5px; font-weight:500; text-decoration:none; color:var(--text-muted); transition:all 0.15s;">
+        <span class="material-symbols-outlined" style="font-size:18px; font-variation-settings: 'FILL' ${activeTab === 'dashboard' ? '1' : '0'};">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a class="chapter-nav-item ${activeTab === 'tasks' ? 'active' : ''}" href="#pomodoro/tasks" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:13.5px; font-weight:500; text-decoration:none; color:var(--text-muted); transition:all 0.15s;">
+        <span class="material-symbols-outlined" style="font-size:18px; font-variation-settings: 'FILL' ${activeTab === 'tasks' ? '1' : '0'};">checklist</span>
+        <span>Tasks</span>
+      </a>
+      <a class="chapter-nav-item ${activeTab === 'habits' ? 'active' : ''}" href="#pomodoro/habits" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:13.5px; font-weight:500; text-decoration:none; color:var(--text-muted); transition:all 0.15s;">
+        <span class="material-symbols-outlined" style="font-size:18px; font-variation-settings: 'FILL' ${activeTab === 'habits' ? '1' : '0'};">auto_awesome_motion</span>
+        <span>Habits</span>
+      </a>
+      <a class="chapter-nav-item ${activeTab === 'analytics' ? 'active' : ''}" href="#pomodoro/analytics" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:13.5px; font-weight:500; text-decoration:none; color:var(--text-muted); transition:all 0.15s;">
+        <span class="material-symbols-outlined" style="font-size:18px; font-variation-settings: 'FILL' ${activeTab === 'analytics' ? '1' : '0'};">analytics</span>
+        <span>Analytics</span>
+      </a>
+    </div>
+
+    <!-- Active Timer Panel inside sidebar bottom -->
+    <div style="padding:16px; margin:12px; background:var(--primary-light-active); border-radius:12px; display:flex; flex-direction:column; gap:6px; align-items:center; text-align:center;">
+      <div id="sidebar-pomo-timer" style="font-family:var(--font-mono, monospace); font-size:18px; font-weight:700; color:var(--primary);">25:00</div>
+      <div id="sidebar-pomo-label" style="font-size:10.5px; font-weight:600; text-transform:uppercase; color:var(--primary); letter-spacing:0.5px;">Focusing</div>
+    </div>
+  `;
+}
+
+async function renderPomodoroDashboard(activeTab = 'dashboard') {
   const mainPane = document.getElementById('main-pane');
   const secSidebar = document.getElementById('sidebar-secondary');
-  secSidebar.style.display = 'none'; // Clear secondary sidebar for full page
+  secSidebar.style.display = 'flex';
 
-  // Initialize DB connection
+  // Load and cache
   await initPomodoroEngine();
   const t = window.loopPomodoroTimer;
   const d = t.dbData;
 
-  let activeTab = 'timer';
+  // Reactively update sidebar bottom clock
+  setTimeout(() => updateTimerUIProgress(), 10);
 
-  const renderCurrentTab = () => {
-    const tabContent = document.getElementById('pomo-tab-content-pane');
-    if (!tabContent) return;
+  if (activeTab === 'dashboard') {
+    // TABS 1: MAIN BENTO DASHBOARD
+    const mins = Math.floor(t.secondsLeft / 60);
+    const secs = t.secondsLeft % 60;
+    const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
-    if (activeTab === 'timer') {
-      // 1. TIMER VIEW
-      const mins = Math.floor(t.secondsLeft / 60);
-      const secs = t.secondsLeft % 60;
-      const formatTime = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-      
-      const radius = 120;
-      const circumference = 2 * Math.PI * radius;
-      const fraction = t.secondsLeft / t.totalSeconds;
-      const strokeDashoffset = circumference * (1 - fraction);
+    const radius = 120;
+    const circumference = 2 * Math.PI * radius;
+    const fraction = t.secondsLeft / t.totalSeconds;
+    const strokeDashoffset = circumference * (1 - fraction);
 
-      // Task dropdown options
-      const activeTasks = d.tasks.filter(tk => tk.status !== 'completed' && tk.status !== 'archived');
-      const taskOptionsHTML = `
-        <option value="">-- No Linked Task --</option>
-        ${activeTasks.map(tk => `
-          <option value="${tk.id}" ${t.activeTaskId === tk.id ? 'selected' : ''}>${tk.name}</option>
-        `).join('')}
+    const goalCircumference = 2 * Math.PI * 72;
+    const completedToday = t.completedTodayCount;
+    const dailyTarget = t.dailyTarget;
+    const goalFraction = Math.min(1, completedToday / dailyTarget);
+    const goalStrokeOffset = goalCircumference * (1 - goalFraction);
+
+    // Get next up tasks
+    const activeTasks = d.tasks.filter(tk => tk.status !== 'completed' && tk.status !== 'archived').slice(0, 3);
+    const tasksHTML = activeTasks.length > 0 ? activeTasks.map(tk => `
+      <div class="todo-item" style="border: 1px solid var(--border-color); border-radius:16px; padding:16px; margin-bottom:12px; display:flex; gap:16px; align-items:center; transition: all 0.2s ease; cursor:pointer;" onclick="window.location.hash='#pomodoro/tasks'">
+        <div style="width:20px; height:20px; border-radius:6px; border:2px solid var(--border-color); flex-shrink:0;"></div>
+        <div style="flex:1;">
+          <h4 style="font-size:14px; font-weight:700; margin:0; color:var(--text-main);">${tk.name}</h4>
+          <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0; line-height:1.4;">${tk.description || 'No description provided.'}</p>
+        </div>
+      </div>
+    `).join('') : '<div style="text-align:center; color:var(--text-muted); font-size:13px; padding:20px;">No tasks next up.</div>';
+
+    // Get habits snapshot
+    const activeHabits = d.habits.slice(0, 3);
+    const habitsHTML = activeHabits.length > 0 ? activeHabits.map(hb => {
+      const todayKey = new Date().toDateString();
+      const checked = hb.logs && hb.logs[todayKey];
+      const icon = hb.name.toLowerCase().includes('hydrat') ? 'water_drop' : hb.name.toLowerCase().includes('read') ? 'menu_book' : 'fitness_center';
+      return `
+        <div class="dash-habit-toggle" data-id="${hb.id}" style="border: 1px solid var(--border-color); border-radius:16px; padding:12px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; background:${checked ? 'rgba(92, 72, 204, 0.05)' : 'transparent'}; transition: all 0.2s ease; cursor:pointer;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; border-radius:50%; background:${checked ? '#e5deff' : 'rgba(0,0,0,0.03)'}; display:flex; align-items:center; justify-content:center; color:${checked ? 'var(--primary)' : 'var(--text-muted)'}; opacity:0.8;">
+              <span class="material-symbols-outlined">${icon}</span>
+            </div>
+            <span style="font-size:14px; font-weight:700; color:var(--text-main); ${checked ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${hb.name}</span>
+          </div>
+          <span class="material-symbols-outlined" style="color:${checked ? 'var(--primary)' : 'var(--text-muted)'}; font-variation-settings: 'FILL' ${checked ? '1' : '0'}; font-size:24px;">
+            ${checked ? 'check_circle' : 'circle'}
+          </span>
+        </div>
       `;
+    }).join('') : '<div style="text-align:center; color:var(--text-muted); font-size:13px; padding:20px;">No habits defined yet.</div>';
 
-      tabContent.innerHTML = `
-        <div class="timer-container">
-          <!-- Timer Card -->
-          <div class="timer-card">
-            <div class="timer-circle-wrap">
-              <svg class="timer-svg" viewBox="0 0 260 260">
-                <circle class="timer-circle-bg" cx="130" cy="130" r="120"></circle>
-                <circle class="timer-circle-progress" id="pomo-progress-circle" cx="130" cy="130" r="120" 
+mainPane.innerHTML = `
+      <div class="pomo-canvas">
+        <div style="margin-bottom: 24px;">
+          <h2 style="font-size: 24px; font-weight: 700; margin: 0;">Overview</h2>
+          <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-muted);">Stay focused and maintain your daily growth loops.</p>
+        </div>
+
+        <div class="pomo-bento-grid">
+          <!-- Main Radial Timer Engine (Col 8) -->
+          <div class="pomo-card pomo-card-col-8" style="min-height: 400px; align-items: center; justify-content: center;">
+            <div style="position: absolute; top: 16px; left: 16px; background: var(--primary-light-active); color: var(--primary); padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; display:flex; align-items:center; gap:6px;">
+              <span class="animate-pulse-soft" style="width: 6px; height: 6px; border-radius:50%; background:var(--primary);"></span>
+              Focus Session
+            </div>
+            <div style="position: absolute; top: 16px; right: 16px; background: var(--border-color); opacity: 0.8; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; color: var(--text-main);">
+              Cycle ${t.cycleCount % t.config.cyclesTarget + 1}/${t.config.cyclesTarget}
+            </div>
+
+            <!-- Radial Progress Clock -->
+            <div class="timer-radial-wrap">
+              <svg class="timer-radial-svg" viewBox="0 0 260 260">
+                <circle class="timer-radial-bg" cx="130" cy="130" r="120"></circle>
+                <circle class="timer-radial-progress" id="pomo-progress-circle" cx="130" cy="130" r="120"
                         style="stroke-dasharray: ${circumference}; stroke-dashoffset: ${strokeDashoffset};"></circle>
               </svg>
-              <div style="display:flex; flex-direction:column; align-items:center; z-index: 10;">
-                <div class="timer-text" id="pomo-timer-display">${formatTime}</div>
-                <div class="timer-state-label" id="pomo-state-label">${t.state === 'focus' ? '🎯 Focus' : t.state === 'shortBreak' ? '☕ Short Break' : '🌴 Long Break'}</div>
-              </div>
+              <div class="timer-radial-text" id="pomo-timer-display">${timeStr}</div>
             </div>
 
-            <!-- Controls -->
-            <div class="timer-controls">
-              <button class="control-btn control-btn-secondary" id="pomo-reset-btn" title="Reset Timer">
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+            <!-- Controls row -->
+            <div style="display:flex; align-items:center; gap:16px;">
+              <button class="control-btn control-btn-secondary" id="dash-pomo-tune-btn" title="Engine Settings" style="width:48px; height:48px; border-radius:50%; border:1px solid var(--border-color); background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                <span class="material-symbols-outlined">tune</span>
               </button>
-              <button class="control-btn control-btn-play" id="pomo-play-btn">
-                <span id="pomo-play-icon" style="font-size:24px;">${t.isRunning ? '⏸' : '▶'}</span>
+              <button class="control-btn control-btn-play" id="dash-pomo-play-btn" style="width:56px; height:56px; border-radius:50%; border:none; background:var(--primary); color:#ffffff; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                <span id="dash-pomo-play-icon" style="font-size:22px;">${t.isRunning ? '⏸' : '▶'}</span>
               </button>
-              <button class="control-btn control-btn-secondary" id="pomo-skip-btn" title="Skip Session">
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8.25V18a.75.75 0 001.22.58l9.78-7.75a.75.75 0 000-1.16L4.22 1.92A.75.75 0 003 2.5v5.75M13.5 8.25V18a.75.75 0 001.22.58l9.78-7.75a.75.75 0 000-1.16L14.72 1.92A.75.75 0 0013.5 2.5v5.75"/></svg>
+              <button class="control-btn control-btn-secondary" id="dash-pomo-skip-btn" title="Skip Session" style="width:48px; height:48px; border-radius:50%; border:1px solid var(--border-color); background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                <span class="material-symbols-outlined">skip_next</span>
               </button>
             </div>
-            
-            <!-- Linked Task Selector -->
-            <div style="width:100%; max-width: 320px; margin-top: 32px; display:flex; flex-direction:column; gap:8px;">
-              <label style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--text-muted);">Current Focus Task</label>
-              <select id="pomo-task-select" style="width:100%; padding:10px; border:1px solid var(--border-color); border-radius:8px; background:transparent; font-family:inherit; font-size:14px; color:var(--text-main); cursor:pointer;">
-                ${taskOptionsHTML}
-              </select>
+
+            <!-- Expanding Tune drawer card -->
+            <div id="dash-pomo-tune-drawer" style="display:none; width:100%; max-width:360px; margin-top:20px; border-top:1px solid var(--border-color); padding-top:16px; flex-direction:column; gap:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">🎯 Focus (min)</span>
+                <input type="number" id="dash-cfg-focus" value="${Math.round(t.config.focusDuration / 60)}" style="width:60px; padding:4px; border:1px solid var(--border-color); border-radius:6px; text-align:center; font-family:inherit;" />
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">☕ Break (min)</span>
+                <input type="number" id="dash-cfg-break" value="${Math.round(t.config.shortBreakDuration / 60)}" style="width:60px; padding:4px; border:1px solid var(--border-color); border-radius:6px; text-align:center; font-family:inherit;" />
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">🔁 Cycles Goal</span>
+                <input type="number" id="dash-cfg-cycles" value="${t.config.cyclesTarget}" style="width:60px; padding:4px; border:1px solid var(--border-color); border-radius:6px; text-align:center; font-family:inherit;" />
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">🔊 Audio alerts</span>
+                <input type="checkbox" id="dash-cfg-audio" ${t.audioEnabled ? 'checked' : ''} style="cursor:pointer;" />
+              </div>
             </div>
           </div>
 
-          <!-- Configuration Panel -->
-          <div class="config-card">
-            <h3 style="margin:0 0 4px 0; font-size: 16px; font-weight:600;">Engine Settings</h3>
-            <p style="margin:0 0 16px 0; font-size: 12px; color:var(--text-muted);">Customize target focus session intervals.</p>
+          <!-- Daily Goal Progress Card (Col 4) -->
+          <div class="pomo-card pomo-card-col-4" style="justify-content: space-between;">
+            <div>
+              <h3 style="font-size:16px; font-weight:700; margin:0; color:var(--text-main);">Daily Goal</h3>
+              <p style="font-size:12px; color:var(--text-muted); margin:4px 0 0 0;">Sessions completed today</p>
+            </div>
             
-            <div class="config-row">
-              <span class="config-label">🎯 Focus Duration (min)</span>
-              <input type="number" class="config-input" id="cfg-focus" value="${Math.round(t.config.focusDuration / 60)}" min="1" max="180" />
-            </div>
-            <div class="config-row">
-              <span class="config-label">☕ Short Break (min)</span>
-              <input type="number" class="config-input" id="cfg-short" value="${Math.round(t.config.shortBreakDuration / 60)}" min="1" max="60" />
-            </div>
-            <div class="config-row">
-              <span class="config-label">🌴 Long Break (min)</span>
-              <input type="number" class="config-input" id="cfg-long" value="${Math.round(t.config.longBreakDuration / 60)}" min="1" max="180" />
-            </div>
-            <div class="config-row">
-              <span class="config-label">🔁 Cycles before Long Break</span>
-              <input type="number" class="config-input" id="cfg-cycles" value="${t.config.cyclesTarget}" min="1" max="20" />
-            </div>
-            <div class="config-row">
-              <span class="config-label">📈 Daily Quota (cycles)</span>
-              <input type="number" class="config-input" id="cfg-quota" value="${t.dailyTarget}" min="1" max="50" />
-            </div>
-            <div class="config-row" style="margin-top: 8px; border-top:1px solid var(--border-color); padding-top: 16px;">
-              <span class="config-label">⚡ Auto-Start Breaks & Focus</span>
-              <input type="checkbox" id="cfg-auto-start" ${t.config.autoTransitions ? 'checked' : ''} style="cursor:pointer;" />
-            </div>
-            <div class="config-row">
-              <span class="config-label">🔊 Audio Alerts (Web Audio Synth)</span>
-              <input type="checkbox" id="cfg-audio-enable" ${t.audioEnabled ? 'checked' : ''} style="cursor:pointer;" />
+            <div style="position:relative; width:150px; height:150px; margin:24px auto;">
+              <svg style="transform:rotate(-90deg); width:100%; height:100%;">
+                <circle cx="75" cy="75" r="66" fill="none" stroke="var(--border-color)" stroke-width="10" style="opacity:0.5;"></circle>
+                <circle cx="75" cy="75" r="66" fill="none" stroke="var(--primary)" stroke-width="10" stroke-linecap="round"
+                        style="stroke-dasharray: ${goalCircumference}; stroke-dashoffset: ${goalStrokeOffset}; transition: stroke-dashoffset 0.3s ease;"></circle>
+              </svg>
+              <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                <div style="font-size:26px; font-weight:700; color:var(--text-main);">${completedToday}<span style="font-size:16px; color:var(--text-muted);">/${dailyTarget}</span></div>
+                <div style="font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Sessions</div>
+              </div>
             </div>
 
-            <!-- Target Progress Quota Status -->
-            <div style="margin-top: 16px; background:var(--primary-light-active); padding:16px; border-radius:10px; text-align:center;">
-              <div style="font-size:13px; font-weight:600; color:var(--primary); margin-bottom: 6px;">Daily Goal Tracker</div>
-              <div style="font-size:16px; font-weight:700;">${t.completedTodayCount} / ${t.dailyTarget} Sessions</div>
-              <div style="width:100%; height:6px; background:rgba(0,0,0,0.05); border-radius:3px; overflow:hidden; margin-top:10px;">
-                <div style="width:${Math.min(100, (t.completedTodayCount / t.dailyTarget) * 100)}%; height:100%; background:var(--primary); border-radius:3px; transition:width 0.3s ease;"></div>
-              </div>
+            <div style="background:var(--primary-light-active); color:var(--primary); font-size:12.5px; font-weight:600; text-align:center; padding:8px; border-radius:24px;">
+              You're doing great today!
+            </div>
+          </div>
+
+          <!-- Next Up Tasks snapshot (Col 6) -->
+          <div class="pomo-card pomo-card-col-6">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+              <h3 style="font-size:16px; font-weight:700; margin:0;">Next Up</h3>
+              <a href="#pomodoro/tasks" style="font-size:12px; color:var(--primary); text-decoration:none; font-weight:600;">View All</a>
+            </div>
+            <div style="flex:1;">
+              ${tasksHTML}
+            </div>
+          </div>
+
+          <!-- Habits snapshot (Col 6) -->
+          <div class="pomo-card pomo-card-col-6">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+              <h3 style="font-size:16px; font-weight:700; margin:0;">Habits Today</h3>
+              <a href="#pomodoro/habits" style="font-size:12px; color:var(--primary); text-decoration:none; font-weight:600;">View All</a>
+            </div>
+            <div style="flex:1;">
+              ${habitsHTML}
             </div>
           </div>
         </div>
-      `;
+      </div>
+    `;
 
-      // Setup Listeners
-      const playBtn = document.getElementById('pomo-play-btn');
-      playBtn.addEventListener('click', () => {
-        t.isRunning = !t.isRunning;
-        if (t.isRunning) {
-          playPomoChime('start');
-          if (t.state === 'focus' && t.secondsLeft === t.totalSeconds) {
-            t.startedTodayCount++;
-          }
-          startBackgroundPomoTicker();
+    // Event listeners
+    const playBtn = document.getElementById('dash-pomo-play-btn');
+    playBtn.addEventListener('click', () => {
+      t.isRunning = !t.isRunning;
+      if (t.isRunning) {
+        playPomoChime('start');
+        if (t.state === 'focus' && t.secondsLeft === t.totalSeconds) {
+          t.startedTodayCount++;
         }
-        playBtn.querySelector('#pomo-play-icon').textContent = t.isRunning ? '⏸' : '▶';
-      });
-
-      document.getElementById('pomo-reset-btn').addEventListener('click', () => {
-        t.isRunning = false;
-        if (t.state === 'focus') {
-          t.secondsLeft = t.config.focusDuration;
-          t.totalSeconds = t.config.focusDuration;
-        } else if (t.state === 'shortBreak') {
-          t.secondsLeft = t.config.shortBreakDuration;
-          t.totalSeconds = t.config.shortBreakDuration;
-        } else {
-          t.secondsLeft = t.config.longBreakDuration;
-          t.totalSeconds = t.config.longBreakDuration;
-        }
-        playBtn.querySelector('#pomo-play-icon').textContent = '▶';
-        updateTimerUIProgress();
-      });
-
-      document.getElementById('pomo-skip-btn').addEventListener('click', () => {
-        t.isRunning = false;
-        t.secondsLeft = 0;
-        playBtn.querySelector('#pomo-play-icon').textContent = '▶';
-        t.isRunning = true;
         startBackgroundPomoTicker();
-      });
+      }
+      playBtn.querySelector('#dash-pomo-play-icon').textContent = t.isRunning ? '⏸' : '▶';
+    });
 
-      document.getElementById('pomo-task-select').addEventListener('change', (e) => {
-        t.activeTaskId = e.target.value || null;
-      });
+    document.getElementById('dash-pomo-skip-btn').addEventListener('click', () => {
+      t.isRunning = false;
+      t.secondsLeft = 0;
+      playBtn.querySelector('#dash-pomo-play-icon').textContent = '▶';
+      t.isRunning = true;
+      startBackgroundPomoTicker();
+    });
 
-      const saveConfig = async () => {
-        const focusMin = Math.max(1, parseInt(document.getElementById('cfg-focus').value) || 25);
-        const shortMin = Math.max(1, parseInt(document.getElementById('cfg-short').value) || 5);
-        const longMin = Math.max(1, parseInt(document.getElementById('cfg-long').value) || 15);
-        const cycles = Math.max(1, parseInt(document.getElementById('cfg-cycles').value) || 4);
-        const quota = Math.max(1, parseInt(document.getElementById('cfg-quota').value) || 8);
-        const auto = document.getElementById('cfg-auto-start').checked;
-        const sound = document.getElementById('cfg-audio-enable').checked;
+    // Tune configuration toggle drawer
+    const tuneBtn = document.getElementById('dash-pomo-tune-btn');
+    const tuneDrawer = document.getElementById('dash-pomo-tune-drawer');
+    tuneBtn.addEventListener('click', () => {
+      const isHidden = tuneDrawer.style.display === 'none';
+      tuneDrawer.style.display = isHidden ? 'flex' : 'none';
+    });
 
-        t.config = {
-          focusDuration: focusMin * 60,
-          shortBreakDuration: shortMin * 60,
-          longBreakDuration: longMin * 60,
-          cyclesTarget: cycles,
-          autoTransitions: auto
-        };
-        t.dailyTarget = quota;
-        t.audioEnabled = sound;
-        
-        if (!t.isRunning) {
-          if (t.state === 'focus') {
-            t.secondsLeft = t.config.focusDuration;
-            t.totalSeconds = t.config.focusDuration;
-          } else if (t.state === 'shortBreak') {
-            t.secondsLeft = t.config.shortBreakDuration;
-            t.totalSeconds = t.config.shortBreakDuration;
-          } else {
-            t.secondsLeft = t.config.longBreakDuration;
-            t.totalSeconds = t.config.longBreakDuration;
-          }
-          updateTimerUIProgress();
+    const updateConfig = async () => {
+      const focusMin = Math.max(1, parseInt(document.getElementById('dash-cfg-focus').value) || 25);
+      const breakMin = Math.max(1, parseInt(document.getElementById('dash-cfg-break').value) || 5);
+      const cycles = Math.max(1, parseInt(document.getElementById('dash-cfg-cycles').value) || 4);
+      const audio = document.getElementById('dash-cfg-audio').checked;
+
+      t.config.focusDuration = focusMin * 60;
+      t.config.shortBreakDuration = breakMin * 60;
+      t.config.cyclesTarget = cycles;
+      t.audioEnabled = audio;
+
+      if (!t.isRunning) {
+        t.secondsLeft = t.state === 'focus' ? t.config.focusDuration : t.config.shortBreakDuration;
+        t.totalSeconds = t.state === 'focus' ? t.config.focusDuration : t.config.shortBreakDuration;
+        updateTimerUIProgress();
+      }
+
+      d.timerConfig = t.config;
+      await db.savePomodoroData(d);
+    };
+
+    document.getElementById('dash-cfg-focus').addEventListener('change', updateConfig);
+    document.getElementById('dash-cfg-break').addEventListener('change', updateConfig);
+    document.getElementById('dash-cfg-cycles').addEventListener('change', updateConfig);
+    document.getElementById('dash-cfg-audio').addEventListener('change', updateConfig);
+
+    // Task checkbox toggle
+    mainPane.querySelectorAll('.dash-task-check').forEach(chk => {
+      chk.addEventListener('change', async (e) => {
+        const id = chk.getAttribute('data-id');
+        const tk = d.tasks.find(x => x.id === id);
+        if (tk) {
+          tk.status = e.target.checked ? 'completed' : 'pending';
+          await db.savePomodoroData(d);
+          renderPomodoroDashboard('dashboard');
         }
+      });
+    });
 
-        d.timerConfig = t.config;
-        d.dailyTarget = t.dailyTarget;
-        await db.savePomodoroData(d);
-        renderCurrentTab();
-      };
-
-      document.getElementById('cfg-focus').addEventListener('change', saveConfig);
-      document.getElementById('cfg-short').addEventListener('change', saveConfig);
-      document.getElementById('cfg-long').addEventListener('change', saveConfig);
-      document.getElementById('cfg-cycles').addEventListener('change', saveConfig);
-      document.getElementById('cfg-quota').addEventListener('change', saveConfig);
-      document.getElementById('cfg-auto-start').addEventListener('change', saveConfig);
-      document.getElementById('cfg-audio-enable').addEventListener('change', saveConfig);
-
-    } else if (activeTab === 'tasks') {
-      // 2. HIERARCHICAL TASKS & TO-DOS VIEW
-      
-      const renderTasksList = () => {
-        const listCard = document.getElementById('pomo-tasks-list-card');
-        if (!listCard) return;
-
-        const parentTasks = d.tasks.filter(tk => !tk.parentId && tk.status !== 'archived');
-        
-        if (parentTasks.length === 0) {
-          listCard.innerHTML = `
-            <div style="padding: 32px; text-align:center; color:var(--text-muted); font-size:14px;">
-              No tasks added yet. Create a task above to start organizing.
-            </div>
-          `;
-          return;
+    // Habit toggle checkbox today
+    mainPane.querySelectorAll('.dash-habit-toggle').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const hb = d.habits.find(h => h.id === id);
+        if (hb) {
+          const todayKey = new Date().toDateString();
+          hb.logs = hb.logs || {};
+          hb.logs[todayKey] = !hb.logs[todayKey];
+          await db.savePomodoroData(d);
+          renderPomodoroDashboard('dashboard');
         }
+      });
+    });
 
-        const renderTaskItem = (tk, indent = 0) => {
-          const children = d.tasks.filter(c => c.parentId === tk.id && c.status !== 'archived');
-          const minutesSpent = Math.round((tk.timeSpent || 0) / 60);
+  } else if (activeTab === 'tasks') {
+    // TABS 2: TASK TREE BOARD
+    let selectedTagFilter = 'All';
 
-          return `
-            <div class="todo-item" style="padding-left: ${indent * 24}px; display:flex; flex-direction:column; border-bottom:1px solid var(--border-color); gap: 6px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; width:100%; padding: 8px 0;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                  <input type="checkbox" class="todo-checkbox task-check-btn" data-id="${tk.id}" ${tk.status === 'completed' ? 'checked' : ''} />
-                  <span class="task-title-text" style="font-size:14.5px; font-weight:500; ${tk.status === 'completed' ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${tk.name}</span>
-                  ${tk.tags && tk.tags.length > 0 ? tk.tags.map(tag => `<span style="font-size:10.5px; padding:1px 6px; border-radius:12px; background:var(--primary-light-active); color:var(--primary); font-weight:600;">${tag}</span>`).join('') : ''}
-                  ${minutesSpent > 0 ? `<span style="font-size:11px; color:var(--text-muted); font-family:monospace;">(${minutesSpent}m spent)</span>` : ''}
+    const renderTreeList = () => {
+      const treeContainer = document.getElementById('dash-task-tree-container');
+      if (!treeContainer) return;
+
+      let filteredTasks = d.tasks.filter(tk => tk.status !== 'archived');
+      if (selectedTagFilter !== 'All') {
+        filteredTasks = filteredTasks.filter(tk => tk.tags && tk.tags.includes(selectedTagFilter));
+      }
+
+      const parentTasks = filteredTasks.filter(tk => !tk.parentId);
+      if (parentTasks.length === 0) {
+        treeContainer.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-muted); font-size:13.5px;">No active tasks matching filter.</div>`;
+        return;
+      }
+
+      const renderTreeItem = (tk, isNested = false) => {
+        const children = d.tasks.filter(c => c.parentId === tk.id && c.status !== 'archived');
+        const minutes = Math.round((tk.timeSpent || 0) / 60);
+        const isActive = t.activeTaskId === tk.id;
+
+        return `
+          <div class="task-connector-line ${isNested ? 'task-line' : ''}" style="margin-bottom:12px; position:relative;">
+            <div class="task-tree-node ${isActive ? 'active-focus-node' : ''}" style="${isActive ? 'border-color:var(--primary); background:var(--primary-light-active);' : ''}">
+              <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                <div style="display:flex; align-items:center; gap:12px; flex:1;">
+                  <button class="tree-task-check" data-id="${tk.id}" style="width:20px; height:20px; border-radius:50%; border:2px solid var(--border-color); background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s;">
+                    <span class="material-symbols-outlined" style="font-size:14px; display:none; color:var(--primary);">check</span>
+                  </button>
+                  <span style="font-size:14px; font-weight:600; color:var(--text-main); font-family:'Inter', sans-serif;">${tk.name}</span>
+                  ${tk.tags && tk.tags.length > 0 ? tk.tags.map(tag => `<span style="font-size:10px; padding:1px 6px; border-radius:8px; background:var(--border-color); color:var(--text-muted); font-weight:600;">${tag}</span>`).join('') : ''}
                 </div>
                 
                 <div style="display:flex; align-items:center; gap:8px;">
-                  ${tk.status !== 'completed' ? `
-                    <button class="create-new-btn task-start-timer-btn" data-id="${tk.id}" style="margin-bottom:0; padding:4px 8px; font-size:12px; border-radius:6px; background:var(--primary-light-active); color:var(--primary); border:none; height:auto;">🎯 Start Timer</button>
-                  ` : ''}
-                  <button class="create-new-btn task-add-subtask-btn" data-id="${tk.id}" style="margin-bottom:0; padding:4px 8px; font-size:12px; border-radius:6px; background:transparent; color:var(--text-muted); border:1px solid var(--border-color); height:auto;">＋ Sub-task</button>
-                  <button class="create-new-btn task-delete-btn" data-id="${tk.id}" style="margin-bottom:0; padding:4px 8px; font-size:12px; border-radius:6px; background:transparent; color:#ef4444; border:none; height:auto;">🗑️</button>
+                  ${isActive ? `
+                    <span class="animate-pulse-soft" style="font-size:11px; color:var(--primary); font-weight:600; display:flex; align-items:center; gap:4px;">
+                      <span class="material-symbols-outlined animate-spin-slow" style="font-size:14px;">sync</span> Active Focus
+                    </span>
+                  ` : `
+                    <button class="tree-start-focus-btn" data-id="${tk.id}" style="padding:4px 8px; font-size:11px; font-weight:600; border-radius:6px; background:var(--primary-light-active); color:var(--primary); border:none; cursor:pointer;">Start Timer</button>
+                  `}
+                  <button class="tree-add-child-btn" data-id="${tk.id}" style="padding:4px; background:transparent; border:none; color:var(--text-muted); cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">add</span></button>
+                  <button class="tree-delete-btn" data-id="${tk.id}" style="padding:4px; background:transparent; border:none; color:#ef4444; cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>
                 </div>
               </div>
-              
-              <!-- Indented Children -->
-              ${children.map(child => renderTaskItem(child, indent + 1)).join('')}
-            </div>
-          `;
-        };
 
-        listCard.innerHTML = parentTasks.map(tk => renderTaskItem(tk)).join('');
-
-        listCard.querySelectorAll('.task-check-btn').forEach(btn => {
-          btn.addEventListener('change', async (e) => {
-            const id = btn.getAttribute('data-id');
-            const tk = d.tasks.find(x => x.id === id);
-            if (tk) {
-              tk.status = e.target.checked ? 'completed' : 'pending';
-              await db.savePomodoroData(d);
-              renderTasksList();
-            }
-          });
-        });
-
-        listCard.querySelectorAll('.task-start-timer-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-id');
-            t.activeTaskId = id;
-            activeTab = 'timer';
-            renderCurrentTab();
-            t.isRunning = true;
-            playPomoChime('start');
-            startBackgroundPomoTicker();
-          });
-        });
-
-        listCard.querySelectorAll('.task-add-subtask-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const parentId = btn.getAttribute('data-id');
-            const name = prompt("Enter sub-task name:");
-            if (name && name.trim()) {
-              const newSub = {
-                id: 't-' + Math.random().toString(36).substr(2, 9),
-                name: name.trim(),
-                status: 'pending',
-                parentId: parentId,
-                tags: [],
-                timeSpent: 0
-              };
-              d.tasks.push(newSub);
-              db.savePomodoroData(d).then(() => renderTasksList());
-            }
-          });
-        });
-
-        listCard.querySelectorAll('.task-delete-btn').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-id');
-            d.tasks = d.tasks.filter(tk => tk.id !== id && tk.parentId !== id);
-            if (t.activeTaskId === id) t.activeTaskId = null;
-            await db.savePomodoroData(d);
-            renderTasksList();
-          });
-        });
-      };
-
-      tabContent.innerHTML = `
-        <div class="todo-container">
-          <div class="todo-add-box">
-            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="color:var(--text-muted);"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-            <input type="text" class="todo-input-text" id="pomo-new-task-input" placeholder="Create a new parent task (press Enter or click Add)..." />
-            <input type="text" id="pomo-new-task-tags" placeholder="Tags (comma-separated)" style="width: 160px; padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; font-size: 13px;" />
-            <button class="create-new-btn" id="pomo-add-task-btn" style="margin-bottom:0; padding:6px 16px; font-size: 13.5px;">Add Task</button>
-          </div>
-
-          <div class="todo-list-card" id="pomo-tasks-list-card"></div>
-        </div>
-      `;
-
-      renderTasksList();
-
-      const handleAddTask = async () => {
-        const input = document.getElementById('pomo-new-task-input');
-        const tagsInput = document.getElementById('pomo-new-task-tags');
-        const name = input.value.trim();
-        const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
-
-        if (name) {
-          const newTask = {
-            id: 't-' + Math.random().toString(36).substr(2, 9),
-            name: name,
-            status: 'pending',
-            parentId: null,
-            tags: tags,
-            timeSpent: 0
-          };
-          d.tasks.push(newTask);
-          await db.savePomodoroData(d);
-          input.value = '';
-          tagsInput.value = '';
-          renderTasksList();
-        }
-      };
-
-      document.getElementById('pomo-add-task-btn').addEventListener('click', handleAddTask);
-      document.getElementById('pomo-new-task-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') handleAddTask();
-      });
-
-    } else if (activeTab === 'habits') {
-      // 3. HABIT FORMATION & TRACKING VIEW
-      
-      const renderHabitsList = () => {
-        const habitsContainer = document.getElementById('pomo-habits-container');
-        if (!habitsContainer) return;
-
-        if (d.habits.length === 0) {
-          habitsContainer.innerHTML = `
-            <div style="padding: 40px; text-align: center; color: var(--text-muted); font-size:14px; background:var(--card-bg, #ffffff); border:1px solid var(--border-color); border-radius:12px;">
-              No habits set up. Add your first routine habit above!
-            </div>
-          `;
-          return;
-        }
-
-        const getPast7Days = () => {
-          const arr = [];
-          for (let i = 6; i >= 0; i--) {
-            const dDate = new Date();
-            dDate.setDate(dDate.getDate() - i);
-            arr.push(dDate);
-          }
-          return arr;
-        };
-        const pastDays = getPast7Days();
-
-        habitsContainer.innerHTML = `
-          <div class="habit-grid">
-            ${d.habits.map(habit => {
-              const accentColor = habit.type === 'positive' ? '#10b981' : '#f97316';
-              const labelText = habit.type === 'positive' ? 'Routine Builder' : 'Vice Breaker';
-
-              const totalLogged = Object.keys(habit.logs || {}).filter(k => habit.logs[k]).length;
-              const totalDaysTracked = Math.max(1, Object.keys(habit.logs || {}).length);
-              const consistency = Math.round((totalLogged / totalDaysTracked) * 100);
-
-              return `
-                <div class="habit-card">
-                  <div style="display:flex; flex-direction:column; gap:6px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                      <span style="font-size: 16px; font-weight:700;">${habit.name}</span>
-                      <span style="font-size: 10px; font-weight:600; padding:1px 6px; border-radius:10px; background: ${habit.type === 'positive' ? 'rgba(16,185,129,0.1)' : 'rgba(249,115,22,0.1)'}; color:${accentColor};">${labelText}</span>
-                    </div>
-                    <div style="font-size: 11.5px; color: var(--text-muted); display:flex; gap:12px;">
-                      <span>Streak: <strong>🔥 ${habit.streak || 0} days</strong> (Best: ${habit.bestStreak || 0}d)</span>
-                      <span>Consistency: <strong>${consistency}%</strong></span>
-                    </div>
-                  </div>
-
-                  <div style="display:flex; align-items:center; gap:20px;">
-                    <div class="habit-week-grid">
-                      ${pastDays.map(day => {
-                        const dayKey = day.toDateString();
-                        const checked = habit.logs && habit.logs[dayKey];
-                        const dayLabel = day.toLocaleDateString(undefined, { weekday: 'narrow' });
-                        
-                        return `
-                          <div class="habit-day-check ${checked ? 'checked' : ''}" 
-                               data-habit-id="${habit.id}" data-day-key="${dayKey}"
-                               style="${checked ? `background:${accentColor}; border-color:${accentColor};` : ''}"
-                               title="${day.toLocaleDateString(undefined, { dateStyle: 'medium' })}">
-                            ${dayLabel}
-                          </div>
-                        `;
-                      }).join('')}
-                    </div>
-
-                    <button class="create-new-btn habit-delete-btn" data-id="${habit.id}" style="margin-bottom:0; padding:6px; font-size:12px; background:transparent; color:#ef4444; border:none;">🗑️</button>
-                  </div>
+              ${minutes > 0 ? `
+                <div style="font-size:11px; color:var(--text-muted); padding-left:32px; display:flex; align-items:center; gap:4px;">
+                  <span class="material-symbols-outlined" style="font-size:12px;">timer</span> ${minutes}m spent
                 </div>
-              `;
-            }).join('')}
+              ` : ''}
+            </div>
+
+            <!-- Children Nested -->
+            ${children.length > 0 ? `
+              <div style="padding-left:24px; margin-top:8px;">
+                ${children.map(c => renderTreeItem(c, true)).join('')}
+              </div>
+            ` : ''}
           </div>
         `;
-
-        habitsContainer.querySelectorAll('.habit-day-check').forEach(el => {
-          el.addEventListener('click', async () => {
-            const habitId = el.getAttribute('data-habit-id');
-            const dayKey = el.getAttribute('data-day-key');
-            const habit = d.habits.find(h => h.id === habitId);
-            if (habit) {
-              habit.logs = habit.logs || {};
-              const wasChecked = !!habit.logs[dayKey];
-              habit.logs[dayKey] = !wasChecked;
-
-              let streak = 0;
-              let bestStreak = habit.bestStreak || 0;
-              const checkDate = new Date();
-              
-              while (true) {
-                const checkKey = checkDate.toDateString();
-                if (habit.logs[checkKey]) {
-                  streak++;
-                  checkDate.setDate(checkDate.getDate() - 1);
-                } else {
-                  const todayKey = new Date().toDateString();
-                  if (checkKey === todayKey) {
-                    const yesterday = new Date();
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    if (habit.logs[yesterday.toDateString()]) {
-                      checkDate.setDate(checkDate.getDate() - 1);
-                      continue;
-                    }
-                  }
-                  break;
-                }
-              }
-
-              habit.streak = streak;
-              if (streak > bestStreak) {
-                habit.bestStreak = streak;
-              }
-
-              await db.savePomodoroData(d);
-              renderHabitsList();
-            }
-          });
-        });
-
-        habitsContainer.querySelectorAll('.habit-delete-btn').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-id');
-            d.habits = d.habits.filter(h => h.id !== id);
-            await db.savePomodoroData(d);
-            renderHabitsList();
-          });
-        });
       };
 
-      tabContent.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:24px;">
-          <div class="todo-add-box" style="flex-wrap:wrap;">
-            <input type="text" class="todo-input-text" id="pomo-new-habit-input" placeholder="Add habit routine (e.g., Morning Meditation, Gym Session)..." style="min-width:300px;" />
-            <div style="display:flex; gap:12px; align-items:center;">
-              <select id="pomo-habit-type" style="padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; background:transparent; font-family:inherit; font-size:13px; color:var(--text-main); cursor:pointer;">
-                <option value="positive">🟢 Positive Habit (Build)</option>
-                <option value="negative">🟠 Negative Habit (Quit)</option>
-              </select>
-              <button class="create-new-btn" id="pomo-add-habit-btn" style="margin-bottom:0; padding:6px 16px; font-size: 13.5px;">Track Habit</button>
+      treeContainer.innerHTML = parentTasks.map(tk => renderTreeItem(tk)).join('');
+
+      // Event handlers inside tree
+      treeContainer.querySelectorAll('.tree-task-check').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          const tk = d.tasks.find(x => x.id === id);
+          if (tk) {
+            tk.status = 'completed';
+            await db.savePomodoroData(d);
+            renderTreeList();
+          }
+        });
+      });
+
+      treeContainer.querySelectorAll('.tree-start-focus-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          t.activeTaskId = id;
+          window.location.hash = '#pomodoro/dashboard';
+          // Auto start timer
+          t.isRunning = true;
+          playPomoChime('start');
+          startBackgroundPomoTicker();
+        });
+      });
+
+      treeContainer.querySelectorAll('.tree-add-child-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const parentId = btn.getAttribute('data-id');
+          const name = prompt("Enter sub-task title:");
+          if (name && name.trim()) {
+            const childTask = {
+              id: 't-' + Math.random().toString(36).substr(2, 9),
+              name: name.trim(),
+              status: 'pending',
+              parentId: parentId,
+              tags: [],
+              timeSpent: 0
+            };
+            d.tasks.push(childTask);
+            await db.savePomodoroData(d);
+            renderTreeList();
+          }
+        });
+      });
+
+      treeContainer.querySelectorAll('.tree-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          d.tasks = d.tasks.filter(tk => tk.id !== id && tk.parentId !== id);
+          if (t.activeTaskId === id) t.activeTaskId = null;
+          await db.savePomodoroData(d);
+          renderTreeList();
+        });
+      });
+    };
+
+    // Extract unique tags for sidebar filter
+    const tags = ['All'];
+    d.tasks.forEach(tk => {
+      if (tk.tags) {
+        tk.tags.forEach(tg => {
+          if (!tags.includes(tg)) tags.push(tg);
+        });
+      }
+    });
+
+    const projectNavItemsHTML = tags.map(tg => `
+      <button class="project-filter-btn ${selectedTagFilter === tg ? 'active' : ''}" data-tag="${tg}" style="width:100%; border:none; background:transparent; padding:8px 12px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:500; color:${selectedTagFilter === tg ? 'var(--primary)' : 'var(--text-muted)'}; background:${selectedTagFilter === tg ? 'var(--primary-light-active)' : 'transparent'}; cursor:pointer; text-align:left;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="font-size:16px;">${tg === 'All' ? 'folder_open' : 'folder'}</span>
+          ${tg}
+        </div>
+      </button>
+    `).join('');
+
+    mainPane.innerHTML = `
+      <div class="pomo-canvas" style="display:flex; gap:24px;">
+        <!-- Left Projects Column -->
+        <aside style="width:200px; flex-shrink:0; display:flex; flex-direction:column; gap:16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <h3 style="font-size:14px; font-weight:700; margin:0; color:var(--text-main); text-transform:uppercase;">Projects</h3>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            ${projectNavItemsHTML}
+          </div>
+        </aside>
+
+        <!-- Right tree column -->
+        <div style="flex:1;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="font-size: 20px; font-weight: 700; margin:0;">Tasks Tree Board</h2>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="tree-new-task-name" placeholder="Add parent task..." style="padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px;" />
+              <input type="text" id="tree-new-task-tag" placeholder="Tag" style="width:70px; padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px;" />
+              <button class="create-new-btn" id="tree-add-task-btn" style="margin-bottom:0; padding:6px 12px; font-size:13px;">Add</button>
             </div>
           </div>
 
-          <div id="pomo-habits-container"></div>
+          <div class="task-tree-container" id="dash-task-tree-container">
+            <!-- Dynamic tree contents -->
+          </div>
         </div>
-      `;
+      </div>
+    `;
 
-      renderHabitsList();
+    renderTreeList();
 
-      const handleAddHabit = async () => {
-        const input = document.getElementById('pomo-new-habit-input');
-        const typeSelect = document.getElementById('pomo-habit-type');
-        const name = input.value.trim();
-        const type = typeSelect.value;
+    // Attach sidebar filters events
+    mainPane.querySelectorAll('.project-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedTagFilter = btn.getAttribute('data-tag');
+        // Update active class
+        mainPane.querySelectorAll('.project-filter-btn').forEach(b => {
+          b.style.background = 'transparent';
+          b.style.color = 'var(--text-muted)';
+        });
+        btn.style.background = 'var(--primary-light-active)';
+        btn.style.color = 'var(--primary)';
+        renderTreeList();
+      });
+    });
 
-        if (name) {
-          const newHabit = {
-            id: 'h-' + Math.random().toString(36).substr(2, 9),
-            name: name,
-            type: type,
-            frequency: 'daily',
-            logs: {},
-            streak: 0,
-            bestStreak: 0
-          };
-          d.habits.push(newHabit);
-          await db.savePomodoroData(d);
-          input.value = '';
-          renderHabitsList();
+    const handleAddTreeTask = async () => {
+      const nameInput = document.getElementById('tree-new-task-name');
+      const tagInput = document.getElementById('tree-new-task-tag');
+      const name = nameInput.value.trim();
+      const tag = tagInput.value.trim();
+
+      if (name) {
+        const newTask = {
+          id: 't-' + Math.random().toString(36).substr(2, 9),
+          name: name,
+          status: 'pending',
+          parentId: null,
+          tags: tag ? [tag] : [],
+          timeSpent: 0
+        };
+        d.tasks.push(newTask);
+        await db.savePomodoroData(d);
+        nameInput.value = '';
+        tagInput.value = '';
+        renderTreeList();
+      }
+    };
+
+    document.getElementById('tree-add-task-btn').addEventListener('click', handleAddTreeTask);
+    document.getElementById('tree-new-task-name').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleAddTreeTask();
+    });
+
+  } else if (activeTab === 'habits') {
+    // TABS 3: HABIT FORMATION TRACKER
+    const renderHabitsView = () => {
+      const habitsList = document.getElementById('dash-habits-board-list');
+      if (!habitsList) return;
+
+      if (d.habits.length === 0) {
+        habitsList.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-muted); font-size:13.5px;">No habits added yet. Track your first routine builder above.</div>`;
+        return;
+      }
+
+      const getPast7Days = () => {
+        const arr = [];
+        for (let i = 6; i >= 0; i--) {
+          const dDate = new Date();
+          dDate.setDate(dDate.getDate() - i);
+          arr.push(dDate);
         }
+        return arr;
       };
+      const pastDays = getPast7Days();
 
-      document.getElementById('pomo-add-habit-btn').addEventListener('click', handleAddHabit);
-      document.getElementById('pomo-new-habit-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') handleAddHabit();
-      });
+      habitsList.innerHTML = d.habits.map(hb => {
+        const accentColor = hb.type === 'positive' ? '#10b981' : '#f97316';
+        const labelText = hb.type === 'positive' ? 'Routine Builder' : 'Vice Breaker';
 
-    } else if (activeTab === 'analytics') {
-      // 4. ANALYTICS & PRODUCTIVITY INSIGHTS VIEW
-      
-      const totalSessions = d.sessions || [];
-      const focusSessions = totalSessions.filter(s => s.type === 'focus');
-      const totalFocusHours = ((focusSessions.length * (t.config.focusDuration)) / 3600).toFixed(1);
-      
-      const completedToday = t.completedTodayCount;
-      const startedToday = Math.max(completedToday, t.startedTodayCount);
-      const integrityIndex = startedToday > 0 ? Math.round((completedToday / startedToday) * 100) : 100;
+        const totalLogged = Object.keys(hb.logs || {}).filter(k => hb.logs[k]).length;
+        const totalDaysTracked = Math.max(1, Object.keys(hb.logs || {}).length);
+        const consistency = Math.round((totalLogged / totalDaysTracked) * 100);
 
-      let totalStreaksSum = 0;
-      d.habits.forEach(h => {
-        totalStreaksSum += (h.streak || 0);
-      });
-      const avgStreak = d.habits.length > 0 ? (totalStreaksSum / d.habits.length).toFixed(0) : 0;
-
-      const tagDurations = {};
-      focusSessions.forEach(s => {
-        if (s.taskId) {
-          const task = d.tasks.find(tk => tk.id === s.taskId);
-          if (task && task.tags) {
-            task.tags.forEach(tag => {
-              tagDurations[tag] = (tagDurations[tag] || 0) + (s.duration || 1500);
-            });
-          }
-        } else {
-          tagDurations['unassigned'] = (tagDurations['unassigned'] || 0) + (s.duration || 1500);
-        }
-      });
-
-      const totalDurationSum = Object.values(tagDurations).reduce((a, b) => a + b, 0) || 1;
-      const distributionBarsHTML = Object.keys(tagDurations).map(tag => {
-        const val = tagDurations[tag];
-        const pct = Math.round((val / totalDurationSum) * 100);
-        const hours = (val / 3600).toFixed(1);
         return `
-          <div style="margin-bottom: 12px;">
-            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom: 4px;">
-              <span style="font-weight:600;">#${tag}</span>
-              <span style="color:var(--text-muted);">${hours}h (${pct}%)</span>
+          <div class="pomo-card" style="margin-bottom:16px; flex-direction:row; justify-content:space-between; align-items:center; padding:16px;">
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="material-symbols-outlined" style="color:${accentColor};">${hb.type === 'positive' ? 'self_improvement' : 'smartphone'}</span>
+                <span style="font-size:15px; font-weight:700; color:var(--text-main);">${hb.name}</span>
+                <span style="font-size:9.5px; font-weight:600; padding:1px 6px; border-radius:10px; background:rgba(0,0,0,0.03); color:${accentColor};">${labelText}</span>
+              </div>
+              <div style="font-size:11.5px; color:var(--text-muted); display:flex; gap:12px; margin-top:2px;">
+                <span>Streak: <strong>🔥 ${hb.streak || 0}d</strong></span>
+                <span>Consistency: <strong>${consistency}%</strong></span>
+                <span>Best: <strong>${hb.bestStreak || 0}d</strong></span>
+              </div>
             </div>
-            <div style="width:100%; height:8px; background:rgba(0,0,0,0.05); border-radius:4px; overflow:hidden;">
-              <div style="width:${pct}%; height:100%; background:var(--primary); border-radius:4px;"></div>
+
+            <!-- checkmarks -->
+            <div style="display:flex; align-items:center; gap:16px;">
+              <div class="habit-checkmark-row">
+                ${pastDays.map(day => {
+                  const dayKey = day.toDateString();
+                  const checked = hb.logs && hb.logs[dayKey];
+                  const dayLabel = day.toLocaleDateString(undefined, { weekday: 'narrow' });
+                  return `
+                    <div class="habit-checkmark-bubble ${checked ? 'completed' : ''}" 
+                         data-id="${hb.id}" data-day-key="${dayKey}"
+                         style="${checked ? `background:${accentColor}; border-color:${accentColor}; color:#ffffff;` : ''}"
+                         title="${day.toLocaleDateString()}">
+                      ${dayLabel}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+              <button class="habit-board-delete-btn" data-id="${hb.id}" style="background:transparent; border:none; color:#ef4444; cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>
             </div>
           </div>
         `;
       }).join('');
 
-      const meditationHabit = d.habits.find(h => h.name.toLowerCase().includes('meditat') || h.name.toLowerCase().includes('mindful'));
-      let correlationMessage = "Track a meditation or mindfulness habit to analyze focus session correlation.";
-      if (meditationHabit) {
-        correlationMessage = "⚡ Days with completed morning mindfulness habits show a 35% higher average Focus session count!";
+      // Checkbox event logic
+      habitsList.querySelectorAll('.habit-checkmark-bubble').forEach(el => {
+        el.addEventListener('click', async () => {
+          const habitId = el.getAttribute('data-id');
+          const dayKey = el.getAttribute('data-day-key');
+          const habit = d.habits.find(h => h.id === habitId);
+          if (habit) {
+            habit.logs = habit.logs || {};
+            const wasChecked = !!habit.logs[dayKey];
+            habit.logs[dayKey] = !wasChecked;
+
+            // Recalculate Streak
+            let streak = 0;
+            let bestStreak = habit.bestStreak || 0;
+            const checkDate = new Date();
+            while (true) {
+              const checkKey = checkDate.toDateString();
+              if (habit.logs[checkKey]) {
+                streak++;
+                checkDate.setDate(checkDate.getDate() - 1);
+              } else {
+                const todayKey = new Date().toDateString();
+                if (checkKey === todayKey) {
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  if (habit.logs[yesterday.toDateString()]) {
+                    checkDate.setDate(checkDate.getDate() - 1);
+                    continue;
+                  }
+                }
+                break;
+              }
+            }
+
+            habit.streak = streak;
+            if (streak > bestStreak) {
+              habit.bestStreak = streak;
+            }
+
+            await db.savePomodoroData(d);
+            renderHabitsView();
+            renderHabitGoalRadial();
+          }
+        });
+      });
+
+      // Delete habit
+      habitsList.querySelectorAll('.habit-board-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          d.habits = d.habits.filter(h => h.id !== id);
+          await db.savePomodoroData(d);
+          renderHabitsView();
+          renderHabitGoalRadial();
+        });
+      });
+    };
+
+    const renderHabitGoalRadial = () => {
+      const circleEl = document.getElementById('habits-goal-radial-progress');
+      const textEl = document.getElementById('habits-goal-radial-text');
+      if (!circleEl || !textEl) return;
+
+      const totalHabits = d.habits.length;
+      if (totalHabits === 0) {
+        textEl.textContent = '0/0';
+        circleEl.style.strokeDashoffset = '251.2';
+        return;
       }
 
-      tabContent.innerHTML = `
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span class="stat-lbl">Focus Hours</span>
-            <span class="stat-val">⏱️ ${totalFocusHours}h</span>
+      const todayStr = new Date().toDateString();
+      const completedToday = d.habits.filter(hb => hb.logs && hb.logs[todayStr]).length;
+      textEl.textContent = `${completedToday}/${totalHabits}`;
+
+      const circumference = 2 * Math.PI * 40;
+      const fraction = completedToday / totalHabits;
+      circleEl.style.strokeDashoffset = circumference * (1 - fraction);
+    };
+
+    mainPane.innerHTML = `
+      <div class="pomo-canvas">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+          <div>
+            <h2 style="font-size:24px; font-weight:700; margin:0;">Habits Overview</h2>
+            <p style="margin:4px 0 0 0; font-size:13px; color:var(--text-muted);">Build positive routines and track your daily habits.</p>
           </div>
-          <div class="stat-card">
-            <span class="stat-lbl">Focus Integrity Index</span>
-            <span class="stat-val">🎯 ${integrityIndex}%</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-lbl">Avg Habits Streak</span>
-            <span class="stat-val">🔥 ${avgStreak}d</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-lbl">Target Quota Progress</span>
-            <span class="stat-val">📊 ${completedToday}/${t.dailyTarget}</span>
+          
+          <div style="display:flex; gap:12px; align-items:center;">
+            <input type="text" id="habit-new-name" placeholder="Meditation, workout..." style="padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px;" />
+            <select id="habit-new-type" style="padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; background:transparent; color:var(--text-main);">
+              <option value="positive">🟢 Build</option>
+              <option value="negative">Quit</option>
+            </select>
+            <button class="create-new-btn" id="habit-add-btn" style="margin-bottom:0; padding:6px 16px; font-size:13px;">Add Habit</button>
           </div>
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:32px; align-items:start;">
-          <div class="todo-list-card" style="padding: 24px;">
-            <h3 style="margin: 0 0 16px 0; font-size: 15px; font-weight:600;">Time Distribution (by tags)</h3>
-            ${Object.keys(tagDurations).length === 0 ? `
-              <div style="padding: 24px; text-align:center; font-size:13px; color:var(--text-muted);">Log sessions to see Tag focus distribution.</div>
-            ` : distributionBarsHTML}
+        <div class="pomo-bento-grid">
+          <!-- Left Column (Col 8) -->
+          <div class="pomo-card-col-8" id="dash-habits-board-list"></div>
+
+          <!-- Right Column Progress Ring (Col 4) -->
+          <div class="pomo-card pomo-card-col-4" style="align-items:center; justify-content:center; text-align:center;">
+            <h3 style="font-size:16px; font-weight:700; margin:0 0 16px 0;">Today's Focus</h3>
+            <div style="position:relative; width:140px; height:140px; margin-bottom:16px;">
+              <svg style="transform:rotate(-90deg); width:100%; height:100%;">
+                <circle cx="70" cy="70" r="40" fill="none" stroke="var(--border-color)" stroke-width="8" style="opacity:0.5;"></circle>
+                <circle id="habits-goal-radial-progress" cx="70" cy="70" r="40" fill="none" stroke="var(--primary)" stroke-width="8" stroke-linecap="round"
+                        style="stroke-dasharray: 251.2; stroke-dashoffset: 251.2; transition: stroke-dashoffset 0.3s ease;"></circle>
+              </svg>
+              <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                <div id="habits-goal-radial-text" style="font-size:20px; font-weight:700; color:var(--text-main);">0/0</div>
+                <div style="font-size:9.5px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Completed</div>
+              </div>
+            </div>
+            <p style="font-size:12.5px; color:var(--text-muted); margin:0;">Track all habits daily to maintain consistency loops.</p>
           </div>
-
-          <div class="todo-list-card" style="padding: 24px; display:flex; flex-direction:column; gap:16px;">
-            <h3 style="margin: 0; font-size: 15px; font-weight:600;">Peak Focus curve</h3>
-            <p style="margin:0; font-size:13px; color:var(--text-muted); line-height:1.6;">
-              Based on historical data logs, your peak productivity hours are between <strong>10:00 AM - 12:30 PM</strong>.
-            </p>
-            
-            <h3 style="margin: 8px 0 0 0; font-size: 15px; font-weight:600;">Habits Correlation</h3>
-            <p style="margin:0; font-size:13px; color:var(--primary); font-weight:600; line-height:1.6;">
-              ${correlationMessage}
-            </p>
-
-            <h3 style="margin: 8px 0 0 0; font-size: 15px; font-weight:600;">Focus Durations comparison</h3>
-            <p style="margin:0; font-size:13px; color:var(--text-muted); line-height:1.6;">
-              Your Focus duration this week has increased by <strong>+12%</strong> compared to last week (WoW growth). Keep up the focus!
-            </p>
-          </div>
-        </div>
-      `;
-    }
-  };
-
-  mainPane.innerHTML = `
-    <div class="pomo-dashboard">
-      <div class="pomo-header">
-        <div>
-          <h2 class="pomo-title">🍅 Pomodoro & Habits</h2>
-          <p style="margin: 4px 0 0 0; font-size:13.5px; color: var(--text-muted);">Spacious local-first workspace productivity tracker.</p>
         </div>
       </div>
+    `;
 
-      <div class="pomo-tabs">
-        <button class="pomo-tab-btn active" id="pomo-tab-timer">⏱️ Focus Timer</button>
-        <button class="pomo-tab-btn" id="pomo-tab-tasks">📝 Tasks & Projects</button>
-        <button class="pomo-tab-btn" id="pomo-tab-habits">🔁 Habit Tracker</button>
-        <button class="pomo-tab-btn" id="pomo-tab-analytics">📊 Insights & Analytics</button>
-      </div>
+    renderHabitsView();
+    renderHabitGoalRadial();
 
-      <div id="pomo-tab-content-pane"></div>
-    </div>
-  `;
+    const handleAddHabit = async () => {
+      const nameInput = document.getElementById('habit-new-name');
+      const typeSelect = document.getElementById('habit-new-type');
+      const name = nameInput.value.trim();
+      const type = typeSelect.value;
 
-  renderCurrentTab();
+      if (name) {
+        const newHabit = {
+          id: 'h-' + Math.random().toString(36).substr(2, 9),
+          name: name,
+          type: type,
+          frequency: 'daily',
+          logs: {},
+          streak: 0,
+          bestStreak: 0
+        };
+        d.habits.push(newHabit);
+        await db.savePomodoroData(d);
+        nameInput.value = '';
+        renderHabitsView();
+        renderHabitGoalRadial();
+      }
+    };
 
-  const tabButtons = ['pomo-tab-timer', 'pomo-tab-tasks', 'pomo-tab-habits', 'pomo-tab-analytics'];
-  tabButtons.forEach(btnId => {
-    document.getElementById(btnId).addEventListener('click', (e) => {
-      tabButtons.forEach(id => document.getElementById(id).classList.remove('active'));
-      e.currentTarget.classList.add('active');
-
-      activeTab = btnId.replace('pomo-tab-', '');
-      renderCurrentTab();
+    document.getElementById('habit-add-btn').addEventListener('click', handleAddHabit);
+    document.getElementById('habit-new-name').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleAddHabit();
     });
-  });
-}
 
+  } else if (activeTab === 'analytics') {
+    // TABS 4: ANALYTICS & INSIGHTS
+    const totalSessions = d.sessions || [];
+    const focusSessions = totalSessions.filter(s => s.type === 'focus');
+    const totalFocusHours = ((focusSessions.length * t.config.focusDuration) / 3600).toFixed(1);
+
+    const completedTodayCount = t.completedTodayCount;
+    const startedTodayCount = Math.max(completedTodayCount, t.startedTodayCount);
+    const focusIntegrity = startedTodayCount > 0 ? Math.round((completedTodayCount / startedTodayCount) * 100) : 100;
+
+    // Time distribution donut segments mapping
+    // We will render a beautifully detailed visual layout matching pom.html
+    mainPane.innerHTML = `
+      <div class="pomo-canvas">
+        <div style="margin-bottom:24px;">
+          <h2 style="font-size:24px; font-weight:700; margin:0;">Analytics</h2>
+          <p style="margin:4px 0 0 0; font-size:13px; color:var(--text-muted);">Explore your performance curves and deep work stats.</p>
+        </div>
+
+        <div class="pomo-bento-grid">
+          <!-- Focus Integrity Card -->
+          <div class="pomo-card pomo-card-col-4" style="justify-content:space-between;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h4 style="font-size:11.5px; font-weight:600; text-transform:uppercase; color:var(--text-muted); tracking-wide:1px;">Focus Integrity</h4>
+              <span class="material-symbols-outlined" style="color:var(--primary);">verified</span>
+            </div>
+            <div style="display:flex; align-items:baseline; gap:8px; margin:16px 0;">
+              <span style="font-size:48px; font-weight:500; font-family:var(--font-mono); color:var(--text-main);">${focusIntegrity}%</span>
+              <span style="color:#10b981; font-size:12px; font-weight:600; background:rgba(16,185,129,0.1); padding:2px 8px; border-radius:12px;">+4%</span>
+            </div>
+            <p style="font-size:12.5px; color:var(--text-muted); margin:0;">Your ability to maintain deep work states without interruption is improving.</p>
+          </div>
+
+          <!-- Time Distribution Card -->
+          <div class="pomo-card pomo-card-col-8">
+            <h4 style="font-size:11.5px; font-weight:600; text-transform:uppercase; color:var(--text-muted); tracking-wide:1px; margin:0 0 16px 0;">Time Distribution</h4>
+            <div style="display:flex; align-items:center; justify-content:space-around; gap:16px; flex:1;">
+              <!-- Donut Chart Circle -->
+              <div class="pomo-chart-donut" style="border:16px solid var(--border-color); border-top-color:var(--primary); border-right-color:var(--primary-light-active);">
+                <div style="font-size:20px; font-weight:700;">${totalFocusHours}h</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px; min-width:140px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                  <span style="color:var(--text-main); font-weight:500;">🎯 Deep Work</span>
+                  <strong>65%</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                  <span style="color:var(--text-main); font-weight:500;">📖 Learning</span>
+                  <strong>20%</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                  <span style="color:var(--text-main); font-weight:500;">⚙️ Admin/Other</span>
+                  <strong>15%</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Productivity curve hourly curve line chart -->
+          <div class="pomo-card pomo-card-col-12" style="padding-bottom:16px;">
+            <h4 style="font-size:11.5px; font-weight:600; text-transform:uppercase; color:var(--text-muted); tracking-wide:1px; margin:0 0 16px 0;">Productivity Curve</h4>
+            <div style="position:relative; height:180px; width:100%; display:flex; flex-direction:column;">
+              <div style="flex:1; position:relative; border-bottom:1px solid var(--border-color);">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%;">
+                  <path d="M0,90 Q15,70 30,30 T60,40 T90,20 T100,60 L100,100 L0,100 Z" fill="var(--primary-light-active)" style="opacity:0.25;"></path>
+                  <path d="M0,90 Q15,70 30,30 T60,40 T90,20 T100,60" fill="none" stroke="var(--primary)" stroke-width="2.5" vector-effect="non-scaling-stroke"></path>
+                </svg>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-muted); padding:6px 12px 0 12px;">
+                <span>6 AM</span>
+                <span>9 AM</span>
+                <span>12 PM</span>
+                <span>3 PM</span>
+                <span>6 PM</span>
+                <span>9 PM</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Key Insights Card -->
+          <div class="pomo-card pomo-card-col-4" style="background:var(--primary-light-active); border-color:var(--primary-light-active); justify-content:center;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+              <span class="material-symbols-outlined" style="color:var(--primary);">lightbulb</span>
+              <h3 style="font-size:16px; font-weight:700; color:var(--primary); margin:0;">Key Insight</h3>
+            </div>
+            <p style="font-size:14px; line-height:1.5; color:var(--text-main); margin:0 0 16px 0;">
+              Your productivity peaks on days you complete your <span style="font-weight:700; color:var(--primary);">Morning Meditation</span> habit loop.
+            </p>
+            <a href="#pomodoro/habits" style="display:inline-block; align-self:flex-start; text-decoration:none; background:var(--card-bg); border:1px solid var(--border-color); color:var(--primary); font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:8px;">View Habit Details</a>
+          </div>
+
+          <!-- Week-over-week Growth Bars Chart -->
+          <div class="pomo-card pomo-card-col-8">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+              <h4 style="font-size:11.5px; font-weight:600; text-transform:uppercase; color:var(--text-muted); tracking-wide:1px; margin:0;">Week over Week</h4>
+              <div style="display:flex; gap:12px; font-size:10.5px; color:var(--text-muted);">
+                <div style="display:flex; align-items:center; gap:4px;"><span style="width:8px; height:8px; background:var(--border-color); border-radius:2px;"></span> Last Wk</div>
+                <div style="display:flex; align-items:center; gap:4px;"><span style="width:8px; height:8px; background:var(--primary); border-radius:2px;"></span> This Wk</div>
+              </div>
+            </div>
+
+            <!-- Faux Bar charts rendering -->
+            <div class="pomo-chart-bar-container">
+              <div class="pomo-chart-bar-group">
+                <div class="pomo-chart-bar-wrapper">
+                  <div class="pomo-chart-bar bg-secondary" style="height:40%;"></div>
+                  <div class="pomo-chart-bar bg-primary" style="height:60%;"></div>
+                </div>
+                <span style="font-size:10.5px; color:var(--text-muted);">Mon</span>
+              </div>
+              <div class="pomo-chart-bar-group">
+                <div class="pomo-chart-bar-wrapper">
+                  <div class="pomo-chart-bar bg-secondary" style="height:50%;"></div>
+                  <div class="pomo-chart-bar bg-primary" style="height:80%;"></div>
+                </div>
+                <span style="font-size:10.5px; color:var(--text-muted);">Tue</span>
+              </div>
+              <div class="pomo-chart-bar-group">
+                <div class="pomo-chart-bar-wrapper">
+                  <div class="pomo-chart-bar bg-secondary" style="height:70%;"></div>
+                  <div class="pomo-chart-bar bg-primary" style="height:65%;"></div>
+                </div>
+                <span style="font-size:10.5px; color:var(--text-muted);">Wed</span>
+              </div>
+              <div class="pomo-chart-bar-group">
+                <div class="pomo-chart-bar-wrapper">
+                  <div class="pomo-chart-bar bg-secondary" style="height:30%;"></div>
+                  <div class="pomo-chart-bar bg-primary" style="height:90%;"></div>
+                </div>
+                <span style="font-size:10.5px; color:var(--text-muted);">Thu</span>
+              </div>
+              <div class="pomo-chart-bar-group">
+                <div class="pomo-chart-bar-wrapper">
+                  <div class="pomo-chart-bar bg-secondary" style="height:80%;"></div>
+                  <div class="pomo-chart-bar bg-primary" style="height:50%;"></div>
+                </div>
+                <span style="font-size:10.5px; color:var(--text-muted);">Fri</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}

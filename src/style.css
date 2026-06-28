@@ -3199,4 +3199,228 @@ body.dark-mode .config-input {
   height: 32px;
 }
 
+/* Premium Pomodoro & Habits Layout Design System */
+.pomo-canvas {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: 'Inter', var(--font-sans), sans-serif;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pomo-bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+}
+
+.pomo-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.pomo-card:hover {
+  border-color: var(--primary-light-active);
+  box-shadow: 0 8px 30px -4px rgba(126, 108, 240, 0.05);
+}
+
+.pomo-card-col-8 { grid-column: span 8; }
+.pomo-card-col-4 { grid-column: span 4; }
+.pomo-card-col-6 { grid-column: span 6; }
+.pomo-card-col-12 { grid-column: span 12; }
+
+@media (max-width: 1024px) {
+  .pomo-card-col-8, .pomo-card-col-4, .pomo-card-col-6 {
+    grid-column: span 12;
+  }
+}
+
+/* Timer Display */
+.timer-radial-wrap {
+  position: relative;
+  width: 250px;
+  height: 250px;
+  margin: 20px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timer-radial-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.timer-radial-bg {
+  fill: none;
+  stroke: var(--border-color);
+  stroke-width: 8;
+  opacity: 0.5;
+}
+
+.timer-radial-progress {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.2s linear;
+}
+
+.timer-radial-text {
+  font-size: 54px;
+  font-weight: 500;
+  font-family: var(--font-mono), monospace;
+  color: var(--text-main);
+  letter-spacing: -1px;
+}
+
+/* Task Tree Board */
+.task-tree-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-tree-node {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s ease;
+  position: relative;
+}
+
+.task-tree-node:hover {
+  border-color: var(--primary);
+}
+
+.task-connector-line {
+  position: relative;
+}
+
+.task-connector-line::before {
+  content: '';
+  position: absolute;
+  left: -18px;
+  top: 24px;
+  bottom: -24px;
+  width: 2px;
+  background-color: var(--border-color);
+}
+
+.task-connector-line:last-child::before {
+  display: none;
+}
+
+/* Habit tracker checkmarks */
+.habit-checkmark-row {
+  display: flex;
+  gap: 8px;
+}
+
+.habit-checkmark-bubble {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  color: var(--text-muted);
+}
+
+.habit-checkmark-bubble.completed {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+/* Custom animations */
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Analytics charts styling */
+.pomo-chart-donut {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pomo-chart-bar-container {
+  display: flex;
+  align-items: flex-end;
+  height: 120px;
+  gap: 16px;
+}
+
+.pomo-chart-bar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 6px;
+}
+
+.pomo-chart-bar-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 100%;
+  width: 100%;
+}
+
+.pomo-chart-bar {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.3s ease;
+}
+
+.pomo-chart-bar.bg-primary { background-color: var(--primary); }
+.pomo-chart-bar.bg-secondary { background-color: var(--border-color); }
+
+
 
