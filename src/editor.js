@@ -1512,8 +1512,8 @@ export class Editor {
       { type: 'divider', label: 'Divider', shortcut: '/divider', icon: '―' }
     ];
 
-    // Load active plugins dynamically (exclude autocomplete)
-    const enabledPlugins = db.getPlugins().filter(p => p.enabled && p.id !== 'autocomplete');
+    // Load active plugins dynamically (exclude autocomplete and timer-widget)
+    const enabledPlugins = db.getPlugins().filter(p => p.enabled && p.id !== 'autocomplete' && p.id !== 'timer-widget');
     enabledPlugins.forEach(p => {
       let shortcut = `/${p.id.replace('-widget', '').replace('-plugin', '')}`;
       menuItems.push({
