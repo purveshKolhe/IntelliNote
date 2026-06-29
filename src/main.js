@@ -2886,6 +2886,14 @@ async function initPomodoroEngine() {
   if (!window.loopPomodoroTimer.dbData) {
     window.loopPomodoroTimer.dbData = await db.getPomodoroData();
     const d = window.loopPomodoroTimer.dbData;
+    // Migration: Force clear legacy demo sessions to start completely raw
+    if (!d.migrationV3RawCleaned) {
+      d.sessions = [];
+      d.completedTodayCount = 0;
+      d.migrationV3RawCleaned = true;
+      await db.savePomodoroData(d);
+    }
+
     const todayStr = new Date().toDateString();
 
     // Reset with predefined mock data if completely empty
@@ -3875,7 +3883,23 @@ mainPane.innerHTML = `
   } else if (activeTab === 'analytics') {
     // TABS 4: ANALYTICS & INSIGHTS
     const totalSessions = d.sessions || [];
-    const focusSessions = totalSessions.filter(s => s.type === 'focus');
+    const focusSessions = totalSessions.filter(s => s.type === 'focus' && s.completed);
+
+    if (focusSessions.length === 0) {
+      mainPane.innerHTML = `
+        <div class="pomo-canvas" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:400px; text-align:center;">
+          <div style="background:var(--primary-light-active); width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--primary); margin-bottom:16px;">
+            <span class="material-symbols-outlined" style="font-size:32px;">analytics</span>
+          </div>
+          <h2 style="font-size:20px; font-weight:700; margin:0; color:var(--text-main);">No Analytics Data Yet</h2>
+          <p style="font-size:13.5px; color:var(--text-muted); max-width:320px; margin:8px 0 16px 0; line-height:1.5;">
+            Your deep work curves, time distributions, and habit integrity scores will populate here once you complete a focus session.
+          </p>
+          <a href="#pomodoro/dashboard" class="create-new-btn" style="text-decoration:none; margin:0; padding:8px 16px; font-size:13px;">Start Focus Session</a>
+        </div>
+      `;
+      return;
+    }
     const totalFocusHours = ((focusSessions.length * t.config.focusDuration) / 3600).toFixed(1);
 
     const completedTodayCount = t.completedTodayCount;

@@ -1153,9 +1153,9 @@ export const db = {
   async getPomodoroData() {
     return await get('intellinote_pomodoro_data') || {
       timerConfig: { focusDuration: 1500, shortBreakDuration: 300, longBreakDuration: 900, cyclesTarget: 4, autoTransitions: false },
-      dailyTarget: 6,
-      completedTodayCount: 4,
-      lastSessionDate: new Date().toDateString(),
+      dailyTarget: 8,
+      completedTodayCount: 0,
+      lastSessionDate: null,
       sessions: [], // start raw
       tasks: [
         {
