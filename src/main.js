@@ -13,6 +13,24 @@ window.katex = katex;
 window.escapeHTML = escapeHTML;
 window.sanitizeHTML = sanitizeHTML;
 
+window.loopPomodoroTimer = window.loopPomodoroTimer || {
+  secondsLeft: 1500,
+  totalSeconds: 1500,
+  isRunning: false,
+  state: 'focus', // 'focus', 'shortBreak', 'longBreak'
+  cycleCount: 0,
+  intervalId: null,
+  activeTaskId: null,
+  completedTodayCount: 0,
+  startedTodayCount: 0,
+  dailyTarget: 8,
+  config: { focusDuration: 1500, shortBreakDuration: 300, longBreakDuration: 900, cyclesTarget: 4, autoTransitions: false },
+  audioEnabled: true,
+  
+  // Database state cache
+  dbData: null
+};
+
 // Register Service Worker for offline PWA functionality
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -177,6 +195,14 @@ function handleRouting() {
     activeChapterId = null;
     const parts = hash.split('/');
     const tab = parts[1] || 'dashboard';
+
+    // Auto-collapse primary sidebar
+    const primarySidebar = document.getElementById('sidebar-primary');
+    if (primarySidebar && !primarySidebar.classList.contains('collapsed')) {
+      primarySidebar.classList.add('collapsed');
+      localStorage.setItem('intellinote-primary-collapsed', 'true');
+    }
+
     renderPomodoroSecondarySidebar(tab);
     renderPomodoroDashboard(tab);
     const item = document.getElementById('sub-nav-timer-widget');
@@ -2804,23 +2830,7 @@ function renderGenericPluginDashboard(pluginId) {
 }
 
 // --- Background Pomodoro & Habits Engine ---
-window.loopPomodoroTimer = window.loopPomodoroTimer || {
-  secondsLeft: 1500,
-  totalSeconds: 1500,
-  isRunning: false,
-  state: 'focus', // 'focus', 'shortBreak', 'longBreak'
-  cycleCount: 0,
-  intervalId: null,
-  activeTaskId: null,
-  completedTodayCount: 0,
-  startedTodayCount: 0,
-  dailyTarget: 8,
-  config: { focusDuration: 1500, shortBreakDuration: 300, longBreakDuration: 900, cyclesTarget: 4, autoTransitions: false },
-  audioEnabled: true,
-  
-  // Database state cache
-  dbData: null
-};
+
 
 // Web Audio chime synthesizer
 function playPomoChime(type) {
@@ -2891,6 +2901,48 @@ async function initPomodoroEngine() {
       d.sessions = [];
       d.completedTodayCount = 0;
       d.migrationV3RawCleaned = true;
+      await db.savePomodoroData(d);
+    }
+
+    // Reset database to completely raw clean start state
+    if (!d.migrationV6RawStartCleaned) {
+      d.dailyTarget = 8;
+      d.completedTodayCount = 0;
+      d.lastSessionDate = null;
+      d.sessions = [];
+      d.tasks = [
+        { id: 't-q4', name: 'Q4 Product Launch', status: 'in_progress', parentId: null, tags: ['Design', 'Admin'], timeSpent: 0 },
+        { id: 't-q4-1', name: 'Finalize landing page copy', status: 'in_progress', parentId: 't-q4', tags: ['Writing'], timeSpent: 0 },
+        { id: 't-q4-1a', name: 'Write hero section', status: 'pending', parentId: 't-q4-1', tags: ['Writing'], timeSpent: 0 },
+        { id: 't-web', name: 'Personal Website Redesign', status: 'pending', parentId: null, tags: ['Design', 'Dev'], timeSpent: 0 }
+      ];
+      d.habits = [
+        { id: 'h-1', name: 'Hydration', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
+        { id: 'h-2', name: 'Read 20 pages', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
+        { id: 'h-3', name: 'Stretching', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 }
+      ];
+      d.migrationV6RawStartCleaned = true;
+      await db.savePomodoroData(d);
+    }
+
+    // Reset database to completely raw clean start state with Priority tags only
+    if (!d.migrationV7PriorityCleaned) {
+      d.dailyTarget = 8;
+      d.completedTodayCount = 0;
+      d.lastSessionDate = null;
+      d.sessions = [];
+      d.tasks = [
+        { id: 't-q4', name: 'Q4 Product Launch', status: 'in_progress', parentId: null, tags: ['High Priority'], timeSpent: 0 },
+        { id: 't-q4-1', name: 'Finalize landing page copy', status: 'in_progress', parentId: 't-q4', tags: ['Medium Priority'], timeSpent: 0 },
+        { id: 't-q4-1a', name: 'Write hero section', status: 'pending', parentId: 't-q4-1', tags: ['Medium Priority'], timeSpent: 0 },
+        { id: 't-web', name: 'Personal Website Redesign', status: 'pending', parentId: null, tags: ['Low Priority'], timeSpent: 0 }
+      ];
+      d.habits = [
+        { id: 'h-1', name: 'Hydration', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
+        { id: 'h-2', name: 'Read 20 pages', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
+        { id: 'h-3', name: 'Stretching', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 }
+      ];
+      d.migrationV7PriorityCleaned = true;
       await db.savePomodoroData(d);
     }
 
@@ -3145,6 +3197,19 @@ function renderPomodoroSecondarySidebar(activeTab) {
   if (!secSidebar) return;
   secSidebar.style.display = 'flex';
 
+  const d = window.loopPomodoroTimer.dbData || { habits: [], sessions: [] };
+  
+  let streak = 0;
+  let bestStreak = 0;
+  if (d.habits) {
+    d.habits.forEach(hb => {
+      if (hb.streak > streak) streak = hb.streak;
+      if (hb.bestStreak > bestStreak) bestStreak = hb.bestStreak;
+    });
+  }
+
+  const isLive = window.loopPomodoroTimer.isRunning;
+
   secSidebar.innerHTML = `
     <div class="sec-sidebar-header" style="border-bottom: 1px solid var(--border-color); margin-bottom: 16px;">
       <div style="display:flex; align-items:center; gap:8px;">
@@ -3157,9 +3222,12 @@ function renderPomodoroSecondarySidebar(activeTab) {
     </div>
     
     <div class="sec-sidebar-chapters-list" style="flex:1; padding:0 12px; display:flex; flex-direction:column; gap:4px;">
-      <a class="chapter-nav-item ${activeTab === 'dashboard' ? 'active' : ''}" href="#pomodoro/dashboard" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:13.5px; font-weight:500; text-decoration:none; color:var(--text-muted); transition:all 0.15s;">
-        <span class="material-symbols-outlined" style="font-size:18px; font-variation-settings: 'FILL' ${activeTab === 'dashboard' ? '1' : '0'};">dashboard</span>
-        <span>Dashboard</span>
+      <a class="chapter-nav-item ${activeTab === 'dashboard' ? 'active' : ''}" href="#pomodoro/dashboard" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-radius:8px; font-size:13.5px; font-weight:500; text-decoration:none; color:var(--text-muted); transition:all 0.15s;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="material-symbols-outlined" style="font-size:18px; font-variation-settings: 'FILL' ${activeTab === 'dashboard' ? '1' : '0'};">schedule</span>
+          <span>Focus Timer</span>
+        </div>
+        ${isLive ? `<span style="background:var(--primary); color:#ffffff; font-size:9.5px; padding:1px 6px; border-radius:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Live</span>` : ''}
       </a>
       <a class="chapter-nav-item ${activeTab === 'tasks' ? 'active' : ''}" href="#pomodoro/tasks" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:13.5px; font-weight:500; text-decoration:none; color:var(--text-muted); transition:all 0.15s;">
         <span class="material-symbols-outlined" style="font-size:18px; font-variation-settings: 'FILL' ${activeTab === 'tasks' ? '1' : '0'};">checklist</span>
@@ -3173,12 +3241,17 @@ function renderPomodoroSecondarySidebar(activeTab) {
         <span class="material-symbols-outlined" style="font-size:18px; font-variation-settings: 'FILL' ${activeTab === 'analytics' ? '1' : '0'};">analytics</span>
         <span>Analytics</span>
       </a>
+      <a class="chapter-nav-item ${activeTab === 'settings' ? 'active' : ''}" href="#pomodoro/settings" style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:13.5px; font-weight:500; text-decoration:none; color:var(--text-muted); transition:all 0.15s;">
+        <span class="material-symbols-outlined" style="font-size:18px; font-variation-settings: 'FILL' ${activeTab === 'settings' ? '1' : '0'};">settings</span>
+        <span>Settings</span>
+      </a>
     </div>
 
-    <!-- Active Timer Panel inside sidebar bottom -->
-    <div style="padding:16px; margin:12px; background:var(--primary-light-active); border-radius:12px; display:flex; flex-direction:column; gap:6px; align-items:center; text-align:center;">
-      <div id="sidebar-pomo-timer" style="font-family:var(--font-mono, monospace); font-size:18px; font-weight:700; color:var(--primary);">25:00</div>
-      <div id="sidebar-pomo-label" style="font-size:10.5px; font-weight:600; text-transform:uppercase; color:var(--primary); letter-spacing:0.5px;">Focusing</div>
+    <!-- Active Timer readout in sidebar bottom -->
+    <div style="padding:16px; margin:12px; background:var(--primary-light-active); border-radius:12px; display:flex; flex-direction:column; gap:4px; align-items:center; text-align:center;">
+      <div style="font-size:9.5px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px;">Focus Streak</div>
+      <div style="font-size:22px; font-weight:800; color:var(--primary); font-family:'Bricolage Grotesque', sans-serif;">${streak} days</div>
+      <div style="font-size:11px; color:var(--text-muted);">Best: ${bestStreak} days — keep it going!</div>
     </div>
   `;
 }
@@ -3280,7 +3353,7 @@ mainPane.innerHTML = `
                 <span class="material-symbols-outlined">tune</span>
               </button>
               <button class="control-btn control-btn-play" id="dash-pomo-play-btn" style="width:56px; height:56px; border-radius:50%; border:none; background:var(--primary); color:#ffffff; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                <span id="dash-pomo-play-icon" style="font-size:22px;">${t.isRunning ? '⏸' : '▶'}</span>
+                <span id="dash-pomo-play-icon" class="material-symbols-outlined" style="font-size:24px; display:block; line-height:1; ${t.isRunning ? '' : 'margin-left:2px;'}">${t.isRunning ? 'pause' : 'play_arrow'}</span>
               </button>
               <button class="control-btn control-btn-secondary" id="dash-pomo-skip-btn" title="Skip Session" style="width:48px; height:48px; border-radius:50%; border:1px solid var(--border-color); background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer;">
                 <span class="material-symbols-outlined">skip_next</span>
@@ -3290,19 +3363,19 @@ mainPane.innerHTML = `
             <!-- Expanding Tune drawer card -->
             <div id="dash-pomo-tune-drawer" style="display:none; width:100%; max-width:360px; margin-top:20px; border-top:1px solid var(--border-color); padding-top:16px; flex-direction:column; gap:12px;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">🎯 Focus (min)</span>
+                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">Focus (min)</span>
                 <input type="number" id="dash-cfg-focus" value="${Math.round(t.config.focusDuration / 60)}" style="width:60px; padding:4px; border:1px solid var(--border-color); border-radius:6px; text-align:center; font-family:inherit;" />
               </div>
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">☕ Break (min)</span>
+                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">Break (min)</span>
                 <input type="number" id="dash-cfg-break" value="${Math.round(t.config.shortBreakDuration / 60)}" style="width:60px; padding:4px; border:1px solid var(--border-color); border-radius:6px; text-align:center; font-family:inherit;" />
               </div>
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">🔁 Cycles Goal</span>
+                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">Cycles Goal</span>
                 <input type="number" id="dash-cfg-cycles" value="${t.config.cyclesTarget}" style="width:60px; padding:4px; border:1px solid var(--border-color); border-radius:6px; text-align:center; font-family:inherit;" />
               </div>
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">🔊 Audio alerts</span>
+                <span style="font-size:12.5px; font-weight:500; color:var(--text-muted);">Audio alerts</span>
                 <input type="checkbox" id="dash-cfg-audio" ${t.audioEnabled ? 'checked' : ''} style="cursor:pointer;" />
               </div>
             </div>
@@ -3368,13 +3441,21 @@ mainPane.innerHTML = `
         }
         startBackgroundPomoTicker();
       }
-      playBtn.querySelector('#dash-pomo-play-icon').textContent = t.isRunning ? '⏸' : '▶';
+      const playIcon = playBtn.querySelector('#dash-pomo-play-icon');
+      playIcon.textContent = t.isRunning ? 'pause' : 'play_arrow';
+      if (t.isRunning) {
+        playIcon.style.marginLeft = '0px';
+      } else {
+        playIcon.style.marginLeft = '2px';
+      }
     });
 
     document.getElementById('dash-pomo-skip-btn').addEventListener('click', () => {
       t.isRunning = false;
       t.secondsLeft = 0;
-      playBtn.querySelector('#dash-pomo-play-icon').textContent = '▶';
+      const playIcon = playBtn.querySelector('#dash-pomo-play-icon');
+      playIcon.textContent = 'play_arrow';
+      playIcon.style.marginLeft = '2px';
       t.isRunning = true;
       startBackgroundPomoTicker();
     });
@@ -3441,224 +3522,603 @@ mainPane.innerHTML = `
       });
     });
 
-  } else if (activeTab === 'tasks') {
-    // TABS 2: TASK TREE BOARD
-    let selectedTagFilter = 'All';
+} else if (activeTab === 'tasks') {
+    // TABS 2: SPLIT INTERACTIVE TASK TREE & DETAILS BOARD
+    let statusFilter = 'All';
+    let currentSort = 'default'; // 'default', 'priority', 'alpha'
+
+    window.loopCollapsedTaskIds = window.loopCollapsedTaskIds || new Set();
+
+    if (!window.loopSelectedTaskId) {
+      window.loopSelectedTaskId = 't-q4-1';
+    }
+
+    const getPriorityWeight = (tags) => {
+      if (!tags || tags.length === 0) return 1; // Medium
+      if (tags.includes('High Priority')) return 2;
+      if (tags.includes('Low Priority')) return 0;
+      return 1; // Medium Priority
+    };
 
     const renderTreeList = () => {
       const treeContainer = document.getElementById('dash-task-tree-container');
       if (!treeContainer) return;
 
-      let filteredTasks = d.tasks.filter(tk => tk.status !== 'archived');
-      if (selectedTagFilter !== 'All') {
-        filteredTasks = filteredTasks.filter(tk => tk.tags && tk.tags.includes(selectedTagFilter));
+      let filteredTasks = [...d.tasks];
+
+      // Apply status filter
+      if (statusFilter !== 'All') {
+        if (statusFilter === 'Pending') filteredTasks = filteredTasks.filter(tk => tk.status === 'pending');
+        else if (statusFilter === 'In Progress') filteredTasks = filteredTasks.filter(tk => tk.status === 'in_progress');
+        else if (statusFilter === 'Completed') filteredTasks = filteredTasks.filter(tk => tk.status === 'completed');
+        else if (statusFilter === 'Archived') filteredTasks = filteredTasks.filter(tk => tk.status === 'archived');
       }
 
+      // Apply sorting
+      if (currentSort === 'alpha') {
+        filteredTasks.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (currentSort === 'priority') {
+        filteredTasks.sort((a, b) => getPriorityWeight(b.tags) - getPriorityWeight(a.tags));
+      }
+
+      // Build hierarchical tree structure from flat list
       const parentTasks = filteredTasks.filter(tk => !tk.parentId);
       if (parentTasks.length === 0) {
-        treeContainer.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-muted); font-size:13.5px;">No active tasks matching filter.</div>`;
+        treeContainer.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-muted); font-size:13.5px;">No projects matching filters.</div>`;
         return;
       }
 
-      const renderTreeItem = (tk, isNested = false) => {
+      const renderTreeItem = (tk, depth = 0) => {
         const children = d.tasks.filter(c => c.parentId === tk.id && c.status !== 'archived');
-        const minutes = Math.round((tk.timeSpent || 0) / 60);
-        const isActive = t.activeTaskId === tk.id;
+        
+        // Collapsible check
+        const isCollapsed = window.loopCollapsedTaskIds.has(tk.id);
+        
+        // Sorting subtasks
+        if (currentSort === 'alpha') {
+          children.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (currentSort === 'priority') {
+          children.sort((a, b) => getPriorityWeight(b.tags) - getPriorityWeight(a.tags));
+        }
+
+        const calculateTotalTime = (task) => {
+          let time = task.timeSpent || 0;
+          const ch = d.tasks.filter(c => c.parentId === task.id);
+          ch.forEach(c => {
+            time += calculateTotalTime(c);
+          });
+          return time;
+        };
+        const totalTimeS = calculateTotalTime(tk);
+        const hrs = Math.floor(totalTimeS / 3600);
+        const mins = Math.round((totalTimeS % 3600) / 60);
+        const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : mins > 0 ? `${mins}m` : '';
+
+        const completedChildren = children.filter(c => c.status === 'completed').length;
+        const totalChildren = children.length;
+        const progressBadge = totalChildren > 0 ? `<span style="font-size:10.5px; background:rgba(0,0,0,0.03); padding:1px 6px; border-radius:4px; font-weight:600; color:var(--text-muted);">${completedChildren}/${totalChildren}</span>` : '';
+
+        const isSelected = window.loopSelectedTaskId === tk.id;
+        const isCompleted = tk.status === 'completed';
+
+        let statusBadge = '';
+        if (tk.status === 'completed') {
+          statusBadge = `<span style="font-size:10.5px; background:#ecfdf5; color:#10b981; padding:2px 8px; border-radius:12px; font-weight:600; display:flex; align-items:center; gap:4px;"><span style="width:5px; height:5px; border-radius:50%; background:#10b981;"></span> Completed</span>`;
+        } else if (tk.status === 'in_progress') {
+          statusBadge = `<span style="font-size:10.5px; background:#eff6ff; color:#3b82f6; padding:2px 8px; border-radius:12px; font-weight:600; display:flex; align-items:center; gap:4px;"><span style="width:5px; height:5px; border-radius:50%; background:#3b82f6;"></span> In Progress</span>`;
+        } else if (tk.status === 'archived') {
+          statusBadge = `<span style="font-size:10.5px; background:#f1f5f9; color:#64748b; padding:2px 8px; border-radius:12px; font-weight:600; display:flex; align-items:center; gap:4px;"><span style="width:5px; height:5px; border-radius:50%; background:#64748b;"></span> Archived</span>`;
+        } else {
+          statusBadge = `<span style="font-size:10.5px; background:#fff7ed; color:#f97316; padding:2px 8px; border-radius:12px; font-weight:600; display:flex; align-items:center; gap:4px;"><span style="width:5px; height:5px; border-radius:50%; background:#f97316;"></span> Pending</span>`;
+        }
+
+        const paddingLeft = depth * 24;
+
+        // Render Priority Badge
+        let priorityBadge = '';
+        if (tk.tags && tk.tags.includes('High Priority')) {
+          priorityBadge = `<span style="font-size:10px; background:#fee2e2; color:#ef4444; padding:1px 6px; border-radius:4px; font-weight:600; margin-left:4px;">High</span>`;
+        } else if (tk.tags && tk.tags.includes('Low Priority')) {
+          priorityBadge = `<span style="font-size:10px; background:#dbeafe; color:#3b82f6; padding:1px 6px; border-radius:4px; font-weight:600; margin-left:4px;">Low</span>`;
+        } else {
+          priorityBadge = `<span style="font-size:10px; background:#ffedd5; color:#f97316; padding:1px 6px; border-radius:4px; font-weight:600; margin-left:4px;">Medium</span>`;
+        }
 
         return `
-          <div class="task-connector-line ${isNested ? 'task-line' : ''}" style="margin-bottom:12px; position:relative;">
-            <div class="task-tree-node ${isActive ? 'active-focus-node' : ''}" style="${isActive ? 'border-color:var(--primary); background:var(--primary-light-active);' : ''}">
-              <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-                <div style="display:flex; align-items:center; gap:12px; flex:1;">
-                  <button class="tree-task-check" data-id="${tk.id}" style="width:20px; height:20px; border-radius:50%; border:2px solid var(--border-color); background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s;">
-                    <span class="material-symbols-outlined" style="font-size:14px; display:none; color:var(--primary);">check</span>
-                  </button>
-                  <span style="font-size:14px; font-weight:600; color:var(--text-main); font-family:'Inter', sans-serif;">${tk.name}</span>
-                  ${tk.tags && tk.tags.length > 0 ? tk.tags.map(tag => `<span style="font-size:10px; padding:1px 6px; border-radius:8px; background:var(--border-color); color:var(--text-muted); font-weight:600;">${tag}</span>`).join('') : ''}
-                </div>
-                
-                <div style="display:flex; align-items:center; gap:8px;">
-                  ${isActive ? `
-                    <span class="animate-pulse-soft" style="font-size:11px; color:var(--primary); font-weight:600; display:flex; align-items:center; gap:4px;">
-                      <span class="material-symbols-outlined animate-spin-slow" style="font-size:14px;">sync</span> Active Focus
-                    </span>
-                  ` : `
-                    <button class="tree-start-focus-btn" data-id="${tk.id}" style="padding:4px 8px; font-size:11px; font-weight:600; border-radius:6px; background:var(--primary-light-active); color:var(--primary); border:none; cursor:pointer;">Start Timer</button>
-                  `}
-                  <button class="tree-add-child-btn" data-id="${tk.id}" style="padding:4px; background:transparent; border:none; color:var(--text-muted); cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">add</span></button>
-                  <button class="tree-delete-btn" data-id="${tk.id}" style="padding:4px; background:transparent; border:none; color:#ef4444; cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>
-                </div>
-              </div>
-
-              ${minutes > 0 ? `
-                <div style="font-size:11px; color:var(--text-muted); padding-left:32px; display:flex; align-items:center; gap:4px;">
-                  <span class="material-symbols-outlined" style="font-size:12px;">timer</span> ${minutes}m spent
-                </div>
-              ` : ''}
+          <div class="task-tree-row-item ${isSelected ? 'active-tree-selected' : ''}" data-id="${tk.id}" 
+               style="padding-left:${paddingLeft}px; display:flex; align-items:center; justify-content:space-between; padding-top:10px; padding-bottom:10px; padding-right:12px; border-radius:8px; cursor:pointer; background:${isSelected ? 'rgba(92, 72, 204, 0.05)' : 'transparent'}; border-left:${isSelected ? '4px solid var(--primary)' : '4px solid transparent'}; transition:all 0.15s; margin-bottom:4px;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+              <button class="tree-toggle-arrow" data-id="${tk.id}" style="border:none; background:transparent; cursor:pointer; padding:0; display:flex; align-items:center; color:var(--text-muted);">
+                <span class="material-symbols-outlined animate-rotate" style="font-size:18px; transform:${isCollapsed ? 'rotate(-90deg)' : 'none'}; transition:transform 0.2s;">
+                  keyboard_arrow_down
+                </span>
+              </button>
+              <button class="tree-task-checkbox-bubble" data-id="${tk.id}" style="border:none; background:transparent; cursor:pointer; padding:0; display:flex; align-items:center;">
+                <span class="material-symbols-outlined" style="font-size:20px; color:${isCompleted ? '#10b981' : 'var(--text-muted)'};">
+                  ${isCompleted ? 'check_circle' : 'circle'}
+                </span>
+              </button>
+              <span class="tree-task-label" data-id="${tk.id}" style="font-size:13.5px; font-weight:${depth === 0 ? '700' : '500'}; color:var(--text-main); ${isCompleted ? 'text-decoration:line-through; color:var(--text-muted);' : ''} overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">
+                ${tk.name}
+              </span>
+              ${progressBadge}
+              ${priorityBadge}
             </div>
-
-            <!-- Children Nested -->
-            ${children.length > 0 ? `
-              <div style="padding-left:24px; margin-top:8px;">
-                ${children.map(c => renderTreeItem(c, true)).join('')}
-              </div>
-            ` : ''}
+            <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
+              ${timeStr ? `<span style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:13px;">schedule</span> ${timeStr}</span>` : ''}
+              ${statusBadge}
+              <button class="tree-task-delete-btn" data-id="${tk.id}" style="border:none; background:transparent; cursor:pointer; padding:2px; display:flex; align-items:center; color:var(--text-muted); opacity:0.5; transition:all 0.15s;" onmouseover="this.style.opacity=1; this.style.color='var(--primary)'" onmouseout="this.style.opacity=0.5; this.style.color='var(--text-muted)'">
+                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+              </button>
+            </div>
           </div>
+          ${children.length > 0 && !isCollapsed ? `<div style="display:flex; flex-direction:column;">
+            ${children.map(c => renderTreeItem(c, depth + 1)).join('')}
+          </div>` : ''}
         `;
       };
 
       treeContainer.innerHTML = parentTasks.map(tk => renderTreeItem(tk)).join('');
 
-      // Event handlers inside tree
-      treeContainer.querySelectorAll('.tree-task-check').forEach(btn => {
-        btn.addEventListener('click', async () => {
+      treeContainer.querySelectorAll('.tree-task-label').forEach(label => {
+        label.addEventListener('click', () => {
+          const id = label.getAttribute('data-id');
+          window.loopSelectedTaskId = id;
+          renderTasksView();
+        });
+      });
+
+      treeContainer.querySelectorAll('.tree-toggle-arrow').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          if (window.loopCollapsedTaskIds.has(id)) {
+            window.loopCollapsedTaskIds.delete(id);
+          } else {
+            window.loopCollapsedTaskIds.add(id);
+          }
+          renderTreeList();
+        });
+      });
+
+      treeContainer.querySelectorAll('.tree-task-checkbox-bubble').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
           const id = btn.getAttribute('data-id');
           const tk = d.tasks.find(x => x.id === id);
           if (tk) {
-            tk.status = 'completed';
+            tk.status = tk.status === 'completed' ? 'pending' : 'completed';
             await db.savePomodoroData(d);
-            renderTreeList();
+            renderTasksView();
           }
         });
       });
 
-      treeContainer.querySelectorAll('.tree-start-focus-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+      treeContainer.querySelectorAll('.tree-task-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
           const id = btn.getAttribute('data-id');
-          t.activeTaskId = id;
-          window.location.hash = '#pomodoro/dashboard';
-          // Auto start timer
-          t.isRunning = true;
-          playPomoChime('start');
-          startBackgroundPomoTicker();
-        });
-      });
-
-      treeContainer.querySelectorAll('.tree-add-child-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const parentId = btn.getAttribute('data-id');
-          const name = prompt("Enter sub-task title:");
-          if (name && name.trim()) {
-            const childTask = {
-              id: 't-' + Math.random().toString(36).substr(2, 9),
-              name: name.trim(),
-              status: 'pending',
-              parentId: parentId,
-              tags: [],
-              timeSpent: 0
-            };
-            d.tasks.push(childTask);
-            await db.savePomodoroData(d);
-            renderTreeList();
+          if (confirm("Delete this task and all its nested subtasks?")) {
+            await deleteTaskAndChildren(id);
+            if (window.loopSelectedTaskId === id) {
+              window.loopSelectedTaskId = d.tasks[0] ? d.tasks[0].id : null;
+            }
+            renderTasksView();
           }
-        });
-      });
-
-      treeContainer.querySelectorAll('.tree-delete-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-id');
-          d.tasks = d.tasks.filter(tk => tk.id !== id && tk.parentId !== id);
-          if (t.activeTaskId === id) t.activeTaskId = null;
-          await db.savePomodoroData(d);
-          renderTreeList();
         });
       });
     };
 
-    // Extract unique tags for sidebar filter
-    const tags = ['All'];
-    d.tasks.forEach(tk => {
-      if (tk.tags) {
-        tk.tags.forEach(tg => {
-          if (!tags.includes(tg)) tags.push(tg);
+    const deleteTaskAndChildren = async (taskId) => {
+      const toDelete = [taskId];
+      const findChildren = (id) => {
+        const children = d.tasks.filter(c => c.parentId === id);
+        children.forEach(c => {
+          toDelete.push(c.id);
+          findChildren(c.id);
         });
+      };
+      findChildren(taskId);
+      d.tasks = d.tasks.filter(t => !toDelete.includes(t.id));
+      await db.savePomodoroData(d);
+    };
+
+    const renderDetailsPanel = () => {
+      const detailsContainer = document.getElementById('dash-task-details-pane');
+      if (!detailsContainer) return;
+
+      const selTask = d.tasks.find(tk => tk.id === window.loopSelectedTaskId) || d.tasks[0];
+      if (!selTask) {
+        detailsContainer.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:40px;">Select a task to view details.</div>`;
+        return;
       }
-    });
 
-    const projectNavItemsHTML = tags.map(tg => `
-      <button class="project-filter-btn ${selectedTagFilter === tg ? 'active' : ''}" data-tag="${tg}" style="width:100%; border:none; background:transparent; padding:8px 12px; border-radius:8px; display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:500; color:${selectedTagFilter === tg ? 'var(--primary)' : 'var(--text-muted)'}; background:${selectedTagFilter === tg ? 'var(--primary-light-active)' : 'transparent'}; cursor:pointer; text-align:left;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span class="material-symbols-outlined" style="font-size:16px;">${tg === 'All' ? 'folder_open' : 'folder'}</span>
-          ${tg}
-        </div>
-      </button>
-    `).join('');
+      let parentProj = 'WORKSPACE';
+      if (selTask.parentId) {
+        let parent = d.tasks.find(x => x.id === selTask.parentId);
+        while (parent) {
+          parentProj = parent.name.toUpperCase();
+          if (parent.parentId) {
+            parent = d.tasks.find(x => x.id === parent.parentId);
+          } else {
+            break;
+          }
+        }
+      }
 
-    mainPane.innerHTML = `
-      <div class="pomo-canvas" style="display:flex; gap:24px;">
-        <!-- Left Projects Column -->
-        <aside style="width:200px; flex-shrink:0; display:flex; flex-direction:column; gap:16px;">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <h3 style="font-size:14px; font-weight:700; margin:0; color:var(--text-main); text-transform:uppercase;">Projects</h3>
+      const children = d.tasks.filter(c => c.parentId === selTask.id && c.status !== 'archived');
+      const completedCount = children.filter(c => c.status === 'completed').length;
+      const totalCount = children.length;
+      const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+      const calculateTotalTime = (task) => {
+        let time = task.timeSpent || 0;
+        const ch = d.tasks.filter(c => c.parentId === task.id);
+        ch.forEach(c => {
+          time += calculateTotalTime(c);
+        });
+        return time;
+      };
+      const totalTimeS = calculateTotalTime(selTask);
+      const hrs = Math.floor(totalTimeS / 3600);
+      const mins = Math.round((totalTimeS % 3600) / 60);
+      const durationStr = hrs > 0 ? `${hrs}h ${mins}m` : mins > 0 ? `${mins}m` : '0m';
+
+      const checklistHTML = children.map(c => {
+        const cCompleted = c.status === 'completed';
+        const cTimeMins = Math.round((c.timeSpent || 0) / 60);
+        return `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-color);">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <button class="details-subtask-toggle" data-id="${c.id}" style="border:none; background:transparent; cursor:pointer; padding:0; display:flex;">
+                <span class="material-symbols-outlined" style="font-size:20px; color:${cCompleted ? '#10b981' : 'var(--text-muted)'};">
+                  ${cCompleted ? 'check_circle' : 'circle'}
+                </span>
+              </button>
+              <span style="font-size:13px; font-weight:500; color:var(--text-main); ${cCompleted ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">
+                ${c.name}
+              </span>
+            </div>
+            ${cTimeMins > 0 ? `<span style="font-size:11.5px; color:var(--text-muted);">${cTimeMins}m</span>` : ''}
           </div>
-          <div style="display:flex; flex-direction:column; gap:2px;">
-            ${projectNavItemsHTML}
-          </div>
-        </aside>
+        `;
+      }).join('');
 
-        <!-- Right tree column -->
-        <div style="flex:1;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h2 style="font-size: 20px; font-weight: 700; margin:0;">Tasks Tree Board</h2>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <input type="text" id="tree-new-task-name" placeholder="Add parent task..." style="padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px;" />
-              <input type="text" id="tree-new-task-tag" placeholder="Tag" style="width:70px; padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px;" />
-              <button class="create-new-btn" id="tree-add-task-btn" style="margin-bottom:0; padding:6px 12px; font-size:13px;">Add</button>
+      const taskSessions = (d.sessions || []).filter(s => s.taskId === selTask.id);
+      const sessionCount = taskSessions.length;
+
+      // Real dynamic activity logs
+      let activityHTML = '';
+      if (taskSessions.length === 0) {
+        activityHTML = `<div style="font-size:12.5px; color:var(--text-muted); text-align:center; padding:16px 0;">No activity logged yet. Complete a focus block to trigger logs.</div>`;
+      } else {
+        activityHTML = taskSessions.slice(-3).reverse().map(s => {
+          const dateStr = new Date(s.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          return `
+            <div style="display:flex; gap:10px; font-size:12.5px;">
+              <span style="width:6px; height:6px; border-radius:50%; background:#10b981; margin-top:6px; flex-shrink:0;"></span>
+              <div>
+                <span style="color:var(--text-main); font-weight:500;">Logged focus session</span>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${dateStr}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Check current priority
+      const currentPriority = (selTask.tags && selTask.tags.includes('High Priority')) ? 'High Priority' :
+                              (selTask.tags && selTask.tags.includes('Low Priority')) ? 'Low Priority' : 'Medium Priority';
+
+      detailsContainer.innerHTML = `
+        <div class="pomo-card" style="padding:24px; margin-bottom:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:10.5px; font-weight:700; color:var(--text-muted); tracking-wide:1px; text-transform:uppercase;">${parentProj}</span>
+            <button class="details-delete-task-btn" data-id="${selTask.id}" style="border:none; background:transparent; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; gap:4px;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">
+              <span class="material-symbols-outlined" style="font-size:18px;">delete</span> Delete
+            </button>
+          </div>
+          <h3 style="font-size:18px; font-weight:800; color:var(--text-main); margin:0 0 16px 0;">${selTask.name}</h3>
+          
+          <!-- Dropdown selectors for Status & Priority -->
+          <div style="display:flex; gap:10px; margin-bottom:20px; align-items:center;">
+            <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
+              <label style="font-size:10px; text-transform:uppercase; color:var(--text-muted); font-weight:700; letter-spacing:0.5px;">Status</label>
+              <select id="details-status-select" style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:12.5px; background:var(--bg-secondary-sidebar); color:var(--text-main); font-weight:600; cursor:pointer; outline:none; width:100%;">
+                <option value="pending" ${selTask.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="in_progress" ${selTask.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                <option value="completed" ${selTask.status === 'completed' ? 'selected' : ''}>Completed</option>
+                <option value="archived" ${selTask.status === 'archived' ? 'selected' : ''}>Archived</option>
+              </select>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
+              <label style="font-size:10px; text-transform:uppercase; color:var(--text-muted); font-weight:700; letter-spacing:0.5px;">Priority</label>
+              <select id="details-priority-select" style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:12.5px; background:var(--bg-secondary-sidebar); color:var(--text-main); font-weight:600; cursor:pointer; outline:none; width:100%;">
+                <option value="High Priority" ${currentPriority === 'High Priority' ? 'selected' : ''}>High Priority</option>
+                <option value="Medium Priority" ${currentPriority === 'Medium Priority' ? 'selected' : ''}>Medium Priority</option>
+                <option value="Low Priority" ${currentPriority === 'Low Priority' ? 'selected' : ''}>Low Priority</option>
+              </select>
             </div>
           </div>
 
-          <div class="task-tree-container" id="dash-task-tree-container">
-            <!-- Dynamic tree contents -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+            <div style="background:rgba(0,0,0,0.02); border-radius:12px; padding:12px;">
+              <span style="font-size:10px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Focus Logged</span>
+              <div style="font-size:18px; font-weight:800; color:var(--text-main); margin-top:4px;">${durationStr}</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.02); border-radius:12px; padding:12px;">
+              <span style="font-size:10px; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Sessions</span>
+              <div style="font-size:18px; font-weight:800; color:var(--text-main); margin-top:4px;">${sessionCount}</div>
+            </div>
           </div>
+
+          ${totalCount > 0 ? `
+            <div style="margin-bottom:20px;">
+              <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--text-main); margin-bottom:6px;">
+                <span>Sub-task progress</span>
+                <span>${completedCount}/${totalCount} done</span>
+              </div>
+              <div style="width:100%; height:6px; background:#f1f5f9; border-radius:3px; overflow:hidden;">
+                <div style="width:${progressPercent}%; height:100%; background:var(--primary); transition:width 0.3s ease;"></div>
+              </div>
+            </div>
+          ` : ''}
+
+          <div style="margin-bottom:12px;">
+            ${checklistHTML}
+          </div>
+
+          <!-- Inline Sub-task Creator -->
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px; background:rgba(0,0,0,0.01); padding:8px; border-radius:8px; border:1px dashed var(--border-color);">
+            <input type="text" id="details-new-subtask-input" placeholder="+ Add sub-task..." style="flex:1; padding:6px 10px; border:1px solid var(--border-color); border-radius:6px; font-family:inherit; font-size:12.5px; background:#ffffff; color:var(--text-main);" />
+            <button id="details-new-subtask-add-btn" class="create-new-btn" style="margin-bottom:0; padding:6px 12px; font-size:12px;">Add</button>
+          </div>
+
+          <div style="display:flex; gap:12px;">
+            <button id="details-start-focus-btn" style="flex:1; padding:10px 16px; background:var(--primary); color:#ffffff; font-weight:600; border:none; border-radius:8px; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:16px;">play_circle</span> Start Focus
+            </button>
+          </div>
+        </div>
+
+        <div class="pomo-card" style="padding:24px;">
+          <h4 style="font-size:14px; font-weight:800; margin:0 0 16px 0; color:var(--text-main);">Activity</h4>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            ${activityHTML}
+          </div>
+        </div>
+      `;
+
+      // Status selector event
+      document.getElementById('details-status-select').addEventListener('change', async (e) => {
+        selTask.status = e.target.value;
+        await db.savePomodoroData(d);
+        renderTasksView();
+      });
+
+      // Priority selector event
+      document.getElementById('details-priority-select').addEventListener('change', async (e) => {
+        const newPriority = e.target.value;
+        selTask.tags = [newPriority]; // set priority tag
+        await db.savePomodoroData(d);
+        renderTasksView();
+      });
+
+      document.getElementById('details-start-focus-btn').addEventListener('click', () => {
+        t.activeTaskId = selTask.id;
+        window.location.hash = '#pomodoro/dashboard';
+        t.isRunning = true;
+        playPomoChime('start');
+        startBackgroundPomoTicker();
+      });
+
+      const handleAddSubtaskInline = async () => {
+        const input = document.getElementById('details-new-subtask-input');
+        const title = input.value.trim();
+        if (title) {
+          const newC = {
+            id: 't-' + Math.random().toString(36).substr(2, 9),
+            name: title,
+            status: 'pending',
+            parentId: selTask.id,
+            tags: [window.loopPomodoroTimer.config.defaultTaskPriority || 'Medium Priority'],
+            timeSpent: 0
+          };
+          d.tasks.push(newC);
+          await db.savePomodoroData(d);
+          renderTasksView();
+        }
+      };
+
+      document.getElementById('details-new-subtask-add-btn').addEventListener('click', handleAddSubtaskInline);
+      document.getElementById('details-new-subtask-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleAddSubtaskInline();
+      });
+
+      detailsContainer.querySelector('.details-delete-task-btn').addEventListener('click', async () => {
+        if (confirm("Delete this task and all its nested subtasks?")) {
+          await deleteTaskAndChildren(selTask.id);
+          window.loopSelectedTaskId = d.tasks[0] ? d.tasks[0].id : null;
+          renderTasksView();
+        }
+      });
+
+      detailsContainer.querySelectorAll('.details-subtask-toggle').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const childId = btn.getAttribute('data-id');
+          const child = d.tasks.find(x => x.id === childId);
+          if (child) {
+            child.status = child.status === 'completed' ? 'pending' : 'completed';
+            await db.savePomodoroData(d);
+            renderTasksView();
+          }
+        });
+      });
+    };
+
+    const renderTasksView = () => {
+      renderTreeList();
+      renderDetailsPanel();
+    };
+
+    mainPane.innerHTML = `
+      <div class="pomo-canvas" style="max-width:1200px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+          <div>
+            <h2 style="font-size:22px; font-weight:800; margin:0; color:var(--text-main);">Tasks & Projects</h2>
+            <p style="margin:4px 0 0 0; font-size:12.5px; color:var(--text-muted);">Plan, nest and time-track your work</p>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <input type="text" placeholder="Search..." style="padding:6px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; width:160px;" />
+            <button class="create-new-btn" id="header-add-task-btn" style="margin-bottom:0; padding:6px 12px; font-size:13px;">+ New Task</button>
+          </div>
+        </div>
+
+        <!-- Inline Project Creator Form -->
+        <div id="inline-project-creator" style="display:none; background:rgba(0,0,0,0.02); padding:16px; border-radius:12px; margin-bottom:20px; border:1px dashed var(--border-color);">
+          <div style="font-size:13px; font-weight:700; margin-bottom:8px; color:var(--text-main);">Create New Project / Parent Task</div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <input type="text" id="inline-project-name" placeholder="Project name..." style="flex:1; padding:8px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; background:#ffffff; color:var(--text-main);" />
+            <select id="inline-project-priority" style="padding:8px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; background:#ffffff; color:var(--text-main);">
+              <option value="High Priority">High Priority</option>
+              <option value="Medium Priority" selected>Medium Priority</option>
+              <option value="Low Priority">Low Priority</option>
+            </select>
+            <button id="inline-project-save-btn" class="create-new-btn" style="margin-bottom:0; padding:8px 16px; font-size:13px;">Create</button>
+            <button id="inline-project-cancel-btn" style="padding:8px 16px; border:1px solid var(--border-color); background:transparent; color:var(--text-muted); border-radius:8px; font-size:13px; cursor:pointer; font-weight:600;">Cancel</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:24px; align-items:flex-start; width:100%;">
+          <div style="flex:1.3; min-width:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+              <span style="font-size:13px; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:16px;">account_tree</span> Task Tree
+              </span>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <!-- Status Filter Pills -->
+                <div style="display:flex; gap:4px;">
+                  ${['All', 'Pending', 'In Progress', 'Completed', 'Archived'].map(st => `
+                    <button class="status-filter-pill" data-status="${st}" style="border:none; border-radius:6px; padding:4px 8px; font-size:11.5px; font-weight:600; cursor:pointer; background:${statusFilter === st ? 'var(--primary)' : 'rgba(0,0,0,0.02)'}; color:${statusFilter === st ? '#ffffff' : 'var(--text-muted)'}; transition:all 0.15s;">
+                      ${st}
+                    </button>
+                  `).join('')}
+                </div>
+                
+                <!-- Sort Dropdown -->
+                <select id="tree-sort-select" style="border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:11.5px; font-weight:600; cursor:pointer; background:transparent; color:var(--text-muted); font-family:inherit; outline:none;">
+                  <option value="default" ${currentSort === 'default' ? 'selected' : ''}>Sort: Default</option>
+                  <option value="priority" ${currentSort === 'priority' ? 'selected' : ''}>Sort: Priority</option>
+                  <option value="alpha" ${currentSort === 'alpha' ? 'selected' : ''}>Sort: A-Z</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="dash-task-tree-container" style="display:flex; flex-direction:column; gap:4px;"></div>
+
+            <div style="display:flex; gap:10px; align-items:center; padding:12px 0; border-top:1px solid var(--border-color); margin-top:16px;">
+              <input type="text" id="tree-new-task-name" placeholder="+ Add task under nested project..." style="flex:1; padding:8px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px;" />
+              <select id="tree-new-task-parent" style="padding:8px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; max-width:180px; background:transparent; color:var(--text-main);">
+                <option value="">Root Project</option>
+                ${d.tasks.filter(tk => tk.parentId === null).map(tk => `<option value="${tk.id}">under ${tk.name}</option>`).join('')}
+              </select>
+              <button class="create-new-btn" id="tree-add-task-btn" style="margin-bottom:0; padding:8px 16px; font-size:13px;">Add</button>
+            </div>
+          </div>
+
+          <div id="dash-task-details-pane" style="flex:0.7; width:100%; min-width:280px; position:sticky; top:24px;"></div>
         </div>
       </div>
     `;
 
-    renderTreeList();
+    renderTasksView();
 
-    // Attach sidebar filters events
-    mainPane.querySelectorAll('.project-filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        selectedTagFilter = btn.getAttribute('data-tag');
-        // Update active class
-        mainPane.querySelectorAll('.project-filter-btn').forEach(b => {
-          b.style.background = 'transparent';
-          b.style.color = 'var(--text-muted)';
-        });
-        btn.style.background = 'var(--primary-light-active)';
-        btn.style.color = 'var(--primary)';
-        renderTreeList();
-      });
+    // Toggle inline project creator
+    const headerAddBtn = document.getElementById('header-add-task-btn');
+    const inlineCreator = document.getElementById('inline-project-creator');
+    const inlineNameInput = document.getElementById('inline-project-name');
+    const inlinePrioritySelect = document.getElementById('inline-project-priority');
+    const inlineSaveBtn = document.getElementById('inline-project-save-btn');
+    const inlineCancelBtn = document.getElementById('inline-project-cancel-btn');
+
+    headerAddBtn.addEventListener('click', () => {
+      inlineCreator.style.display = 'block';
+      inlineNameInput.focus();
     });
 
-    const handleAddTreeTask = async () => {
-      const nameInput = document.getElementById('tree-new-task-name');
-      const tagInput = document.getElementById('tree-new-task-tag');
-      const name = nameInput.value.trim();
-      const tag = tagInput.value.trim();
+    inlineCancelBtn.addEventListener('click', () => {
+      inlineCreator.style.display = 'none';
+      inlineNameInput.value = '';
+    });
 
+    const handleCreateProjectInline = async () => {
+      const name = inlineNameInput.value.trim();
+      const priority = inlinePrioritySelect.value;
       if (name) {
         const newTask = {
           id: 't-' + Math.random().toString(36).substr(2, 9),
           name: name,
           status: 'pending',
           parentId: null,
-          tags: tag ? [tag] : [],
+          tags: [priority],
           timeSpent: 0
         };
         d.tasks.push(newTask);
         await db.savePomodoroData(d);
-        nameInput.value = '';
-        tagInput.value = '';
-        renderTreeList();
+        inlineCreator.style.display = 'none';
+        inlineNameInput.value = '';
+        renderTasksView();
       }
     };
 
-    document.getElementById('tree-add-task-btn').addEventListener('click', handleAddTreeTask);
-    document.getElementById('tree-new-task-name').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleAddTreeTask();
+    inlineSaveBtn.addEventListener('click', handleCreateProjectInline);
+    inlineNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleCreateProjectInline();
     });
 
+    // Sort selector event
+    document.getElementById('tree-sort-select').addEventListener('change', (e) => {
+      currentSort = e.target.value;
+      renderTreeList();
+    });
+
+    const handleAddTask = async () => {
+      const nameEl = document.getElementById('tree-new-task-name');
+      const parentEl = document.getElementById('tree-new-task-parent');
+      const name = nameEl.value.trim();
+      const parentId = parentEl.value || null;
+
+      if (name) {
+        const newTask = {
+          id: 't-' + Math.random().toString(36).substr(2, 9),
+          name: name,
+          status: 'pending',
+          parentId: parentId,
+          tags: ['Medium Priority'],
+          timeSpent: 0
+        };
+        d.tasks.push(newTask);
+        await db.savePomodoroData(d);
+        nameEl.value = '';
+        renderTasksView();
+      }
+    };
+
+    document.getElementById('tree-add-task-btn').addEventListener('click', handleAddTask);
+
+    mainPane.querySelectorAll('.status-filter-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        statusFilter = pill.getAttribute('data-status');
+        mainPane.querySelectorAll('.status-filter-pill').forEach(p => {
+          p.style.background = 'rgba(0,0,0,0.02)';
+          p.style.color = 'var(--text-muted)';
+        });
+        pill.style.background = 'var(--primary)';
+        pill.style.color = '#ffffff';
+        renderTreeList();
+      });
+    });
   } else if (activeTab === 'habits') {
     // TABS 3: HABIT FORMATION TRACKER
     const renderHabitsView = () => {
@@ -4039,5 +4499,142 @@ mainPane.innerHTML = `
         </div>
       </div>
     `;
+  } else if (activeTab === 'settings') {
+    // TABS 5: DEDICATED PREFERENCES PANEL (EMOJI-FREE)
+    mainPane.innerHTML = `
+      <div class="pomo-canvas" style="max-width: 600px;">
+        <div style="margin-bottom:24px;">
+          <h2 style="font-size:22px; font-weight:800; margin:0; color:var(--text-main);">Settings</h2>
+          <p style="margin:4px 0 0 0; font-size:12.5px; color:var(--text-muted);">Configure your Focus Timer preferences</p>
+        </div>
+
+        <div class="pomo-card" style="padding:24px; display:flex; flex-direction:column; gap:20px;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:13px; font-weight:700; color:var(--text-main);">Focus Duration</label>
+            <select id="pref-focus-duration" style="padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; background:var(--bg-secondary-sidebar); color:var(--text-main); font-weight:600; cursor:pointer;">
+              <option value="1500" \${t.config.focusDuration === 1500 ? 'selected' : ''}>25 minutes</option>
+              <option value="3000" \${t.config.focusDuration === 3000 ? 'selected' : ''}>50 minutes</option>
+              <option value="900" \${t.config.focusDuration === 900 ? 'selected' : ''}>15 minutes</option>
+              <option value="60" \${t.config.focusDuration === 60 ? 'selected' : ''}>1 minute (Demo/Test)</option>
+            </select>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:13px; font-weight:700; color:var(--text-main);">Short Break</label>
+              <select id="pref-short-break" style="padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; background:var(--bg-secondary-sidebar); color:var(--text-main); font-weight:600; cursor:pointer;">
+                <option value="300" \${t.config.shortBreakDuration === 300 ? 'selected' : ''}>5 minutes</option>
+                <option value="600" \${t.config.shortBreakDuration === 600 ? 'selected' : ''}>10 minutes</option>
+                <option value="60" \${t.config.shortBreakDuration === 60 ? 'selected' : ''}>1 minute</option>
+              </select>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:13px; font-weight:700; color:var(--text-main);">Long Break</label>
+              <select id="pref-long-break" style="padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; background:var(--bg-secondary-sidebar); color:var(--text-main); font-weight:600; cursor:pointer;">
+                <option value="900" \${t.config.longBreakDuration === 900 ? 'selected' : ''}>15 minutes</option>
+                <option value="1800" \${t.config.longBreakDuration === 1800 ? 'selected' : ''}>30 minutes</option>
+                <option value="120" \${t.config.longBreakDuration === 120 ? 'selected' : ''}>2 minutes</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:13px; font-weight:700; color:var(--text-main);">Chime Sound Profile</label>
+              <select id="pref-chime-profile" style="padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; background:var(--bg-secondary-sidebar); color:var(--text-main); font-weight:600; cursor:pointer;">
+                <option value="classic" \${t.config.chimeProfile === 'classic' ? 'selected' : ''}>Classic Chime</option>
+                <option value="zen" \${t.config.chimeProfile === 'zen' ? 'selected' : ''}>Zen Bell</option>
+                <option value="digital" \${t.config.chimeProfile === 'digital' ? 'selected' : ''}>Digital Beeps</option>
+                <option value="harp" \${t.config.chimeProfile === 'harp' ? 'selected' : ''}>Soft Harp</option>
+              </select>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:13px; font-weight:700; color:var(--text-main);">Default Task Priority</label>
+              <select id="pref-default-priority" style="padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; background:var(--bg-secondary-sidebar); color:var(--text-main); font-weight:600; cursor:pointer;">
+                <option value="High Priority" \${t.config.defaultTaskPriority === 'High Priority' ? 'selected' : ''}>High Priority</option>
+                <option value="Medium Priority" \${t.config.defaultTaskPriority === 'Medium Priority' ? 'selected' : ''}>Medium Priority</option>
+                <option value="Low Priority" \${t.config.defaultTaskPriority === 'Low Priority' ? 'selected' : ''}>Low Priority</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:13px; font-weight:700; color:var(--text-main);">Daily Sessions Target</label>
+            <input type="number" id="pref-daily-target" value="\${t.dailyTarget}" min="1" max="24" style="padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; font-family:inherit; font-size:13px; background:transparent; color:var(--text-main); font-weight:600;" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:12px; border-top:1px solid var(--border-color); padding-top:16px;">
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; color:var(--text-main); font-weight:600;">
+              <input type="checkbox" id="pref-auto-transitions" \${t.config.autoTransitions ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary);" />
+              Auto-transition timer blocks
+            </label>
+            
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; color:var(--text-main); font-weight:600;">
+              <input type="checkbox" id="pref-audio-enabled" \${t.audioEnabled ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary);" />
+              Enable synthesizer chime sounds
+            </label>
+
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; color:var(--text-main); font-weight:600;">
+              <input type="checkbox" id="pref-metronome-enabled" \${t.config.metronomeEnabled ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary);" />
+              Play soft metronome ticking sound during focus blocks
+            </label>
+
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:13px; color:var(--text-main); font-weight:600;">
+              <input type="checkbox" id="pref-weekend-freeze" \${t.config.weekendFreeze ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--primary);" />
+              Enable weekend freeze (prevents habit streak breaks on Saturday and Sunday)
+            </label>
+          </div>
+
+          <button id="pref-save-btn" class="create-new-btn" style="margin-top:10px; padding:12px; font-size:13.5px; font-weight:700;">Save Preferences</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('pref-save-btn').addEventListener('click', async () => {
+      const focus = parseInt(document.getElementById('pref-focus-duration').value);
+      const short = parseInt(document.getElementById('pref-short-break').value);
+      const long = parseInt(document.getElementById('pref-long-break').value);
+      const target = parseInt(document.getElementById('pref-daily-target').value) || 8;
+      const autoTrans = document.getElementById('pref-auto-transitions').checked;
+      const audio = document.getElementById('pref-audio-enabled').checked;
+      const chime = document.getElementById('pref-chime-profile').value;
+      const priority = document.getElementById('pref-default-priority').value;
+      const metronome = document.getElementById('pref-metronome-enabled').checked;
+      const freeze = document.getElementById('pref-weekend-freeze').checked;
+
+      t.config.focusDuration = focus;
+      t.config.shortBreakDuration = short;
+      t.config.longBreakDuration = long;
+      t.config.autoTransitions = autoTrans;
+      t.config.chimeProfile = chime;
+      t.config.defaultTaskPriority = priority;
+      t.config.metronomeEnabled = metronome;
+      t.config.weekendFreeze = freeze;
+      t.dailyTarget = target;
+      t.audioEnabled = audio;
+
+      if (!t.isRunning) {
+        if (t.state === 'focus') {
+          t.secondsLeft = focus;
+          t.totalSeconds = focus;
+        } else if (t.state === 'shortBreak') {
+          t.secondsLeft = short;
+          t.totalSeconds = short;
+        } else if (t.state === 'longBreak') {
+          t.secondsLeft = long;
+          t.totalSeconds = long;
+        }
+      }
+
+      d.timerConfig = t.config;
+      d.dailyTarget = target;
+      await db.savePomodoroData(d);
+
+      alert("Settings saved successfully!");
+      renderPomodoroSecondarySidebar('settings');
+      renderPomodoroDashboard('settings');
+    });
   }
 }

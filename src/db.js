@@ -1158,101 +1158,15 @@ export const db = {
       lastSessionDate: null,
       sessions: [], // start raw
       tasks: [
-        {
-          id: 't-1',
-          name: 'Foundation Tokens',
-          status: 'in_progress',
-          parentId: null,
-          tags: ['Design System', 'Urgent'],
-          timeSpent: 15300
-        },
-        {
-          id: 't-1a',
-          name: 'Define Color Palette (Light/Dark)',
-          status: 'completed',
-          parentId: 't-1',
-          tags: [],
-          timeSpent: 9000
-        },
-        {
-          id: 't-1b',
-          name: 'Typography Hierarchy',
-          status: 'in_progress',
-          parentId: 't-1',
-          tags: [],
-          timeSpent: 0,
-          description: 'Map out base sizes, line heights, and weights for desktop and mobile.'
-        },
-        {
-          id: 't-2',
-          name: 'Component Library Audit',
-          status: 'pending',
-          parentId: null,
-          tags: ['Design System'],
-          timeSpent: 0,
-          dueDate: 'Oct 15'
-        },
-        {
-          id: 't-next-1',
-          name: 'Define Typography Tokens',
-          status: 'pending',
-          parentId: null,
-          tags: ['Design System'],
-          timeSpent: 0,
-          description: 'Map out font families and sizes for headers and body text.'
-        },
-        {
-          id: 't-next-2',
-          name: 'Create Color Palette',
-          status: 'pending',
-          parentId: null,
-          tags: ['Design System'],
-          timeSpent: 0,
-          description: 'Establish primary, secondary, and neutral scales.'
-        },
-        {
-          id: 't-next-3',
-          name: 'Draft Component States',
-          status: 'pending',
-          parentId: null,
-          tags: ['Design System'],
-          timeSpent: 0,
-          description: 'Hover, active, and disabled states for buttons.'
-        }
+        { id: 't-q4', name: 'Q4 Product Launch', status: 'in_progress', parentId: null, tags: ['High Priority'], timeSpent: 0 },
+        { id: 't-q4-1', name: 'Finalize landing page copy', status: 'in_progress', parentId: 't-q4', tags: ['Medium Priority'], timeSpent: 0 },
+        { id: 't-q4-1a', name: 'Write hero section', status: 'pending', parentId: 't-q4-1', tags: ['Medium Priority'], timeSpent: 0 },
+        { id: 't-web', name: 'Personal Website Redesign', status: 'pending', parentId: null, tags: ['Low Priority'], timeSpent: 0 }
       ],
       habits: [
-        {
-          id: 'h-1',
-          name: 'Hydration',
-          type: 'positive',
-          frequency: 'daily',
-          logs: {
-            [new Date().toDateString()]: true,
-            [new Date(Date.now() - 86400000).toDateString()]: true,
-            [new Date(Date.now() - 172800000).toDateString()]: true,
-            [new Date(Date.now() - 259200000).toDateString()]: true
-          },
-          streak: 4,
-          bestStreak: 24
-        },
-        {
-          id: 'h-2',
-          name: 'Read 20 pages',
-          type: 'positive',
-          frequency: 'daily',
-          logs: {},
-          streak: 0,
-          bestStreak: 12
-        },
-        {
-          id: 'h-3',
-          name: 'Stretching',
-          type: 'positive',
-          frequency: 'daily',
-          logs: {},
-          streak: 0,
-          bestStreak: 3
-        }
+        { id: 'h-1', name: 'Hydration', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
+        { id: 'h-2', name: 'Read 20 pages', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
+        { id: 'h-3', name: 'Stretching', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 }
       ],
       distractionLogs: []
     };
