@@ -298,6 +298,7 @@ export class Editor {
   }
 
   async save() {
+    this.lastEditTime = Date.now();
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
       this.saveTimeout = null;
@@ -307,17 +308,21 @@ export class Editor {
     if (Array.isArray(this.blocks)) {
       for (const block of this.blocks) {
         if (block._dirtyAsset !== undefined) {
+          const dirtyData = block._dirtyAsset;
+          // Synchronously clear the dirty marker to block concurrent save calls from processing it again
+          delete block._dirtyAsset;
+          
           let assetId = block.data.image;
           if (!assetId || !assetId.startsWith('asset-')) {
             assetId = generateSecureId('asset-');
           }
-          if (block._dirtyAsset === '') {
+          if (dirtyData === '') {
             block.data.image = '';
           } else {
-            await db.saveAsset(assetId, block._dirtyAsset);
+            // Synchronously link the asset ID to the block data URL reference
             block.data.image = assetId;
+            await db.saveAsset(assetId, dirtyData);
           }
-          delete block._dirtyAsset;
         }
       }
     }

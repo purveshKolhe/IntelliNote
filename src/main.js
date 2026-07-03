@@ -173,6 +173,56 @@ try {
   }
 }
 
+function showNonPersistentToast(title, message, type = 'info') {
+  let wrapper = document.getElementById('non-persistent-toast-container');
+  if (!wrapper) {
+    wrapper = document.createElement('div');
+    wrapper.id = 'non-persistent-toast-container';
+    wrapper.style.position = 'fixed';
+    wrapper.style.bottom = '20px';
+    wrapper.style.right = '20px';
+    wrapper.style.zIndex = '99999';
+    wrapper.style.display = 'flex';
+    wrapper.style.flexDirection = 'column';
+    wrapper.style.gap = '10px';
+    document.body.appendChild(wrapper);
+  }
+  
+  const toast = document.createElement('div');
+  toast.style.background = type === 'error' ? 'rgba(239, 68, 68, 0.95)' : 'rgba(30, 41, 59, 0.95)';
+  toast.style.color = '#fff';
+  toast.style.padding = '12px 20px';
+  toast.style.borderRadius = '8px';
+  toast.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+  toast.style.fontFamily = 'var(--font-sans)';
+  toast.style.fontSize = '14px';
+  toast.style.fontWeight = '500';
+  toast.style.backdropFilter = 'blur(8px)';
+  toast.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+  toast.style.transition = 'all 0.3s ease';
+  toast.style.opacity = '0';
+  toast.style.transform = 'translateY(20px)';
+  
+  toast.innerHTML = `<strong>${title}</strong><div style="font-size:12px; margin-top:4px; font-weight:normal; opacity:0.9;">${message}</div>`;
+  wrapper.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  }, 10);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-20px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
+}
+
+window.addEventListener('intellinote_db_write_error', (e) => {
+  const { key, error } = e.detail;
+  showNonPersistentToast('Database Save Error', `Failed to write to ${key}: ${error.message}. Your local changes are temporarily cached in memory, but please verify storage permissions.`, 'error');
+});
+
 window.addEventListener('intellinote_db_sync_reload', (e) => {
   const { key } = e.detail;
   if (key === 'intellinote_workspaces') {
@@ -182,10 +232,9 @@ window.addEventListener('intellinote_db_sync_reload', (e) => {
     if (activeChapterId) {
       const updatedChapter = db.getChapter(activeChapterId);
       if (updatedChapter && activeEditorInstance) {
-        activeEditorInstance.chapter = updatedChapter;
-        const hasFocus = document.activeElement && document.activeElement.closest('.loop-editor-canvas');
         const isEditing = activeEditorInstance.lastEditTime && (Date.now() - activeEditorInstance.lastEditTime < 10000);
-        if (!hasFocus && !isEditing) {
+        if (!isEditing) {
+          activeEditorInstance.chapter = updatedChapter;
           activeEditorInstance.blocks = JSON.parse(JSON.stringify(updatedChapter.blocks || []));
           activeEditorInstance.render();
         }
@@ -1907,7 +1956,7 @@ async function exportWorkspace(workspaceId) {
 }
 
 function importPageToWorkspace(workspaceId) {
-  triggerJSONUpload((data) => {
+  triggerJSONUpload(async (data) => {
     if (!data || typeof data !== 'object' || data.type !== 'intellinote-page') {
       alert('Invalid file format. Please select an IntelliNote Page JSON file.');
       return;
@@ -1932,7 +1981,7 @@ function importPageToWorkspace(workspaceId) {
       blocks: cleanBlocks,
       updatedAt: new Date().toISOString()
     };
-    db.saveChapter(newChapter);
+    await db.saveChapter(newChapter);
     
     // Refresh UI
     renderWorkspaceView();
@@ -1941,7 +1990,7 @@ function importPageToWorkspace(workspaceId) {
 }
 
 function importWorkspaceGlobal() {
-  triggerJSONUpload((data) => {
+  triggerJSONUpload(async (data) => {
     if (!data || typeof data !== 'object' || data.type !== 'intellinote-workspace') {
       alert('Invalid file format. Please select an IntelliNote Workspace JSON file.');
       return;
@@ -1955,18 +2004,18 @@ function importWorkspaceGlobal() {
       starred: !!data.starred,
       updatedAt: new Date().toISOString()
     };
-    db.saveWorkspace(newWorkspace);
+    await db.saveWorkspace(newWorkspace);
 
     // Import its chapters/pages
     let firstChapterId = null;
     if (Array.isArray(data.chapters) && data.chapters.length > 0) {
+      const savePromises = [];
       data.chapters.forEach((c, idx) => {
         if (!c || typeof c !== 'object') return;
         const chapterId = generateSecureId('c-');
         if (idx === 0) firstChapterId = chapterId;
         
         const rawBlocks = Array.isArray(c.blocks) ? c.blocks : [{ id: generateSecureId('b-'), type: 'text', data: '', indent: 0 }];
-        // Sanitize and normalize blocks
         const cleanBlocks = rawBlocks.map(b => {
           if (!b || typeof b !== 'object') {
             return { id: generateSecureId('b-'), type: 'text', data: '', indent: 0 };
@@ -1985,8 +2034,9 @@ function importWorkspaceGlobal() {
           blocks: cleanBlocks,
           updatedAt: new Date().toISOString()
         };
-        db.saveChapter(newChapter);
+        savePromises.push(db.saveChapter(newChapter));
       });
+      await Promise.all(savePromises);
     } else {
       // Create at least one page if the workspace is empty
       const chapterId = generateSecureId('c-');
@@ -1999,7 +2049,7 @@ function importWorkspaceGlobal() {
         blocks: [{ id: generateSecureId('b-'), type: 'text', data: '', indent: 0 }],
         updatedAt: new Date().toISOString()
       };
-      db.saveChapter(firstChapter);
+      await db.saveChapter(firstChapter);
     }
 
     // Refresh sidebar & route to workspace

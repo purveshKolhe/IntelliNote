@@ -37,17 +37,10 @@ async function queueWrite(key, operation) {
       return await operation();
     } catch (e) {
       console.error(`Database write queue error for key ${key}:`, e);
-      try {
-        if (typeof db !== 'undefined' && typeof db.addNotification === 'function') {
-          db.addNotification({
-            title: "Database Sync Error",
-            message: `Failed to save changes to IndexedDB (${key}): ` + e.message,
-            type: "error"
-          });
-        }
-      } catch (err) {
-        console.error("Failed to post error notification:", err);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('intellinote_db_write_error', { detail: { key, error: e } }));
       }
+      throw e;
     }
   });
   writeQueues[key] = promise.catch(() => {});
@@ -95,8 +88,13 @@ if (typeof BroadcastChannel !== 'undefined') {
           case 'intellinote_groq_chat_model_name':
             memoryState.groq_chat_model_name = data;
             break;
+          case 'intellinote_pomodoro_data':
+            memoryState.pomodoro = data;
+            break;
         }
-        window.dispatchEvent(new CustomEvent('intellinote_db_sync_reload', { detail: { key } }));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('intellinote_db_sync_reload', { detail: { key } }));
+        }
       }
     };
   } catch (e) {
@@ -1074,11 +1072,12 @@ export const db = {
 
   // Workspaces
   getWorkspaces() {
-    return memoryState.workspaces || [];
+    return JSON.parse(JSON.stringify(memoryState.workspaces || []));
   },
 
   getWorkspace(id) {
-    return this.getWorkspaces().find(w => w.id === id);
+    const found = this.getWorkspaces().find(w => w.id === id);
+    return found ? JSON.parse(JSON.stringify(found)) : null;
   },
 
   async saveWorkspace(workspace) {
@@ -1122,14 +1121,13 @@ export const db = {
   // Chapters
   getChapters(workspaceId) {
     const chapters = memoryState.chapters || [];
-    if (workspaceId) {
-      return chapters.filter(c => c.workspaceId === workspaceId);
-    }
-    return chapters;
+    const filtered = workspaceId ? chapters.filter(c => c.workspaceId === workspaceId) : chapters;
+    return JSON.parse(JSON.stringify(filtered));
   },
 
   getChapter(id) {
-    return (memoryState.chapters || []).find(c => c.id === id);
+    const found = (memoryState.chapters || []).find(c => c.id === id);
+    return found ? JSON.parse(JSON.stringify(found)) : null;
   },
 
   async saveChapter(chapter) {
@@ -1276,12 +1274,30 @@ export const db = {
 
   async permanentlyDeleteChapter(id) {
     const trash = memoryState.trash || [];
+    const chapterToDelete = trash.find(c => c.id === id);
+    if (chapterToDelete && Array.isArray(chapterToDelete.blocks)) {
+      for (const block of chapterToDelete.blocks) {
+        if (block.data && typeof block.data === 'object' && typeof block.data.image === 'string' && block.data.image.startsWith('asset-')) {
+          await this.deleteAsset(block.data.image);
+        }
+      }
+    }
     memoryState.trash = trash.filter(c => c.id !== id);
     await queueWrite(TRASH_KEY, () => set(TRASH_KEY, memoryState.trash));
     broadcastUpdate(TRASH_KEY, memoryState.trash);
   },
 
   async clearTrash() {
+    const trash = memoryState.trash || [];
+    for (const chapterToDelete of trash) {
+      if (chapterToDelete && Array.isArray(chapterToDelete.blocks)) {
+        for (const block of chapterToDelete.blocks) {
+          if (block.data && typeof block.data === 'object' && typeof block.data.image === 'string' && block.data.image.startsWith('asset-')) {
+            await this.deleteAsset(block.data.image);
+          }
+        }
+      }
+    }
     memoryState.trash = [];
     await queueWrite(TRASH_KEY, () => set(TRASH_KEY, memoryState.trash));
     broadcastUpdate(TRASH_KEY, memoryState.trash);
