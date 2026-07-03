@@ -12,15 +12,14 @@ export function escapeHTML(str) {
 export function sanitizeHTML(html) {
   if (typeof html !== 'string') return '';
   
-  // DOMParser is standard and highly secure for client-side sanitization
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   
   const cleanNode = (node) => {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const tagName = node.tagName.toLowerCase();
-      // Block executable or remote metadata inclusion tags
-      if (['script', 'iframe', 'object', 'embed', 'link', 'style', 'meta'].includes(tagName)) {
+      // Block executable, remote metadata, and form tags
+      if (['script', 'iframe', 'object', 'embed', 'link', 'style', 'meta', 'form', 'button', 'input', 'select', 'textarea', 'option'].includes(tagName)) {
         node.remove();
         return;
       }
@@ -30,12 +29,20 @@ export function sanitizeHTML(html) {
         const name = attr.name.toLowerCase();
         const val = attr.value.toLowerCase().trim();
         
+        // Remove style attribute to prevent fixed-position phishing overlays
+        if (name === 'style') {
+          node.removeAttribute(attr.name);
+        }
+        // Remove formaction
+        else if (name === 'formaction') {
+          node.removeAttribute(attr.name);
+        }
         // Remove on* event handlers
-        if (name.startsWith('on')) {
+        else if (name.startsWith('on')) {
           node.removeAttribute(attr.name);
         } 
         // Remove protocol handler bypasses
-        else if (['href', 'src', 'action', 'formaction'].includes(name) && 
+        else if (['href', 'src', 'action'].includes(name) && 
                    (val.includes('javascript:') || val.includes('vbscript:') || val.startsWith('data:text/html'))) {
           node.removeAttribute(attr.name);
         }

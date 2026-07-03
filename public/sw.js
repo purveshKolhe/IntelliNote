@@ -1,4 +1,4 @@
-const CACHE_NAME = 'intellinote-cache-v3';
+const CACHE_NAME = 'intellinote-cache-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -46,6 +46,27 @@ self.addEventListener('fetch', (event) => {
   const isTrustedCDN = requestUrl.hostname === 'images.unsplash.com' || 
                        requestUrl.hostname === 'fonts.googleapis.com' || 
                        requestUrl.hostname === 'fonts.gstatic.com';
+
+  const isHtml = event.request.mode === 'navigate' || 
+                 (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html')) ||
+                 requestUrl.pathname === '/' ||
+                 requestUrl.pathname === '/index.html';
+
+  if (isHtml) {
+    // Network-First strategy for HTML documents to ensure the user gets the latest code if online
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse.status === 200 && isSameOrigin) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+        }
+        return networkResponse;
+      }).catch(() => {
+        return caches.match(event.request);
+      })
+    );
+    return;
+  }
 
   // Handle local development asset requests and static files
   event.respondWith(

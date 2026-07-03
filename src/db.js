@@ -1,5 +1,5 @@
 // Local Database Manager using IndexedDB + Memory Cache
-import { get, set } from 'idb-keyval';
+import { get, set, del } from 'idb-keyval';
 import { escapeHTML, sanitizeHTML } from './security.js';
 
 const WORKSPACES_KEY = 'intellinote_workspaces';
@@ -18,8 +18,100 @@ let memoryState = {
   analytics: null,
   groq_api_key: null,
   groq_model_name: null,
-  groq_chat_model_name: null
+  groq_chat_model_name: null,
+  pomodoro: null
 };
+
+let dbInitFailed = false;
+const writeQueues = {};
+
+async function queueWrite(key, operation) {
+  if (dbInitFailed) {
+    return Promise.reject(new Error("Database write ignored because initialization failed."));
+  }
+  if (!writeQueues[key]) {
+    writeQueues[key] = Promise.resolve();
+  }
+  const promise = writeQueues[key].then(async () => {
+    try {
+      return await operation();
+    } catch (e) {
+      console.error(`Database write queue error for key ${key}:`, e);
+      try {
+        if (typeof db !== 'undefined' && typeof db.addNotification === 'function') {
+          db.addNotification({
+            title: "Database Sync Error",
+            message: `Failed to save changes to IndexedDB (${key}): ` + e.message,
+            type: "error"
+          });
+        }
+      } catch (err) {
+        console.error("Failed to post error notification:", err);
+      }
+    }
+  });
+  writeQueues[key] = promise.catch(() => {});
+  return promise;
+}
+
+export function generateSecureId(prefix) {
+  const array = new Uint32Array(2);
+  crypto.getRandomValues(array);
+  return prefix + (array[0].toString(36) + array[1].toString(36)).substring(0, 12);
+}
+
+let dbChannel = null;
+if (typeof BroadcastChannel !== 'undefined') {
+  try {
+    dbChannel = new BroadcastChannel('intellinote_db_sync');
+    dbChannel.onmessage = (event) => {
+      const { type, key, data } = event.data;
+      if (type === 'db_update') {
+        switch (key) {
+          case WORKSPACES_KEY:
+            memoryState.workspaces = data;
+            break;
+          case CHAPTERS_KEY:
+            memoryState.chapters = data;
+            break;
+          case TRASH_KEY:
+            memoryState.trash = data;
+            break;
+          case PLUGINS_KEY:
+            memoryState.plugins = data;
+            break;
+          case NOTIFICATIONS_KEY:
+            memoryState.notifications = data;
+            break;
+          case ANALYTICS_KEY:
+            memoryState.analytics = data;
+            break;
+          case 'intellinote_groq_api_key':
+            memoryState.groq_api_key = data;
+            break;
+          case 'intellinote_groq_model_name':
+            memoryState.groq_model_name = data;
+            break;
+          case 'intellinote_groq_chat_model_name':
+            memoryState.groq_chat_model_name = data;
+            break;
+        }
+        window.dispatchEvent(new CustomEvent('intellinote_db_sync_reload', { detail: { key } }));
+      }
+    };
+  } catch (e) {
+    console.warn("BroadcastChannel initialization failed:", e);
+  }
+}
+
+function broadcastUpdate(key, data) {
+  if (!dbChannel) return;
+  try {
+    dbChannel.postMessage({ type: 'db_update', key, data });
+  } catch (e) {
+    console.warn("Failed to broadcast database update:", e);
+  }
+}
 
 const DEFAULT_PLUGINS = [
   {
@@ -830,87 +922,126 @@ export const db = {
   async init() {
     if (memoryState.workspaces !== null) return; // already initialized
 
-    // Migration step from localStorage
-    if (localStorage.getItem(WORKSPACES_KEY)) {
-      try {
-        memoryState.workspaces = JSON.parse(localStorage.getItem(WORKSPACES_KEY)) || [];
-        memoryState.chapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
-        memoryState.trash = JSON.parse(localStorage.getItem(TRASH_KEY)) || [];
-        const pluginStr = localStorage.getItem(PLUGINS_KEY);
-        memoryState.plugins = pluginStr ? JSON.parse(pluginStr) : [...DEFAULT_PLUGINS];
+    try {
+      // Migration step from localStorage
+      if (localStorage.getItem(WORKSPACES_KEY)) {
+        try {
+          memoryState.workspaces = JSON.parse(localStorage.getItem(WORKSPACES_KEY)) || [];
+          memoryState.chapters = JSON.parse(localStorage.getItem(CHAPTERS_KEY)) || [];
+          memoryState.trash = JSON.parse(localStorage.getItem(TRASH_KEY)) || [];
+          const pluginStr = localStorage.getItem(PLUGINS_KEY);
+          memoryState.plugins = pluginStr ? JSON.parse(pluginStr) : [...DEFAULT_PLUGINS];
 
-        await set(WORKSPACES_KEY, memoryState.workspaces);
-        await set(CHAPTERS_KEY, memoryState.chapters);
-        await set(TRASH_KEY, memoryState.trash);
-        await set(PLUGINS_KEY, memoryState.plugins);
+          await set(WORKSPACES_KEY, memoryState.workspaces);
+          await set(CHAPTERS_KEY, memoryState.chapters);
+          await set(TRASH_KEY, memoryState.trash);
+          await set(PLUGINS_KEY, memoryState.plugins);
 
-        localStorage.removeItem(WORKSPACES_KEY);
-        localStorage.removeItem(CHAPTERS_KEY);
-        localStorage.removeItem(TRASH_KEY);
-        localStorage.removeItem(PLUGINS_KEY);
-      } catch (e) {
-        console.warn("Local storage migration parse failed:", e);
-      }
-    } else {
-      memoryState.workspaces = await get(WORKSPACES_KEY) || [];
-      memoryState.chapters = await get(CHAPTERS_KEY) || [];
-      memoryState.trash = await get(TRASH_KEY) || [];
-      memoryState.plugins = await get(PLUGINS_KEY);
-    }
-    memoryState.notifications = await get(NOTIFICATIONS_KEY) || [];
-    memoryState.analytics = await get(ANALYTICS_KEY) || [];
-
-    if (!memoryState.plugins) {
-      memoryState.plugins = [...DEFAULT_PLUGINS];
-      await set(PLUGINS_KEY, memoryState.plugins);
-    } else {
-      let updated = false;
-      DEFAULT_PLUGINS.forEach(defaultP => {
-        const idx = memoryState.plugins.findIndex(p => p.id === defaultP.id);
-        if (idx >= 0) {
-          if (defaultP.isBuiltIn) {
-            if (!memoryState.plugins[idx].isBuiltIn) { memoryState.plugins[idx].isBuiltIn = true; updated = true; }
-            if (memoryState.plugins[idx].renderCode !== defaultP.renderCode) { memoryState.plugins[idx].renderCode = defaultP.renderCode; updated = true; }
-            if (memoryState.plugins[idx].name !== defaultP.name) { memoryState.plugins[idx].name = defaultP.name; updated = true; }
-            if (memoryState.plugins[idx].description !== defaultP.description) { memoryState.plugins[idx].description = defaultP.description; updated = true; }
-            if (memoryState.plugins[idx].icon !== defaultP.icon) { memoryState.plugins[idx].icon = defaultP.icon; updated = true; }
-          }
-        } else {
-          memoryState.plugins.push(defaultP);
-          updated = true;
+          localStorage.removeItem(WORKSPACES_KEY);
+          localStorage.removeItem(CHAPTERS_KEY);
+          localStorage.removeItem(TRASH_KEY);
+          localStorage.removeItem(PLUGINS_KEY);
+        } catch (e) {
+          console.warn("Local storage migration parse failed:", e);
+          throw new Error("Local storage migration parse failed: " + e.message);
         }
-      });
-      if (updated) {
-        await set(PLUGINS_KEY, memoryState.plugins);
+      } else {
+        memoryState.workspaces = await get(WORKSPACES_KEY) || [];
+        memoryState.chapters = await get(CHAPTERS_KEY) || [];
+        memoryState.trash = await get(TRASH_KEY) || [];
+        memoryState.plugins = await get(PLUGINS_KEY);
       }
-    }
+      
+      // Migrate existing base64 images from chapters to separate asset keys
+      let chaptersUpdated = false;
+      if (Array.isArray(memoryState.chapters)) {
+        for (const chapter of memoryState.chapters) {
+          if (Array.isArray(chapter.blocks)) {
+            for (const block of chapter.blocks) {
+              if (block.data && typeof block.data === 'object' && typeof block.data.image === 'string') {
+                const imgStr = block.data.image;
+                if (imgStr.startsWith('data:image/')) {
+                  const assetId = generateSecureId('asset-');
+                  await set('intellinote_asset_' + assetId, imgStr);
+                  block.data.image = assetId;
+                  chaptersUpdated = true;
+                }
+              }
+            }
+          }
+        }
+      }
+      if (chaptersUpdated) {
+        await set(CHAPTERS_KEY, memoryState.chapters);
+      }
 
-    // Migrate Groq Settings from localStorage if present
-    const localApiKey = localStorage.getItem('intellinote_groq_api_key');
-    if (localApiKey !== null) {
-      memoryState.groq_api_key = localApiKey;
-      await set('intellinote_groq_api_key', localApiKey);
-      localStorage.removeItem('intellinote_groq_api_key');
-    } else {
-      memoryState.groq_api_key = await get('intellinote_groq_api_key') || '';
-    }
+      memoryState.notifications = await get(NOTIFICATIONS_KEY) || [];
+      memoryState.analytics = await get(ANALYTICS_KEY) || [];
 
-    const localModelName = localStorage.getItem('intellinote_groq_model_name');
-    if (localModelName !== null) {
-      memoryState.groq_model_name = localModelName;
-      await set('intellinote_groq_model_name', localModelName);
-      localStorage.removeItem('intellinote_groq_model_name');
-    } else {
-      memoryState.groq_model_name = await get('intellinote_groq_model_name') || 'qwen/qwen3.6-27b';
-    }
+      if (!memoryState.plugins) {
+        memoryState.plugins = [...DEFAULT_PLUGINS];
+        await set(PLUGINS_KEY, memoryState.plugins);
+      } else {
+        let updated = false;
+        DEFAULT_PLUGINS.forEach(defaultP => {
+          const idx = memoryState.plugins.findIndex(p => p.id === defaultP.id);
+          if (idx >= 0) {
+            if (defaultP.isBuiltIn) {
+              if (!memoryState.plugins[idx].isBuiltIn) { memoryState.plugins[idx].isBuiltIn = true; updated = true; }
+              if (memoryState.plugins[idx].renderCode !== defaultP.renderCode) { memoryState.plugins[idx].renderCode = defaultP.renderCode; updated = true; }
+              if (memoryState.plugins[idx].name !== defaultP.name) { memoryState.plugins[idx].name = defaultP.name; updated = true; }
+              if (memoryState.plugins[idx].description !== defaultP.description) { memoryState.plugins[idx].description = defaultP.description; updated = true; }
+              if (memoryState.plugins[idx].icon !== defaultP.icon) { memoryState.plugins[idx].icon = defaultP.icon; updated = true; }
+            }
+          } else {
+            memoryState.plugins.push(defaultP);
+            updated = true;
+          }
+        });
+        if (updated) {
+          await set(PLUGINS_KEY, memoryState.plugins);
+        }
+      }
 
-    const localChatModel = localStorage.getItem('intellinote_groq_chat_model_name');
-    if (localChatModel !== null) {
-      memoryState.groq_chat_model_name = localChatModel;
-      await set('intellinote_groq_chat_model_name', localChatModel);
-      localStorage.removeItem('intellinote_groq_chat_model_name');
-    } else {
-      memoryState.groq_chat_model_name = await get('intellinote_groq_chat_model_name') || 'meta-llama/llama-4-scout-17b-16e-instruct';
+      // Migrate Groq Settings from localStorage if present
+      const localApiKey = localStorage.getItem('intellinote_groq_api_key');
+      if (localApiKey !== null) {
+        memoryState.groq_api_key = localApiKey;
+        await set('intellinote_groq_api_key', localApiKey);
+        localStorage.removeItem('intellinote_groq_api_key');
+      } else {
+        memoryState.groq_api_key = await get('intellinote_groq_api_key') || '';
+      }
+
+      const localModelName = localStorage.getItem('intellinote_groq_model_name');
+      if (localModelName !== null) {
+        memoryState.groq_model_name = localModelName;
+        await set('intellinote_groq_model_name', localModelName);
+        localStorage.removeItem('intellinote_groq_model_name');
+      } else {
+        memoryState.groq_model_name = await get('intellinote_groq_model_name') || 'qwen/qwen3.6-27b';
+      }
+
+      const localChatModel = localStorage.getItem('intellinote_groq_chat_model_name');
+      if (localChatModel !== null) {
+        memoryState.groq_chat_model_name = localChatModel;
+        await set('intellinote_groq_chat_model_name', localChatModel);
+        localStorage.removeItem('intellinote_groq_chat_model_name');
+      } else {
+        memoryState.groq_chat_model_name = await get('intellinote_groq_chat_model_name') || 'meta-llama/llama-4-scout-17b-16e-instruct';
+      }
+
+      memoryState.pomodoro = await get('intellinote_pomodoro_data') || null;
+    } catch (e) {
+      dbInitFailed = true;
+      console.error("Database initialization failed, lock activated to prevent data loss:", e);
+      memoryState.workspaces = [];
+      memoryState.chapters = [];
+      memoryState.trash = [];
+      memoryState.plugins = [...DEFAULT_PLUGINS];
+      memoryState.notifications = [];
+      memoryState.analytics = [];
+      throw e;
     }
   },
 
@@ -950,31 +1081,42 @@ export const db = {
     return this.getWorkspaces().find(w => w.id === id);
   },
 
-  saveWorkspace(workspace) {
-    const workspaces = this.getWorkspaces();
-    const index = workspaces.findIndex(w => w.id === workspace.id);
-    workspace.updatedAt = new Date().toISOString();
+  async saveWorkspace(workspace) {
+    const wsCopy = JSON.parse(JSON.stringify(workspace));
+    const workspaces = JSON.parse(JSON.stringify(this.getWorkspaces()));
+    const index = workspaces.findIndex(w => w.id === wsCopy.id);
+    wsCopy.updatedAt = new Date().toISOString();
     
-    if (workspace.starred === undefined) workspace.starred = false;
+    if (wsCopy.starred === undefined) wsCopy.starred = false;
     
-    if (index >= 0) { workspaces[index] = workspace; } 
-    else { workspaces.push(workspace); }
+    if (index >= 0) { workspaces[index] = wsCopy; } 
+    else { workspaces.push(wsCopy); }
     
-    set(WORKSPACES_KEY, workspaces);
-    return workspace;
+    memoryState.workspaces = workspaces;
+    await queueWrite(WORKSPACES_KEY, () => set(WORKSPACES_KEY, workspaces));
+    broadcastUpdate(WORKSPACES_KEY, workspaces);
+    return wsCopy;
   },
 
-  saveWorkspacesOrder(workspacesList) {
-    memoryState.workspaces = workspacesList;
-    set(WORKSPACES_KEY, workspacesList);
+  async saveWorkspacesOrder(workspacesList) {
+    const listCopy = JSON.parse(JSON.stringify(workspacesList));
+    memoryState.workspaces = listCopy;
+    await queueWrite(WORKSPACES_KEY, () => set(WORKSPACES_KEY, listCopy));
+    broadcastUpdate(WORKSPACES_KEY, listCopy);
   },
 
-  deleteWorkspace(workspaceId) {
-    memoryState.workspaces = this.getWorkspaces().filter(w => w.id !== workspaceId);
-    set(WORKSPACES_KEY, memoryState.workspaces);
+  async deleteWorkspace(workspaceId) {
+    const workspaces = JSON.parse(JSON.stringify(this.getWorkspaces().filter(w => w.id !== workspaceId)));
+    memoryState.workspaces = workspaces;
+    const p1 = queueWrite(WORKSPACES_KEY, () => set(WORKSPACES_KEY, workspaces));
+    broadcastUpdate(WORKSPACES_KEY, workspaces);
 
     const chapters = this.getChapters(workspaceId);
-    chapters.forEach(c => this.deleteChapter(c.id));
+    const promises = [p1];
+    for (const c of chapters) {
+      promises.push(this.deleteChapter(c.id));
+    }
+    await Promise.all(promises);
   },
 
   // Chapters
@@ -990,42 +1132,87 @@ export const db = {
     return (memoryState.chapters || []).find(c => c.id === id);
   },
 
-  saveChapter(chapter) {
-    const chapters = memoryState.chapters || [];
-    const index = chapters.findIndex(c => c.id === chapter.id);
-    chapter.updatedAt = new Date().toISOString();
+  async saveChapter(chapter) {
+    const chapCopy = JSON.parse(JSON.stringify(chapter));
+    const chapters = JSON.parse(JSON.stringify(memoryState.chapters || []));
     
-    if (index >= 0) { chapters[index] = chapter; } 
-    else { chapters.push(chapter); }
-    
-    set(CHAPTERS_KEY, chapters);
-    
-    const workspace = this.getWorkspace(chapter.workspaceId);
-    if (workspace) {
-      this.saveWorkspace(workspace);
+    // Check if the chapter is in trash. If it is, do not re-save it to active chapters list!
+    const trash = JSON.parse(JSON.stringify(memoryState.trash || []));
+    const trashIndex = trash.findIndex(c => c.id === chapCopy.id);
+    if (trashIndex >= 0) {
+      trash[trashIndex] = chapCopy;
+      memoryState.trash = trash;
+      await queueWrite(TRASH_KEY, () => set(TRASH_KEY, trash));
+      broadcastUpdate(TRASH_KEY, trash);
+      return chapCopy;
     }
-    return chapter;
+
+    const index = chapters.findIndex(c => c.id === chapCopy.id);
+    chapCopy.updatedAt = new Date().toISOString();
+    
+    // Extract base64 image payloads to the separate assets store
+    if (Array.isArray(chapCopy.blocks)) {
+      for (const block of chapCopy.blocks) {
+        if (block.data && typeof block.data === 'object' && typeof block.data.image === 'string') {
+          const imgStr = block.data.image;
+          if (imgStr.startsWith('data:image/')) {
+            const assetId = generateSecureId('asset-');
+            await this.saveAsset(assetId, imgStr);
+            block.data.image = assetId;
+          }
+        }
+      }
+    }
+    
+    if (index >= 0) { chapters[index] = chapCopy; } 
+    else { chapters.push(chapCopy); }
+    
+    memoryState.chapters = chapters;
+    const p1 = queueWrite(CHAPTERS_KEY, () => set(CHAPTERS_KEY, chapters));
+    broadcastUpdate(CHAPTERS_KEY, chapters);
+    
+    // Update parent workspace updatedAt directly to avoid recursion
+    const workspaces = JSON.parse(JSON.stringify(this.getWorkspaces()));
+    const wsIndex = workspaces.findIndex(w => w.id === chapCopy.workspaceId);
+    let p2 = Promise.resolve();
+    if (wsIndex >= 0) {
+      workspaces[wsIndex].updatedAt = new Date().toISOString();
+      memoryState.workspaces = workspaces;
+      p2 = queueWrite(WORKSPACES_KEY, () => set(WORKSPACES_KEY, workspaces)).then(() => {
+        broadcastUpdate(WORKSPACES_KEY, workspaces);
+      });
+    }
+    await Promise.all([p1, p2]);
+    return chapCopy;
   },
 
-  saveChaptersOrder(chaptersList, workspaceId) {
-    const allChapters = memoryState.chapters || [];
+  async saveChaptersOrder(chaptersList, workspaceId) {
+    const listCopy = JSON.parse(JSON.stringify(chaptersList));
+    const allChapters = JSON.parse(JSON.stringify(memoryState.chapters || []));
     const otherChapters = allChapters.filter(c => c.workspaceId !== workspaceId);
-    memoryState.chapters = [...otherChapters, ...chaptersList];
-    set(CHAPTERS_KEY, memoryState.chapters);
+    memoryState.chapters = [...otherChapters, ...listCopy];
+    await queueWrite(CHAPTERS_KEY, () => set(CHAPTERS_KEY, memoryState.chapters));
+    broadcastUpdate(CHAPTERS_KEY, memoryState.chapters);
   },
 
-  deleteChapter(id) {
+  async deleteChapter(id) {
     const chapters = memoryState.chapters || [];
-    const chapterToDelete = chapters.find(c => c.id === id);
-    if (!chapterToDelete) return;
+    const foundChapter = chapters.find(c => c.id === id);
+    if (!foundChapter) return;
 
+    // Deep clone before removing and deleting reference
+    const chapterToDelete = JSON.parse(JSON.stringify(foundChapter));
     memoryState.chapters = chapters.filter(c => c.id !== id);
-    set(CHAPTERS_KEY, memoryState.chapters);
+    const p1 = queueWrite(CHAPTERS_KEY, () => set(CHAPTERS_KEY, memoryState.chapters));
+    broadcastUpdate(CHAPTERS_KEY, memoryState.chapters);
 
-    const trash = memoryState.trash || [];
+    const trash = JSON.parse(JSON.stringify(memoryState.trash || []));
     chapterToDelete.deletedAt = new Date().toISOString();
     trash.push(chapterToDelete);
-    set(TRASH_KEY, trash);
+    memoryState.trash = trash;
+    const p2 = queueWrite(TRASH_KEY, () => set(TRASH_KEY, trash));
+    broadcastUpdate(TRASH_KEY, trash);
+    await Promise.all([p1, p2]);
   },
 
   // Trash (Recycle Bin)
@@ -1033,30 +1220,71 @@ export const db = {
     return memoryState.trash || [];
   },
 
-  restoreChapter(id) {
+  async restoreChapter(id) {
     const trash = memoryState.trash || [];
-    const chapterToRestore = trash.find(c => c.id === id);
-    if (!chapterToRestore) return;
+    const foundChapter = trash.find(c => c.id === id);
+    if (!foundChapter) return;
 
+    // Deep clone
+    const chapterToRestore = JSON.parse(JSON.stringify(foundChapter));
     memoryState.trash = trash.filter(c => c.id !== id);
-    set(TRASH_KEY, memoryState.trash);
+    const p1 = queueWrite(TRASH_KEY, () => set(TRASH_KEY, memoryState.trash));
+    broadcastUpdate(TRASH_KEY, memoryState.trash);
 
     delete chapterToRestore.deletedAt;
-    const chapters = memoryState.chapters || [];
+    
+    // Parent workspace existence check
+    const workspaces = JSON.parse(JSON.stringify(memoryState.workspaces || []));
+    const workspaceExists = workspaces.some(w => w.id === chapterToRestore.workspaceId);
+    if (!workspaceExists) {
+      let inboxWorkspace = workspaces.find(w => w.name === 'Inbox');
+      if (!inboxWorkspace) {
+        if (workspaces.length > 0) {
+          chapterToRestore.workspaceId = workspaces[0].id;
+        } else {
+          inboxWorkspace = {
+            id: generateSecureId('w-'),
+            name: 'Inbox',
+            cover: null,
+            starred: false,
+            updatedAt: new Date().toISOString()
+          };
+          workspaces.push(inboxWorkspace);
+          memoryState.workspaces = workspaces;
+          await queueWrite(WORKSPACES_KEY, () => set(WORKSPACES_KEY, workspaces));
+          broadcastUpdate(WORKSPACES_KEY, workspaces);
+          chapterToRestore.workspaceId = inboxWorkspace.id;
+        }
+      } else {
+        chapterToRestore.workspaceId = inboxWorkspace.id;
+      }
+    }
+
+    const chapters = JSON.parse(JSON.stringify(memoryState.chapters || []));
+    // Duplicate chapter ID check
+    if (chapters.some(c => c.id === chapterToRestore.id)) {
+      chapterToRestore.id = generateSecureId('c-');
+    }
+
     chapters.push(chapterToRestore);
-    set(CHAPTERS_KEY, chapters);
+    memoryState.chapters = chapters;
+    const p2 = queueWrite(CHAPTERS_KEY, () => set(CHAPTERS_KEY, chapters));
+    broadcastUpdate(CHAPTERS_KEY, chapters);
+    await Promise.all([p1, p2]);
     return chapterToRestore;
   },
 
-  permanentlyDeleteChapter(id) {
+  async permanentlyDeleteChapter(id) {
     const trash = memoryState.trash || [];
     memoryState.trash = trash.filter(c => c.id !== id);
-    set(TRASH_KEY, memoryState.trash);
+    await queueWrite(TRASH_KEY, () => set(TRASH_KEY, memoryState.trash));
+    broadcastUpdate(TRASH_KEY, memoryState.trash);
   },
 
-  clearTrash() {
+  async clearTrash() {
     memoryState.trash = [];
-    set(TRASH_KEY, memoryState.trash);
+    await queueWrite(TRASH_KEY, () => set(TRASH_KEY, memoryState.trash));
+    broadcastUpdate(TRASH_KEY, memoryState.trash);
   },
 
   // Plugins Manager Store
@@ -1064,27 +1292,33 @@ export const db = {
     return memoryState.plugins || [];
   },
 
-  savePlugin(plugin) {
-    const plugins = this.getPlugins();
+  async savePlugin(plugin) {
+    const plugins = JSON.parse(JSON.stringify(this.getPlugins()));
     const idx = plugins.findIndex(p => p.id === plugin.id);
-    if (idx >= 0) { plugins[idx] = plugin; } 
-    else { plugins.push(plugin); }
+    const pluginCopy = JSON.parse(JSON.stringify(plugin));
+    if (idx >= 0) { plugins[idx] = pluginCopy; } 
+    else { plugins.push(pluginCopy); }
     
-    set(PLUGINS_KEY, plugins);
-    return plugin;
+    memoryState.plugins = plugins;
+    await queueWrite(PLUGINS_KEY, () => set(PLUGINS_KEY, plugins));
+    broadcastUpdate(PLUGINS_KEY, plugins);
+    return pluginCopy;
   },
 
-  deletePlugin(id) {
+  async deletePlugin(id) {
     memoryState.plugins = this.getPlugins().filter(p => p.id !== id);
-    set(PLUGINS_KEY, memoryState.plugins);
+    await queueWrite(PLUGINS_KEY, () => set(PLUGINS_KEY, memoryState.plugins));
+    broadcastUpdate(PLUGINS_KEY, memoryState.plugins);
   },
 
-  togglePlugin(id) {
-    const plugins = this.getPlugins();
+  async togglePlugin(id) {
+    const plugins = JSON.parse(JSON.stringify(this.getPlugins()));
     const plugin = plugins.find(p => p.id === id);
     if (plugin) {
       plugin.enabled = !plugin.enabled;
-      set(PLUGINS_KEY, plugins);
+      memoryState.plugins = plugins;
+      await queueWrite(PLUGINS_KEY, () => set(PLUGINS_KEY, plugins));
+      broadcastUpdate(PLUGINS_KEY, plugins);
     }
     return plugin;
   },
@@ -1094,34 +1328,51 @@ export const db = {
     return memoryState.notifications || [];
   },
   
-  addNotification(notification) {
-    const notifications = this.getNotifications();
-    notification.id = 'n-' + Math.random().toString(36).substr(2, 9);
-    notification.timestamp = Date.now();
-    notification.read = false;
-    notifications.push(notification);
+  async addNotification(notification) {
+    const notifications = JSON.parse(JSON.stringify(this.getNotifications()));
+    const notifCopy = JSON.parse(JSON.stringify(notification));
+    notifCopy.id = generateSecureId('n-');
+    notifCopy.timestamp = Date.now();
+    notifCopy.read = false;
+    notifications.push(notifCopy);
     memoryState.notifications = notifications;
-    set(NOTIFICATIONS_KEY, notifications);
+    await queueWrite(NOTIFICATIONS_KEY, () => set(NOTIFICATIONS_KEY, notifications));
+    broadcastUpdate(NOTIFICATIONS_KEY, notifications);
     
     if (typeof window.loopOnNotificationAdded === 'function') {
-      window.loopOnNotificationAdded(notification);
+      window.loopOnNotificationAdded(notifCopy);
+    }
+  },
+  async markNotificationRead(id) {
+    const notifications = JSON.parse(JSON.stringify(this.getNotifications()));
+    const notif = notifications.find(n => n.id === id);
+    if (notif) {
+      notif.read = true;
+      memoryState.notifications = notifications;
+      await queueWrite(NOTIFICATIONS_KEY, () => set(NOTIFICATIONS_KEY, notifications));
+      broadcastUpdate(NOTIFICATIONS_KEY, notifications);
+      if (typeof window.loopOnNotificationAdded === 'function') {
+        window.loopOnNotificationAdded();
+      }
     }
   },
   
-  markAllNotificationsRead() {
-    const notifications = this.getNotifications();
+  async markAllNotificationsRead() {
+    const notifications = JSON.parse(JSON.stringify(this.getNotifications()));
     notifications.forEach(n => n.read = true);
     memoryState.notifications = notifications;
-    set(NOTIFICATIONS_KEY, notifications);
+    await queueWrite(NOTIFICATIONS_KEY, () => set(NOTIFICATIONS_KEY, notifications));
+    broadcastUpdate(NOTIFICATIONS_KEY, notifications);
     
     if (typeof window.loopOnNotificationAdded === 'function') {
       window.loopOnNotificationAdded();
     }
   },
   
-  clearNotifications() {
+  async clearNotifications() {
     memoryState.notifications = [];
-    set(NOTIFICATIONS_KEY, []);
+    await queueWrite(NOTIFICATIONS_KEY, () => set(NOTIFICATIONS_KEY, []));
+    broadcastUpdate(NOTIFICATIONS_KEY, []);
     
     if (typeof window.loopOnNotificationAdded === 'function') {
       window.loopOnNotificationAdded();
@@ -1133,45 +1384,82 @@ export const db = {
     return memoryState.analytics || [];
   },
 
-  addAnalyticsSession(session) {
-    const analytics = this.getAnalytics();
-    // Ensure unique ID for deletion
-    if (!session.id) {
-      session.id = 'a-' + Math.random().toString(36).substr(2, 9);
+  async addAnalyticsSession(session) {
+    const analytics = JSON.parse(JSON.stringify(this.getAnalytics()));
+    const sessionCopy = JSON.parse(JSON.stringify(session));
+    if (!sessionCopy.id) {
+      sessionCopy.id = generateSecureId('a-');
     }
-    analytics.push(session);
+    analytics.push(sessionCopy);
     memoryState.analytics = analytics;
-    set(ANALYTICS_KEY, analytics);
+    await queueWrite(ANALYTICS_KEY, () => set(ANALYTICS_KEY, analytics));
+    broadcastUpdate(ANALYTICS_KEY, analytics);
   },
 
-  deleteAnalyticsSession(id) {
-    memoryState.analytics = this.getAnalytics().filter(s => s.id !== id);
-    set(ANALYTICS_KEY, memoryState.analytics);
+  async deleteAnalyticsSession(id) {
+    const analytics = JSON.parse(JSON.stringify(this.getAnalytics().filter(s => s.id !== id)));
+    memoryState.analytics = analytics;
+    await queueWrite(ANALYTICS_KEY, () => set(ANALYTICS_KEY, analytics));
+    broadcastUpdate(ANALYTICS_KEY, analytics);
   },
 
   // Pomodoro & Habits Data
   async getPomodoroData() {
-    return await get('intellinote_pomodoro_data') || {
-      timerConfig: { focusDuration: 1500, shortBreakDuration: 300, longBreakDuration: 900, cyclesTarget: 4, autoTransitions: false },
-      dailyTarget: 8,
-      completedTodayCount: 0,
-      lastSessionDate: null,
-      sessions: [], // start raw
-      tasks: [
-        { id: 't-q4', name: 'Q4 Product Launch', status: 'in_progress', parentId: null, tags: ['High Priority'], timeSpent: 0 },
-        { id: 't-q4-1', name: 'Finalize landing page copy', status: 'in_progress', parentId: 't-q4', tags: ['Medium Priority'], timeSpent: 0 },
-        { id: 't-q4-1a', name: 'Write hero section', status: 'pending', parentId: 't-q4-1', tags: ['Medium Priority'], timeSpent: 0 },
-        { id: 't-web', name: 'Personal Website Redesign', status: 'pending', parentId: null, tags: ['Low Priority'], timeSpent: 0 }
-      ],
-      habits: [
-        { id: 'h-1', name: 'Hydration', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
-        { id: 'h-2', name: 'Read 20 pages', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
-        { id: 'h-3', name: 'Stretching', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 }
-      ],
-      distractionLogs: []
-    };
+    if (!memoryState.pomodoro) {
+      memoryState.pomodoro = await get('intellinote_pomodoro_data') || {
+        timerConfig: { focusDuration: 1500, shortBreakDuration: 300, longBreakDuration: 900, cyclesTarget: 4, autoTransitions: false },
+        dailyTarget: 8,
+        completedTodayCount: 0,
+        lastSessionDate: null,
+        sessions: [],
+        tasks: [
+          { id: 't-q4', name: 'Q4 Product Launch', status: 'in_progress', parentId: null, tags: ['High Priority'], timeSpent: 0 },
+          { id: 't-q4-1', name: 'Finalize landing page copy', status: 'in_progress', parentId: 't-q4', tags: ['Medium Priority'], timeSpent: 0 },
+          { id: 't-q4-1a', name: 'Write hero section', status: 'pending', parentId: 't-q4-1', tags: ['Medium Priority'], timeSpent: 0 },
+          { id: 't-web', name: 'Personal Website Redesign', status: 'pending', parentId: null, tags: ['Low Priority'], timeSpent: 0 }
+        ],
+        habits: [
+          { id: 'h-1', name: 'Hydration', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
+          { id: 'h-2', name: 'Read 20 pages', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 },
+          { id: 'h-3', name: 'Stretching', type: 'positive', frequency: 'daily', logs: {}, streak: 0, bestStreak: 0 }
+        ],
+        distractionLogs: [],
+        migrationV3RawCleaned: true,
+        migrationV6RawStartCleaned: true,
+        migrationV7PriorityCleaned: true
+      };
+      await queueWrite('intellinote_pomodoro_data', () => set('intellinote_pomodoro_data', memoryState.pomodoro));
+    }
+    return JSON.parse(JSON.stringify(memoryState.pomodoro));
   },
   async savePomodoroData(data) {
-    await set('intellinote_pomodoro_data', data);
+    const dataCopy = JSON.parse(JSON.stringify(data));
+    memoryState.pomodoro = dataCopy;
+    await queueWrite('intellinote_pomodoro_data', () => set('intellinote_pomodoro_data', dataCopy));
+    broadcastUpdate('intellinote_pomodoro_data', dataCopy);
+  },
+  async getAsset(id) {
+    if (typeof id !== 'string') return null;
+    const cleanId = id.replace(/^asset-/, '');
+    return await get('intellinote_asset_' + cleanId);
+  },
+  async saveAsset(id, dataUrl) {
+    if (typeof id !== 'string') return;
+    const cleanId = id.replace(/^asset-/, '');
+    await queueWrite('intellinote_asset_' + cleanId, () => set('intellinote_asset_' + cleanId, dataUrl));
+  },
+  async deleteAsset(id) {
+    if (typeof id !== 'string') return;
+    const cleanId = id.replace(/^asset-/, '');
+    await queueWrite('intellinote_asset_' + cleanId, () => del('intellinote_asset_' + cleanId));
+  },
+  async reload() {
+    memoryState.workspaces = await get(WORKSPACES_KEY) || [];
+    memoryState.chapters = await get(CHAPTERS_KEY) || [];
+    memoryState.trash = await get(TRASH_KEY) || [];
+    memoryState.plugins = await get(PLUGINS_KEY) || [...DEFAULT_PLUGINS];
+    memoryState.notifications = await get(NOTIFICATIONS_KEY) || [];
+    memoryState.analytics = await get(ANALYTICS_KEY) || [];
+    memoryState.pomodoro = await get('intellinote_pomodoro_data') || null;
   }
 };

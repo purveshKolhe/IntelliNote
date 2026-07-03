@@ -1,5 +1,5 @@
 // IntelliNote Block-Based Editor Engine
-import { db } from './db.js';
+import { db, generateSecureId } from './db.js';
 import { emoji } from './emoji.js';
 import { escapeHTML, sanitizeHTML } from './security.js';
 import { PLUGIN_RENDERERS } from './pluginRenderers.js';
@@ -280,7 +280,7 @@ export class Editor {
     this.chapter = chapter;
     this.onSave = onSave;
     this.blocks = chapter.blocks && chapter.blocks.length > 0 ? JSON.parse(JSON.stringify(chapter.blocks)) : [
-      { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '' }
+      { id: generateSecureId('b-'), type: 'text', data: '' }
     ];
 
     this.activeBlockIndex = 0;
@@ -297,12 +297,53 @@ export class Editor {
     this.render();
   }
 
-  save() {
+  async save() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+
+    // Process any dirty assets
+    if (Array.isArray(this.blocks)) {
+      for (const block of this.blocks) {
+        if (block._dirtyAsset !== undefined) {
+          let assetId = block.data.image;
+          if (!assetId || !assetId.startsWith('asset-')) {
+            assetId = generateSecureId('asset-');
+          }
+          if (block._dirtyAsset === '') {
+            block.data.image = '';
+          } else {
+            await db.saveAsset(assetId, block._dirtyAsset);
+            block.data.image = assetId;
+          }
+          delete block._dirtyAsset;
+        }
+      }
+    }
+
     this.chapter.blocks = this.blocks;
-    db.saveChapter(this.chapter);
+    await db.saveChapter(this.chapter);
     if (this.onSave) {
       this.onSave(this.chapter);
     }
+  }
+
+  destroy() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+  }
+
+  debouncedSave() {
+    this.lastEditTime = Date.now();
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    this.saveTimeout = setTimeout(() => {
+      this.save();
+    }, 500);
   }
 
   render() {
@@ -599,7 +640,7 @@ export class Editor {
         editable.innerHTML = ''; // Clear DOM so :empty matches!
       }
       block.data = cleanHTML;
-      this.save();
+      this.debouncedSave();
     };
 
     editable.addEventListener('input', () => {
@@ -650,7 +691,7 @@ export class Editor {
               }
               const reader = new FileReader();
               reader.onload = (event) => {
-              const newId = 'b-' + Math.random().toString(36).substr(2, 9);
+              const newId = generateSecureId('b-');
               const newBlock = {
                 id: newId,
                 type: 'image-widget',
@@ -965,7 +1006,7 @@ export class Editor {
       const lineCount = value.split('\n').length || 1;
       lineNumbersCol.innerHTML = Array(lineCount).fill(0).map((_, i) => `<div>${i + 1}</div>`).join('');
 
-      this.save();
+      this.debouncedSave();
     };
 
     textarea.addEventListener('input', syncAndHighlight);
@@ -1156,7 +1197,7 @@ export class Editor {
         
         cellEl.addEventListener('input', () => {
           block.data.rows[rowIndex][colIndex] = sanitizeHTML(cellEl.innerHTML);
-          this.save();
+          this.debouncedSave();
         });
 
         tr.appendChild(cellEl);
@@ -1199,7 +1240,7 @@ export class Editor {
     const updatePreview = () => {
       const latex = textarea.value.trim();
       block.data.latex = latex;
-      this.save();
+      this.debouncedSave();
 
       if (!latex) {
         previewArea.innerHTML = '<div style="color:var(--text-light); font-style:italic; font-size:15.3px; user-select:none; text-align:center; padding:12.6px 0;">Empty Equation. Click to edit...</div>';
@@ -1271,7 +1312,7 @@ export class Editor {
   renderChatBlock(block, index, container) {
     if (!block.data || typeof block.data !== 'object') {
       block.data = {
-        chatId: 'chat-' + Math.random().toString(36).substr(2, 9),
+        chatId: generateSecureId('chat-'),
         title: 'AI Chat Thread',
         messages: []
       };
@@ -1357,15 +1398,47 @@ export class Editor {
       return;
     }
 
-    try {
-      const renderer = PLUGIN_RENDERERS[block.type];
-      if (renderer) {
-        renderer(block, index, container, this, () => this.save(), db);
-      } else {
-        container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px solid rgba(239,68,68,0.2); border-radius:10.5px; background:#fef2f2; font-size:14.7px; font-weight:500;">Plugin renderer for "${block.type}" not found.</div>`;
+    const runRenderer = (resolvedBlock) => {
+      try {
+        const renderer = PLUGIN_RENDERERS[block.type];
+        const customSave = () => {
+          if (resolvedBlock.data && typeof resolvedBlock.data === 'object') {
+            for (const key in resolvedBlock.data) {
+              if (key !== 'image') {
+                block.data[key] = resolvedBlock.data[key];
+              }
+            }
+            block._dirtyAsset = resolvedBlock.data.image;
+          }
+          this.debouncedSave();
+        };
+
+        if (renderer) {
+          renderer(resolvedBlock, index, container, this, customSave, db);
+        } else {
+          container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px solid rgba(239,68,68,0.2); border-radius:10.5px; background:#fef2f2; font-size:14.7px; font-weight:500;">Plugin renderer for "${block.type}" not found.</div>`;
+        }
+      } catch (e) {
+        container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px dashed #ef4444; border-radius:10.5px; background:#fef2f2; font-family:var(--font-mono); font-size:13.7px; white-space:pre-wrap;">Plugin Render Error:\n${e.stack || e.message}</div>`;
       }
-    } catch (e) {
-      container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px dashed #ef4444; border-radius:10.5px; background:#fef2f2; font-family:var(--font-mono); font-size:13.7px; white-space:pre-wrap;">Plugin Render Error:\n${e.stack || e.message}</div>`;
+    };
+
+    if (block.data && typeof block.data === 'object' && typeof block.data.image === 'string' && block.data.image.startsWith('asset-')) {
+      container.innerHTML = `<div style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px;"><svg class="animate-spin" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="margin-right:8px; display:inline-block; vertical-align:middle; animation: loop-spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="rgba(0,0,0,0.1)" stroke-width="2"/><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor"/></svg>Loading image asset...</div>`;
+      db.getAsset(block.data.image.replace('asset-', '')).then(assetData => {
+        if (assetData) {
+          const resolvedBlock = JSON.parse(JSON.stringify(block));
+          resolvedBlock.data.image = assetData;
+          container.innerHTML = '';
+          runRenderer(resolvedBlock);
+        } else {
+          container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px solid rgba(239,68,68,0.2); border-radius:10.5px; background:#fef2f2; font-size:14.7px; font-weight:500;">Failed to load image asset.</div>`;
+        }
+      }).catch(err => {
+        container.innerHTML = `<div style="padding:12.6px; color:#ef4444; border:1px solid rgba(239,68,68,0.2); border-radius:10.5px; background:#fef2f2; font-size:14.7px; font-weight:500;">Error loading image: ${err.message}</div>`;
+      });
+    } else {
+      runRenderer(block);
     }
   }
 
@@ -1450,7 +1523,17 @@ export class Editor {
         this.closeBlockContextMenu();
       } else if (action === 'duplicate') {
         const duplicatedBlock = JSON.parse(JSON.stringify(block));
-        duplicatedBlock.id = 'b-' + Math.random().toString(36).substr(2, 9);
+        duplicatedBlock.id = generateSecureId('b-');
+        
+        if (duplicatedBlock.data && typeof duplicatedBlock.data === 'object' && typeof duplicatedBlock.data.image === 'string' && duplicatedBlock.data.image.startsWith('asset-')) {
+          const oldAssetId = duplicatedBlock.data.image;
+          const newAssetId = generateSecureId('asset-');
+          db.getAsset(oldAssetId).then(data => {
+            if (data) db.saveAsset(newAssetId, data);
+          });
+          duplicatedBlock.data.image = newAssetId;
+        }
+
         this.blocks.splice(index + 1, 0, duplicatedBlock);
         this.save();
         this.render();
@@ -1682,7 +1765,7 @@ export class Editor {
       block.data = cleanText;
     } else if (newType === 'chat-block') {
       block.data = {
-        chatId: 'chat-' + Math.random().toString(36).substr(2, 9),
+        chatId: generateSecureId('chat-'),
         title: cleanText || 'AI Chat Thread',
         messages: []
       };
@@ -1697,7 +1780,7 @@ export class Editor {
   }
 
   insertBlockAfter(index, currentType, currentIndent = 0) {
-    const newId = 'b-' + Math.random().toString(36).substr(2, 9);
+    const newId = generateSecureId('b-');
     const nextType = ['bullet-list', 'number-list', 'checklist'].includes(currentType) ? currentType : 'text';
     
     const newBlock = {
@@ -1718,8 +1801,13 @@ export class Editor {
   }
 
   deleteBlock(index) {
+    const deletedBlock = this.blocks[index];
+    if (deletedBlock && deletedBlock.data && typeof deletedBlock.data === 'object' && typeof deletedBlock.data.image === 'string' && deletedBlock.data.image.startsWith('asset-')) {
+      db.deleteAsset(deletedBlock.data.image);
+    }
+
     if (this.blocks.length === 1) {
-      this.blocks[0] = { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 };
+      this.blocks[0] = { id: generateSecureId('b-'), type: 'text', data: '', indent: 0 };
       this.save();
       this.render();
       this.focusBlock(0);

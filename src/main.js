@@ -2,7 +2,7 @@
 import './style.css';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-import { db } from './db.js';
+import { db, generateSecureId } from './db.js';
 import { emoji } from './emoji.js';
 import { Editor } from './editor.js';
 import { search } from './search.js';
@@ -36,6 +36,23 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('PWA Service Worker registered:', reg.scope);
+      
+      // Update check
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('New content available, triggering service worker update.');
+              db.addNotification({
+                title: 'Application Update Available',
+                message: 'A new version of IntelliNote has been loaded. Click here to refresh and apply updates.',
+                action: 'reload_app'
+              });
+            }
+          });
+        }
+      });
     }).catch(err => {
       console.log('PWA Service Worker registration failed:', err);
     });
@@ -155,6 +172,40 @@ try {
     setTimeout(() => loader.remove(), 550);
   }
 }
+
+window.addEventListener('intellinote_db_sync_reload', (e) => {
+  const { key } = e.detail;
+  if (key === 'intellinote_workspaces') {
+    renderPrimarySidebarWorkspaces();
+  } else if (key === 'intellinote_chapters') {
+    renderPrimarySidebarWorkspaces();
+    if (activeChapterId) {
+      const updatedChapter = db.getChapter(activeChapterId);
+      if (updatedChapter && activeEditorInstance) {
+        activeEditorInstance.chapter = updatedChapter;
+        const hasFocus = document.activeElement && document.activeElement.closest('.loop-editor-canvas');
+        const isEditing = activeEditorInstance.lastEditTime && (Date.now() - activeEditorInstance.lastEditTime < 10000);
+        if (!hasFocus && !isEditing) {
+          activeEditorInstance.blocks = JSON.parse(JSON.stringify(updatedChapter.blocks || []));
+          activeEditorInstance.render();
+        }
+      }
+    }
+  } else if (key === 'intellinote_pomodoro_data') {
+    const route = window.location.hash;
+    if (route.startsWith('#pomodoro/')) {
+      if (route === '#pomodoro/dashboard' && typeof renderPomodoroDashboard === 'function') {
+        renderPomodoroDashboard();
+      } else if (route === '#pomodoro/tasks' && typeof renderTasksView === 'function') {
+        renderTasksView();
+      } else if (route === '#pomodoro/habits' && typeof renderHabitsView === 'function') {
+        renderHabitsView();
+      }
+    }
+  } else if (key === 'intellinote_notifications') {
+    updateNotificationsBadge();
+  }
+});
 
 function updateNotificationsBadge() {
   const badge = document.getElementById('nav-notifications-badge');
@@ -492,8 +543,8 @@ function confirmDeleteWorkspace(ws) {
     message: `Are you sure you want to permanently delete <strong>"${ws.name}"</strong>? This will delete all pages inside it. This action cannot be undone.`,
     confirmText: 'Delete Workspace',
     confirmClass: 'delete',
-    onConfirm: () => {
-      db.deleteWorkspace(ws.id);
+    onConfirm: async () => {
+      await db.deleteWorkspace(ws.id);
       if (activeWorkspaceId === ws.id) {
         window.location.hash = '#dashboard';
       } else {
@@ -1067,6 +1118,9 @@ function renderEditorPane() {
     const titleVal = titleInput.textContent;
     chapter.title = titleVal;
     db.saveChapter(chapter);
+    if (activeEditorInstance) {
+      activeEditorInstance.lastEditTime = Date.now();
+    }
 
     crumbTitle.textContent = titleVal || 'Untitled Page';
     const activeSidebarTitle = document.querySelector(`.chapter-nav-item[data-id="${chapter.id}"] .chapter-nav-title`);
@@ -1083,6 +1137,9 @@ function renderEditorPane() {
   });
 
   const editorMount = document.getElementById('editor-container');
+  if (activeEditorInstance && typeof activeEditorInstance.destroy === 'function') {
+    activeEditorInstance.destroy();
+  }
   activeEditorInstance = new Editor(editorMount, chapter, () => {
     // Callback
   });
@@ -1321,7 +1378,7 @@ function showCreateWorkspaceModal() {
       return;
     }
 
-    const wsId = 'w-' + Math.random().toString(36).substr(2, 9);
+    const wsId = generateSecureId('w-');
     
     const newWorkspace = {
       id: wsId,
@@ -1333,7 +1390,7 @@ function showCreateWorkspaceModal() {
     db.saveWorkspace(newWorkspace);
 
     // Initial page set
-    const chapterId = 'c-' + Math.random().toString(36).substr(2, 9);
+    const chapterId = generateSecureId('c-');
     const firstChapter = {
       id: chapterId,
       workspaceId: wsId,
@@ -1360,14 +1417,14 @@ function showCreateWorkspaceModal() {
 
 // --- Create New Chapter Helper ---
 function createNewChapter() {
-  const chapterId = 'c-' + Math.random().toString(36).substr(2, 9);
+  const chapterId = generateSecureId('c-');
   const newChapter = {
     id: chapterId,
     workspaceId: activeWorkspaceId,
     title: '', // Start empty to let user write title
     emoji: null,
     blocks: [
-      { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }
+      { id: generateSecureId('b-'), type: 'text', data: '', indent: 0 }
     ],
     updatedAt: new Date().toISOString()
   };
@@ -1513,7 +1570,7 @@ function drawNotificationsList(container) {
         const timeStr = new Date(n.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
         const icon = n.type === 'timer' ? '⏱️' : '🔔';
         return `
-          <div class="notification-item ${n.read ? '' : 'unread'}">
+          <div class="notification-item ${n.read ? '' : 'unread'}" data-id="${n.id}" data-action="${n.action || ''}" style="cursor: pointer;">
             <span class="notification-icon">${icon}</span>
             <div class="notification-content">
               <div class="notification-title">${n.title}</div>
@@ -1525,6 +1582,20 @@ function drawNotificationsList(container) {
       }).join('')}
     </div>
   `;
+
+  // Attach click listeners to notification items
+  container.querySelectorAll('.notification-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const id = item.getAttribute('data-id');
+      const action = item.getAttribute('data-action');
+      
+      await db.markNotificationRead(id);
+      
+      if (action === 'reload_app') {
+        window.location.reload();
+      }
+    });
+  });
 }
 
 // --- Notifications Drawer Modal ---
@@ -1775,36 +1846,62 @@ function triggerJSONUpload(onSuccess) {
   input.click();
 }
 
-function exportPage(chapterId) {
+async function exportPage(chapterId) {
   const chapter = db.getChapter(chapterId);
   if (!chapter) return;
+
+  const blocksCopy = JSON.parse(JSON.stringify(chapter.blocks || []));
+  for (const block of blocksCopy) {
+    if (block.data && typeof block.data === 'object' && typeof block.data.image === 'string' && block.data.image.startsWith('asset-')) {
+      const assetData = await db.getAsset(block.data.image);
+      if (assetData) {
+        block.data.image = assetData;
+      }
+    }
+  }
+
   const exportData = {
     type: 'intellinote-page',
-    version: 1,
+    version: 2,
     title: chapter.title,
     emoji: chapter.emoji,
     cover: chapter.cover,
-    blocks: chapter.blocks
+    blocks: blocksCopy
   };
   downloadJSON(exportData, `${chapter.title || 'Untitled Page'}.json`);
 }
 
-function exportWorkspace(workspaceId) {
+async function exportWorkspace(workspaceId) {
   const workspace = db.getWorkspace(workspaceId);
   if (!workspace) return;
   const chapters = db.getChapters(workspaceId);
-  const exportData = {
-    type: 'intellinote-workspace',
-    version: 1,
-    name: workspace.name,
-    cover: workspace.cover,
-    starred: workspace.starred,
-    chapters: chapters.map(c => ({
+
+  const chaptersCopy = [];
+  for (const c of chapters) {
+    const blocksCopy = JSON.parse(JSON.stringify(c.blocks || []));
+    for (const block of blocksCopy) {
+      if (block.data && typeof block.data === 'object' && typeof block.data.image === 'string' && block.data.image.startsWith('asset-')) {
+        const assetData = await db.getAsset(block.data.image);
+        if (assetData) {
+          block.data.image = assetData;
+        }
+      }
+    }
+    chaptersCopy.push({
       title: c.title,
       emoji: c.emoji,
       cover: c.cover,
-      blocks: c.blocks
-    }))
+      blocks: blocksCopy
+    });
+  }
+
+  const exportData = {
+    type: 'intellinote-workspace',
+    version: 2,
+    name: workspace.name,
+    cover: workspace.cover,
+    starred: workspace.starred,
+    chapters: chaptersCopy
   };
   downloadJSON(exportData, `${workspace.name || 'Untitled Workspace'}.json`);
 }
@@ -1816,16 +1913,18 @@ function importPageToWorkspace(workspaceId) {
       return;
     }
     
-    const rawBlocks = Array.isArray(data.blocks) ? data.blocks : [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }];
+    const rawBlocks = Array.isArray(data.blocks) ? data.blocks : [{ id: generateSecureId('b-'), type: 'text', data: '', indent: 0 }];
     const cleanBlocks = rawBlocks.map(b => {
       if (!b || typeof b !== 'object') {
-        return { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 };
+        return { id: generateSecureId('b-'), type: 'text', data: '', indent: 0 };
       }
-      return sanitizeBlock(b);
+      const clean = sanitizeBlock(b);
+      clean.id = generateSecureId('b-');
+      return clean;
     });
 
     const newChapter = {
-      id: 'c-' + Math.random().toString(36).substr(2, 9),
+      id: generateSecureId('c-'),
       workspaceId: workspaceId,
       title: escapeHTML(String(data.title || 'Imported Page')),
       emoji: data.emoji ? escapeHTML(String(data.emoji)) : null,
@@ -1848,7 +1947,7 @@ function importWorkspaceGlobal() {
       return;
     }
     
-    const wsId = 'w-' + Math.random().toString(36).substr(2, 9);
+    const wsId = generateSecureId('w-');
     const newWorkspace = {
       id: wsId,
       name: escapeHTML(String(data.name || 'Imported Workspace')),
@@ -1863,16 +1962,18 @@ function importWorkspaceGlobal() {
     if (Array.isArray(data.chapters) && data.chapters.length > 0) {
       data.chapters.forEach((c, idx) => {
         if (!c || typeof c !== 'object') return;
-        const chapterId = 'c-' + Math.random().toString(36).substr(2, 9);
+        const chapterId = generateSecureId('c-');
         if (idx === 0) firstChapterId = chapterId;
         
-        const rawBlocks = Array.isArray(c.blocks) ? c.blocks : [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }];
+        const rawBlocks = Array.isArray(c.blocks) ? c.blocks : [{ id: generateSecureId('b-'), type: 'text', data: '', indent: 0 }];
         // Sanitize and normalize blocks
         const cleanBlocks = rawBlocks.map(b => {
           if (!b || typeof b !== 'object') {
-            return { id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 };
+            return { id: generateSecureId('b-'), type: 'text', data: '', indent: 0 };
           }
-          return sanitizeBlock(b);
+          const clean = sanitizeBlock(b);
+          clean.id = generateSecureId('b-');
+          return clean;
         });
 
         const newChapter = {
@@ -1888,14 +1989,14 @@ function importWorkspaceGlobal() {
       });
     } else {
       // Create at least one page if the workspace is empty
-      const chapterId = 'c-' + Math.random().toString(36).substr(2, 9);
+      const chapterId = generateSecureId('c-');
       firstChapterId = chapterId;
       const firstChapter = {
         id: chapterId,
         workspaceId: wsId,
         title: '',
         emoji: null,
-        blocks: [{ id: 'b-' + Math.random().toString(36).substr(2, 9), type: 'text', data: '', indent: 0 }],
+        blocks: [{ id: generateSecureId('b-'), type: 'text', data: '', indent: 0 }],
         updatedAt: new Date().toISOString()
       };
       db.saveChapter(firstChapter);
@@ -2295,7 +2396,11 @@ const sanitizeObject = (obj) => {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const val = obj[key];
       if (typeof val === 'string') {
-        result[key] = sanitizeHTML(val);
+        if (val.startsWith('data:image/') || val.startsWith('asset-')) {
+          result[key] = val;
+        } else {
+          result[key] = sanitizeHTML(val);
+        }
       } else if (typeof val === 'object' && val !== null) {
         result[key] = sanitizeObject(val);
       } else {
@@ -2307,7 +2412,7 @@ const sanitizeObject = (obj) => {
 };
 
 const sanitizeBlock = (block) => {
-  const id = block.id || ('b-' + Math.random().toString(36).substr(2, 9));
+  const id = block.id || generateSecureId('b-');
   let type = block.type || 'text';
   let data = block.data;
 
@@ -2371,7 +2476,7 @@ const sanitizeBlock = (block) => {
       )
     };
   } else if (type === 'chat-block') {
-    let chatId = 'chat-' + Math.random().toString(36).substr(2, 9);
+    let chatId = generateSecureId('chat-');
     let title = 'AI Chat Thread';
     let messages = [];
     if (data && typeof data === 'object') {
@@ -2530,12 +2635,12 @@ function toggleAiChatSidebar() {
         }
         const chapter = db.getChapter(activeChapterId);
         if (chapter) {
-          const newId = 'b-' + Math.random().toString(36).substr(2, 9);
+          const newId = generateSecureId('b-');
           const newBlock = {
             id: newId,
             type: 'chat-block',
             data: {
-              chatId: 'chat-' + Math.random().toString(36).substr(2, 9),
+              chatId: generateSecureId('chat-'),
               title: `Saved Chat: ${chapter.title || 'Untitled Page'}`,
               messages: JSON.parse(JSON.stringify(msgs))
             }
@@ -3108,7 +3213,7 @@ function startBackgroundPomoTicker() {
       const d = t.dbData;
       d.sessions = d.sessions || [];
       const sessionObj = {
-        id: 's-' + Math.random().toString(36).substr(2, 9),
+        id: generateSecureId('s-'),
         type: finishedState,
         duration: finishedDuration,
         timestamp: Date.now(),
@@ -3918,7 +4023,7 @@ mainPane.innerHTML = `
         const title = input.value.trim();
         if (title) {
           const newC = {
-            id: 't-' + Math.random().toString(36).substr(2, 9),
+            id: generateSecureId('t-'),
             name: title,
             status: 'pending',
             parentId: selTask.id,
@@ -4057,7 +4162,7 @@ mainPane.innerHTML = `
       const priority = inlinePrioritySelect.value;
       if (name) {
         const newTask = {
-          id: 't-' + Math.random().toString(36).substr(2, 9),
+          id: generateSecureId('t-'),
           name: name,
           status: 'pending',
           parentId: null,
@@ -4091,7 +4196,7 @@ mainPane.innerHTML = `
 
       if (name) {
         const newTask = {
-          id: 't-' + Math.random().toString(36).substr(2, 9),
+          id: generateSecureId('t-'),
           name: name,
           status: 'pending',
           parentId: parentId,
@@ -4319,7 +4424,7 @@ mainPane.innerHTML = `
 
       if (name) {
         const newHabit = {
-          id: 'h-' + Math.random().toString(36).substr(2, 9),
+          id: generateSecureId('h-'),
           name: name,
           type: type,
           frequency: 'daily',
