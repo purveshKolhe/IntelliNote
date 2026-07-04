@@ -313,15 +313,24 @@ export class Editor {
           delete block._dirtyAsset;
           
           let assetId = block.data.image;
+          const oldAssetId = assetId;
           if (!assetId || !assetId.startsWith('asset-')) {
             assetId = generateSecureId('asset-');
           }
           if (dirtyData === '') {
             block.data.image = '';
           } else {
-            // Synchronously link the asset ID to the block data URL reference
-            block.data.image = assetId;
-            await db.saveAsset(assetId, dirtyData);
+            try {
+              await db.saveAsset(assetId, dirtyData);
+              // Only assign to block.data.image once the save resolves successfully
+              block.data.image = assetId;
+            } catch (err) {
+              console.error("Failed to save asset:", err);
+              // Rollback: restore the dirtyAsset and original block image
+              block._dirtyAsset = dirtyData;
+              block.data.image = oldAssetId;
+              throw err;
+            }
           }
         }
       }
@@ -1514,7 +1523,7 @@ export class Editor {
     menu.style.top = `${top}px`;
     menu.style.left = `${left}px`;
 
-    menu.addEventListener('click', (e) => {
+    menu.addEventListener('click', async (e) => {
       const btn = e.target.closest('.block-context-item');
       if (!btn) return;
       e.stopPropagation();
@@ -1533,14 +1542,15 @@ export class Editor {
         if (duplicatedBlock.data && typeof duplicatedBlock.data === 'object' && typeof duplicatedBlock.data.image === 'string' && duplicatedBlock.data.image.startsWith('asset-')) {
           const oldAssetId = duplicatedBlock.data.image;
           const newAssetId = generateSecureId('asset-');
-          db.getAsset(oldAssetId).then(data => {
-            if (data) db.saveAsset(newAssetId, data);
-          });
+          const data = await db.getAsset(oldAssetId);
+          if (data) {
+            await db.saveAsset(newAssetId, data);
+          }
           duplicatedBlock.data.image = newAssetId;
         }
 
         this.blocks.splice(index + 1, 0, duplicatedBlock);
-        this.save();
+        await this.save();
         this.render();
         this.closeBlockContextMenu();
         this.focusBlock(index + 1);

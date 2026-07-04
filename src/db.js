@@ -62,34 +62,46 @@ if (typeof BroadcastChannel !== 'undefined') {
       if (type === 'db_update') {
         switch (key) {
           case WORKSPACES_KEY:
-            memoryState.workspaces = data;
+            memoryState.workspaces = JSON.parse(JSON.stringify(data));
             break;
           case CHAPTERS_KEY:
-            memoryState.chapters = data;
+            memoryState.chapters = JSON.parse(JSON.stringify(data));
             break;
           case TRASH_KEY:
-            memoryState.trash = data;
+            memoryState.trash = JSON.parse(JSON.stringify(data));
             break;
           case PLUGINS_KEY:
-            memoryState.plugins = data;
+            memoryState.plugins = JSON.parse(JSON.stringify(data));
             break;
           case NOTIFICATIONS_KEY:
-            memoryState.notifications = data;
+            memoryState.notifications = JSON.parse(JSON.stringify(data));
             break;
           case ANALYTICS_KEY:
-            memoryState.analytics = data;
+            memoryState.analytics = JSON.parse(JSON.stringify(data));
             break;
           case 'intellinote_groq_api_key':
-            memoryState.groq_api_key = data;
+            memoryState.groq_api_key = JSON.parse(JSON.stringify(data));
             break;
           case 'intellinote_groq_model_name':
-            memoryState.groq_model_name = data;
+            memoryState.groq_model_name = JSON.parse(JSON.stringify(data));
             break;
           case 'intellinote_groq_chat_model_name':
-            memoryState.groq_chat_model_name = data;
+            memoryState.groq_chat_model_name = JSON.parse(JSON.stringify(data));
             break;
           case 'intellinote_pomodoro_data':
-            memoryState.pomodoro = data;
+            if (memoryState.pomodoro && typeof memoryState.pomodoro === 'object' && data && typeof data === 'object') {
+              const dataCopy = JSON.parse(JSON.stringify(data));
+              for (const k in memoryState.pomodoro) {
+                if (!(k in dataCopy)) {
+                  delete memoryState.pomodoro[k];
+                }
+              }
+              for (const k in dataCopy) {
+                memoryState.pomodoro[k] = dataCopy[k];
+              }
+            } else {
+              memoryState.pomodoro = JSON.parse(JSON.stringify(data));
+            }
             break;
         }
         if (typeof window !== 'undefined') {
@@ -960,7 +972,7 @@ export const db = {
                 const imgStr = block.data.image;
                 if (imgStr.startsWith('data:image/')) {
                   const assetId = generateSecureId('asset-');
-                  await set('intellinote_asset_' + assetId, imgStr);
+                  await this.saveAsset(assetId, imgStr);
                   block.data.image = assetId;
                   chaptersUpdated = true;
                 }
@@ -1275,6 +1287,11 @@ export const db = {
   async permanentlyDeleteChapter(id) {
     const trash = memoryState.trash || [];
     const chapterToDelete = trash.find(c => c.id === id);
+    
+    memoryState.trash = trash.filter(c => c.id !== id);
+    await queueWrite(TRASH_KEY, () => set(TRASH_KEY, memoryState.trash));
+    broadcastUpdate(TRASH_KEY, memoryState.trash);
+    
     if (chapterToDelete && Array.isArray(chapterToDelete.blocks)) {
       for (const block of chapterToDelete.blocks) {
         if (block.data && typeof block.data === 'object' && typeof block.data.image === 'string' && block.data.image.startsWith('asset-')) {
@@ -1282,13 +1299,15 @@ export const db = {
         }
       }
     }
-    memoryState.trash = trash.filter(c => c.id !== id);
-    await queueWrite(TRASH_KEY, () => set(TRASH_KEY, memoryState.trash));
-    broadcastUpdate(TRASH_KEY, memoryState.trash);
   },
 
   async clearTrash() {
     const trash = memoryState.trash || [];
+    
+    memoryState.trash = [];
+    await queueWrite(TRASH_KEY, () => set(TRASH_KEY, memoryState.trash));
+    broadcastUpdate(TRASH_KEY, memoryState.trash);
+    
     for (const chapterToDelete of trash) {
       if (chapterToDelete && Array.isArray(chapterToDelete.blocks)) {
         for (const block of chapterToDelete.blocks) {
@@ -1298,9 +1317,6 @@ export const db = {
         }
       }
     }
-    memoryState.trash = [];
-    await queueWrite(TRASH_KEY, () => set(TRASH_KEY, memoryState.trash));
-    broadcastUpdate(TRASH_KEY, memoryState.trash);
   },
 
   // Plugins Manager Store
@@ -1446,7 +1462,7 @@ export const db = {
       };
       await queueWrite('intellinote_pomodoro_data', () => set('intellinote_pomodoro_data', memoryState.pomodoro));
     }
-    return JSON.parse(JSON.stringify(memoryState.pomodoro));
+    return memoryState.pomodoro;
   },
   async savePomodoroData(data) {
     const dataCopy = JSON.parse(JSON.stringify(data));
@@ -1470,12 +1486,25 @@ export const db = {
     await queueWrite('intellinote_asset_' + cleanId, () => del('intellinote_asset_' + cleanId));
   },
   async reload() {
-    memoryState.workspaces = await get(WORKSPACES_KEY) || [];
-    memoryState.chapters = await get(CHAPTERS_KEY) || [];
-    memoryState.trash = await get(TRASH_KEY) || [];
-    memoryState.plugins = await get(PLUGINS_KEY) || [...DEFAULT_PLUGINS];
-    memoryState.notifications = await get(NOTIFICATIONS_KEY) || [];
-    memoryState.analytics = await get(ANALYTICS_KEY) || [];
-    memoryState.pomodoro = await get('intellinote_pomodoro_data') || null;
+    try {
+      const workspaces = await get(WORKSPACES_KEY) || [];
+      const chapters = await get(CHAPTERS_KEY) || [];
+      const trash = await get(TRASH_KEY) || [];
+      const plugins = await get(PLUGINS_KEY) || [...DEFAULT_PLUGINS];
+      const notifications = await get(NOTIFICATIONS_KEY) || [];
+      const analytics = await get(ANALYTICS_KEY) || [];
+      const pomodoro = await get('intellinote_pomodoro_data') || null;
+      
+      memoryState.workspaces = workspaces;
+      memoryState.chapters = chapters;
+      memoryState.trash = trash;
+      memoryState.plugins = plugins;
+      memoryState.notifications = notifications;
+      memoryState.analytics = analytics;
+      memoryState.pomodoro = pomodoro;
+    } catch (e) {
+      console.error("Failed to reload database caches atomically:", e);
+      throw e;
+    }
   }
 };
