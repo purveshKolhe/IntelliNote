@@ -1906,7 +1906,7 @@ export class Editor {
     this.isFetchingAutocomplete = true;
     console.log("[Autocomplete] Dispatched completions API request...");
 
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
+    fetch('/api/groq/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + apiKey,

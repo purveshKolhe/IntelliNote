@@ -37,7 +37,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   // Exclude AI API endpoints so online checks/requests still hit the network directly
-  if (event.request.url.includes('api.groq.com') || event.request.url.includes('api.openai.com')) {
+  if (event.request.url.includes('api.groq.com') || event.request.url.includes('api.openai.com') || event.request.url.includes('/api/groq')) {
     return;
   }
 

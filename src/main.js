@@ -2828,7 +2828,7 @@ Always keep the conversation natural, but append the JSON payload with [NOTE_EDI
 
     console.log("[AI Chat] Payload length:", JSON.stringify(reqBody).length, "Messages:", JSON.parse(JSON.stringify(requestMessages)), "Body:", reqBody);
 
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
+    fetch('/api/groq/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + apiKey,
