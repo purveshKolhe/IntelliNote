@@ -3319,6 +3319,16 @@ function startBackgroundPomoTicker() {
         playPomoChime('start');
         startBackgroundPomoTicker();
       }
+
+      // Re-render dashboard or sidebar dynamically if in focus mode pages
+      const currentHash = window.location.hash;
+      if (currentHash === '#pomodoro' || currentHash === '#pomodoro/dashboard') {
+        renderPomodoroSecondarySidebar('dashboard');
+        renderPomodoroDashboard('dashboard');
+      } else if (currentHash.startsWith('#pomodoro/')) {
+        const tab = currentHash.replace('#pomodoro/', '');
+        renderPomodoroSecondarySidebar(tab);
+      }
     }
 
     // Reactively update UI if we are looking at the timer tab
@@ -3328,6 +3338,18 @@ function startBackgroundPomoTicker() {
 
 function updateTimerUIProgress() {
   const t = window.loopPomodoroTimer;
+
+  // Update document title dynamically with timer if running
+  if (t.isRunning) {
+    const mins = Math.floor(t.secondsLeft / 60);
+    const secs = t.secondsLeft % 60;
+    const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const label = t.state === 'focus' ? '🍅' : '☕';
+    document.title = `${label} ${timeStr} | IntelliNote`;
+  } else {
+    document.title = 'IntelliNote - Local-First Collaborative Workspace';
+  }
+
   const timeDisplay = document.getElementById('pomo-timer-display');
   if (timeDisplay) {
     const mins = Math.floor(t.secondsLeft / 60);
@@ -3435,6 +3457,19 @@ async function renderPomodoroDashboard(activeTab = 'dashboard') {
     const fraction = t.secondsLeft / t.totalSeconds;
     const strokeDashoffset = circumference * (1 - fraction);
 
+    let stateLabel = 'Focus Session';
+    let stateBg = 'var(--primary-light-active)';
+    let stateColor = 'var(--primary)';
+    if (t.state === 'shortBreak') {
+      stateLabel = 'Short Break';
+      stateBg = 'rgba(16, 185, 129, 0.1)';
+      stateColor = '#10b981';
+    } else if (t.state === 'longBreak') {
+      stateLabel = 'Long Break';
+      stateBg = 'rgba(59, 130, 246, 0.1)';
+      stateColor = '#3b82f6';
+    }
+
     const goalCircumference = 2 * Math.PI * 72;
     const completedToday = t.completedTodayCount;
     const dailyTarget = t.dailyTarget;
@@ -3484,9 +3519,9 @@ mainPane.innerHTML = `
         <div class="pomo-bento-grid">
           <!-- Main Radial Timer Engine (Col 8) -->
           <div class="pomo-card pomo-card-col-8" style="min-height: 400px; align-items: center; justify-content: center;">
-            <div style="position: absolute; top: 16px; left: 16px; background: var(--primary-light-active); color: var(--primary); padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; display:flex; align-items:center; gap:6px;">
-              <span class="animate-pulse-soft" style="width: 6px; height: 6px; border-radius:50%; background:var(--primary);"></span>
-              Focus Session
+            <div style="position: absolute; top: 16px; left: 16px; background: ${stateBg}; color: ${stateColor}; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; display:flex; align-items:center; gap:6px;">
+              <span class="animate-pulse-soft" style="width: 6px; height: 6px; border-radius:50%; background:${stateColor};"></span>
+              ${stateLabel}
             </div>
             <div style="position: absolute; top: 16px; right: 16px; background: var(--border-color); opacity: 0.8; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; color: var(--text-main);">
               Cycle ${t.cycleCount % t.config.cyclesTarget + 1}/${t.config.cyclesTarget}
